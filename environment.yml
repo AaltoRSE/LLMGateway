@@ -3,6 +3,6 @@ channels:
   - conda-forge
 dependencies:
   - fastapi
-  - redis
+  - redis-py
   - pymongo
   - schedule
