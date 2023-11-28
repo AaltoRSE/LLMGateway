@@ -24,7 +24,7 @@ class RedisUpdater:
             "mongodb://%s:%s@mongo:27017/" % (mongo_user, mongo_password)
         )
         self.db = mongo_client["gateway"]
-        self.keyCollection = db["apikeys"]
+        self.keyCollection = self.db["apikeys"]
 
     def update_redis(self):
         """
@@ -32,9 +32,12 @@ class RedisUpdater:
         """
         # Fetch entries from MongoDB
         self.fetch_entries_from_mongodb()
-
+        # Clean up the current keys, and then add the new ones.
+        # optimally, this would be done in an atomic call, but we will have to
+        # see how often someone
+        self.redis_client.delete("keys")
         # Update Redis with fetched entries
-        self.redis_client.rpush("keys", *self.entries)
+        self.redis_client.sadd("keys", *self.entries)
 
     def fetch_entries_from_mongodb(self):
         """
