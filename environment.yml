@@ -1,0 +1,8 @@
+name: LLMGateWay
+channels:
+  - conda-forge
+dependencies:
+  - fastapi
+  - redis
+  - pymongo
+  - schedule
