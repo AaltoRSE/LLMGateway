@@ -3,6 +3,8 @@ channels:
   - conda-forge
 dependencies:
   - fastapi
+  - gunicorn
+  - uvicorn
   - redis-py
   - pymongo
   - schedule
