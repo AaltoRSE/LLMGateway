@@ -6,7 +6,7 @@ import os
 import urllib
 
 
-class key_handler:
+class KeyHandler:
     def __init__(self, testing: bool = False):
         if not testing:
             # Needs to be escaped if necessary
@@ -24,16 +24,16 @@ class key_handler:
         self.redis_client = redis_client
         self.mongo_client = mongo_client
         self.db = mongo_client["gateway"]
-        self.keyCollection = self.db["apikeys"]
-        keyindices = self.keyCollection.index_information()
+        self.key_collection = self.db["apikeys"]
+        keyindices = self.key_collection.index_information()
         # Make sure, that key is an index (avoids duplicates);
         if not "key" in keyindices:
-            self.keyCollection.create_index("key", "unique")
-        self.userCollection = self.db["users"]
+            self.key_collection.create_index("key", "unique")
+        self.user_collection = self.db["users"]
         # Make sure, that username is an index (avoids duplicates when creating keys, which automatically adds a user if necessary);
-        userindices = self.userCollection.index_information()
+        userindices = self.user_collection.index_information()
         if not "username" in userindices:
-            self.userCollection.create_index("username", "unique")
+            self.user_collection.create_index("username", "unique")
 
     def generate_api_key(self, length: int = 64):
         """
@@ -83,14 +83,14 @@ class key_handler:
         - user (str): The user that requests this deletion
 
         """
-        updated_user = self.userCollection.find_one_and_update(
+        updated_user = self.user_collection.find_one_and_update(
             {"username": user, "keys": {"$elemMatch": {"$eq": key}}},
             {"$pull": {"keys": key}},
         )
         if not updated_user == None:
             # We found, and updated the user, so we can remove the key
             # removal should be instantaneous
-            self.keyCollection.delete_one({"key": key})
+            self.key_collection.delete_one({"key": key})
             self.redis_client.srem("keys", key)
 
     def set_key_activity(self, key: string, user: string, active: bool):
@@ -103,12 +103,12 @@ class key_handler:
         - user (str): The user that requests this deletion
         - active (bool): whether to activate or deactivate the key
         """
-        user_has_key = self.userCollection.find_one(
+        user_has_key = self.user_collection.find_one(
             {"username": user, "keys": {"$elemMatch": {"$eq": key}}}
         )
         if not user_has_key == None:
             # the requesting user has access to this key
-            self.keyCollection.update_one({"key": key}, {"$set": {"active": active}})
+            self.key_collection.update_one({"key": key}, {"$set": {"active": active}})
             if active:
                 self.redis_client.sadd("keys", key)
             else:
@@ -121,22 +121,20 @@ class key_handler:
         Args:
         - user: Username of the user to whom the API key will be associated.
         - name: Name or label for the API key.
-        - userCollection: Collection object representing the 'users' collection in MongoDB (default: global variable).
-        - keyCollection: Collection object representing the 'apikeys' collection in MongoDB (default: global variable).
 
         Returns:
         - api_key: The generated unique API key associated with the user.
         """
-        keyCreated = False
+        key_created = False
         api_key = ""
-        while not keyCreated:
+        while not key_created:
             api_key = self.generate_api_key()
-            found = self.keyCollection.find_one({"key": api_key})
+            found = self.key_collection.find_one({"key": api_key})
             if found == None:
-                self.keyCollection.insert_one(self.build_new_key_object(api_key, name))
-                self.userCollection.update_one(
+                self.key_collection.insert_one(self.build_new_key_object(api_key, name))
+                self.user_collection.update_one(
                     {"username": user}, {"$addToSet": {"keys": api_key}}, upsert=True
                 )
                 self.redis_client.sadd("keys", api_key)
-                keyCreated = True
+                key_created = True
         return api_key

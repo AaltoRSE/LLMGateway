@@ -5,7 +5,7 @@ import urllib
 
 
 # Needs to be escaped if necessary
-class logging_handler:
+class LoggingHandler:
     def __init__(self, testing=False):
         if not testing:
             mongo_user = urllib.parse.quote_plus(os.environ.get("MONGOUSER"))
@@ -18,8 +18,8 @@ class logging_handler:
 
     def setup(self, mongo_client):
         self.db = mongo_client["gateway"]
-        self.logCollection = self.db["logs"]
-        self.userCollection = self.db["users"]
+        self.log_collection = self.db["logs"]
+        self.user_collection = self.db["users"]
 
     def create_log_entry(self, tokencount, model, source, sourcetype="apikey"):
         """
@@ -51,8 +51,8 @@ class logging_handler:
         - model (str): The model associated with the usage.
         - key (str): The key for which the usage is logged.
         """
-        logEntry = self.create_log_entry(tokencount, model, key)
-        self.logCollection.insert_one(logEntry)
+        log_entry = self.create_log_entry(tokencount, model, key)
+        self.log_collection.insert_one(log_entry)
 
     def log_usage_for_user(self, tokencount, model, user):
         """
@@ -63,8 +63,8 @@ class logging_handler:
         - model (str): The model associated with the usage.
         - user (str): The user for which the usage is logged.
         """
-        logEntry = self.create_log_entry(tokencount, model, user, "user")
-        self.logCollection.insert_one(logEntry)
+        log_entry = self.create_log_entry(tokencount, model, user, "user")
+        self.log_collection.insert_one(log_entry)
 
     def get_usage_for_user(self, username):
         raise NotImplementedError
