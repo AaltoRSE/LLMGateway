@@ -28,7 +28,7 @@ class logging_handler:
         - tokencount (int): The count of tokens.
         - model (str): The model related to the log entry.
         - source (str): The source of the log entry.
-        - sourcetype (str): The type of source..
+        - sourcetype (str): The type of source either apikey or user..
 
         Returns:
         - dict: A dictionary representing the log entry with timestamp.
