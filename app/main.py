@@ -1,3 +1,7 @@
+"""
+A placeholder hello world app.
+"""
+
 from typing import Union
 
 from fastapi import FastAPI
