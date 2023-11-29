@@ -67,17 +67,13 @@ class logging_handler:
         self.logCollection.insert_one(logEntry)
 
     def get_usage_for_user(self, username):
-        # Needs to be implemented
-        pass
+        raise NotImplementedError
 
     def get_usage_for_key(self, key):
-        # TODO: needs to be implemented
-        pass
+        raise NotImplementedError
 
     def get_usage_for_model(self, model):
-        # TODO: needs to be implemented
-        pass
+        raise NotImplementedError
 
     def get_usage_for_timerange(self, start, end):
-        # TODO: needs to be implemented
-        pass
+        raise NotImplementedError
