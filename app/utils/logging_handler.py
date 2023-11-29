@@ -14,6 +14,7 @@ class logging_handler:
             mongo_client = pymongo.MongoClient(
                 "mongodb://%s:%s@mongo:27017/" % (mongo_user, mongo_password)
             )
+            self.setup(mongo_client)
 
     def setup(self, mongo_client):
         self.db = mongo_client["gateway"]
