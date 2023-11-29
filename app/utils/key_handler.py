@@ -28,12 +28,12 @@ class KeyHandler:
         keyindices = self.key_collection.index_information()
         # Make sure, that key is an index (avoids duplicates);
         if not "key" in keyindices:
-            self.key_collection.create_index("key", "unique")
+            self.key_collection.create_index("key", unique=True)
         self.user_collection = self.db["users"]
         # Make sure, that username is an index (avoids duplicates when creating keys, which automatically adds a user if necessary);
         userindices = self.user_collection.index_information()
         if not "username" in userindices:
-            self.user_collection.create_index("username", "unique")
+            self.user_collection.create_index("username", unique=True)
 
     def generate_api_key(self, length: int = 64):
         """
