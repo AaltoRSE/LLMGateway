@@ -12,7 +12,7 @@ docker build -t llmgateway .
 docker run -p 8000:8000 llmgateway
 ```
 
-Test that connection
+Test the connection
 ```
 curl 0.0.0.0:8000
 ```
