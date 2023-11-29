@@ -34,7 +34,6 @@ class key_handler:
         userindices = self.userCollection.index_information()
         if not "username" in userindices:
             self.userCollection.create_index("username", "unique")
-        self.userCollection.find
 
     def generate_api_key(self, length: int = 64):
         """
