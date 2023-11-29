@@ -18,7 +18,8 @@ ENV PATH="/opt/env/bin:$PATH"
 WORKDIR / 
 
 # Copy application contents
-COPY . .
+COPY ./app .
+COPY ./entrypoint.sh .
 
 # run the container as a non-root user
 ENV USER=aaltorse
