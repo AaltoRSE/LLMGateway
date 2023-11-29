@@ -1,0 +1,43 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: LLM-redis-svc
+  namespace: LLMGateway
+spec:
+  selector:
+    app: LLM-redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: LLM-mongo-svc
+  namespace: LLMGateway
+spec:
+  selector:
+    app: LLM-mongo
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: LLM-gateway-svc
+  namespace: LLMGateway
+spec:
+  selector:
+    app: LLM-gateway
+  ports:
+    - protocol: TCP
+      # Can we also use 443 here, or how does forwardng work for this?
+      port: 80
+      targetPort: 8000
+  clusterIP: None

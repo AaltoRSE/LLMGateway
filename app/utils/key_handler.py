@@ -13,11 +13,16 @@ class KeyHandler:
             mongo_user = urllib.parse.quote_plus(os.environ.get("MONGOUSER"))
             mongo_password = urllib.parse.quote_plus(os.environ.get("MONGOPASSWORD"))
 
-            # Set up required endpoints. The
+            mongo_URL = os.environ.get("MONGOHOST")
+            # Set up required endpoints.
             mongo_client = pymongo.MongoClient(
-                "mongodb://%s:%s@mongo:27017/" % (mongo_user, mongo_password)
+                "mongodb://%s:%s@%s/" % (mongo_user, mongo_password, mongo_URL)
             )
-            redis_client = redis.StrictRedis(host="redis", port=6379, db=0)
+            redis_host = os.environ.get("REDISHOST")
+            redis_port = os.environ.get("REDISPORT")
+            redis_client = redis.StrictRedis(
+                host=redis_host, port=int(redis_port), db=0
+            )
             self.setup(mongo_client, redis_client)
 
     def setup(self, mongo_client: pymongo.MongoClient, redis_client: redis.Redis):

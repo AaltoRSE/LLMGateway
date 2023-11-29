@@ -10,9 +10,10 @@ class LoggingHandler:
         if not testing:
             mongo_user = urllib.parse.quote_plus(os.environ.get("MONGOUSER"))
             mongo_password = urllib.parse.quote_plus(os.environ.get("MONGOPASSWORD"))
+            mongo_URL = os.environ.get("MONGOHOST")
             # Set up required endpoints.
             mongo_client = pymongo.MongoClient(
-                "mongodb://%s:%s@mongo:27017/" % (mongo_user, mongo_password)
+                "mongodb://%s:%s@%s/" % (mongo_user, mongo_password, mongo_URL)
             )
             self.setup(mongo_client)
 
