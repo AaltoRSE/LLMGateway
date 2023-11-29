@@ -28,12 +28,12 @@ class key_handler:
         keyindices = self.keyCollection.index_information()
         # Make sure, that key is an index (avoids duplicates);
         if not "key" in keyindices:
-            self.keyCollection.create_index("key")
+            self.keyCollection.create_index("key", "unique")
         self.userCollection = self.db["users"]
         # Make sure, that username is an index (avoids duplicates when creating keys, which automatically adds a user if necessary);
         userindices = self.userCollection.index_information()
         if not "username" in userindices:
-            self.userCollection.create_index("username")
+            self.userCollection.create_index("username", "unique")
         self.userCollection.find
 
     def generate_api_key(self, length: int = 64):
@@ -96,7 +96,8 @@ class key_handler:
 
     def set_key_activity(self, key: string, user: string, active: bool):
         """
-        Function to set the activity of a key
+        Function to set whether a key is active or not.
+        The key has to be owned by the user indicated.
 
         Parameters:
         - key (str): The key to check.
