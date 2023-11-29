@@ -185,3 +185,6 @@ bundles/
 vendor/pkg/
 pyenv
 Vagrantfile
+
+# vscode stuff
+.vscode/**/*
