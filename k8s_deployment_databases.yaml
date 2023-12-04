@@ -46,7 +46,7 @@ spec:
     spec:
       containers:
         - name: LLM-mongo-db
-          image: postgres:13.4-alpine
+          image: mongo:7.0.4
           ports:
             - containerPort: 27017
           resources:
