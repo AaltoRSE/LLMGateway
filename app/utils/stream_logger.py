@@ -40,6 +40,10 @@ class StreamLogger:
 
     def finish(self):
         if self.iskey:
-            self.logger.log_usage_for_key(self.tokenCount, self.model, self.source)
+            self.logger.log_usage_for_key(
+                tokencount=self.tokenCount, model=self.model, key=self.source
+            )
         else:
-            self.logger.log_usage_for_user(self.tokenCount, self.model, self.source)
+            self.logger.log_usage_for_user(
+                tokencount=self.tokenCount, model=self.model, user=self.source
+            )

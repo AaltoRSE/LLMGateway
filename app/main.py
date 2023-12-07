@@ -3,26 +3,32 @@ A placeholder hello world app.
 """
 
 from typing import Union
-from fastapi import FastAPI, Request, BackgroundTasks, Security, HTTPException
-from fastapi.responses import StreamingResponse
-from fastapi.security import APIKeyHeader
-
-from utils.responses import LoggingStreamResponse, event_generator
-from contextlib import asynccontextmanager
 from functools import partial
 
-from utils.requests import CompletionRequest, ChatCompletionRequest
+from fastapi import FastAPI, Request, BackgroundTasks, Security, HTTPException
+from fastapi.security import APIKeyHeader
 
+import httpx
+import logging
+
+from starlette.datastructures import MutableHeaders
+
+from contextlib import asynccontextmanager
+
+from utils.requests import CompletionRequest, ChatCompletionRequest
+from utils.responses import LoggingStreamResponse, event_generator
 from utils.stream_logger import StreamLogger
 from utils.logging_handler import LoggingHandler
-import httpx
-import anyio
 
-infernence_apikey = "123"
+
+logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
+uvlogger = logging.getLogger(__name__)
+
+infernence_apikey = "Bearer 123"
 api_keys = ["321"]
-availablemodels = {"llama2-7b": "llama2-7b", "llama2-7b-chat": "llama2-7b-chat"}
+availablemodels = {"llama2-7b": "llama2", "llama2-7b-chat": "llama2-7b-chat"}
 logger = LoggingHandler()
-client = httpx.AsyncClient(base_url="https://llm.k8s-test.cs.aalto.fi")
+stream_client = httpx.AsyncClient(base_url="https://llm.k8s-test.cs.aalto.fi")
 api_key_header = APIKeyHeader(name="X-LLM-Key")
 
 
@@ -39,7 +45,7 @@ def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
 def parse_body(data: CompletionRequest | ChatCompletionRequest):
     # Extract data from request body
     # Replace this with your logic to extract data from the request body
-    model = data.model
+    model = availablemodels[data.model]
     stream = data.stream
     return model, stream
 
@@ -47,10 +53,10 @@ def parse_body(data: CompletionRequest | ChatCompletionRequest):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load the ML model
-    client = httpx.AsyncClient(base_url="https://llm.k8s-test.cs.aalto.fi")
+    stream_client = httpx.AsyncClient(base_url="https://llm.k8s-test.cs.aalto.fi")
     yield
     # Clean up the ML models and release the resources
-    await client.aclose()
+    await stream_client.aclose()
 
 
 def log_streamed_usage():
@@ -78,6 +84,33 @@ def read_item(item_id: int, q: Union[str, None] = None):
     return {"item_id": item_id, "q": q}
 
 
+async def build_request(
+    requestData: ChatCompletionRequest,
+    headers: MutableHeaders,
+    path: str,
+    method: str,
+    body: str,
+):
+    model, stream = parse_body(requestData)
+    uvlogger.info("Got Request")
+    # Update the request path
+    # TODO: Need to handle model not found error!
+    url = httpx.URL(path=model + path)
+    # Add the API Key for the inference server
+    headers["Authorization"] = infernence_apikey
+    headers["host"] = "llm.k8s-test.cs.aalto.fi"
+    # extract the body for forwarding.
+    req = stream_client.build_request(
+        method,
+        url,
+        headers=headers,
+        content=body,
+        timeout=300.0,
+    )
+
+    return stream, req, model
+
+
 @app.post("/v1/chat/completions")
 async def infer(
     requestData: ChatCompletionRequest,
@@ -85,34 +118,34 @@ async def infer(
     background_tasks: BackgroundTasks,
     api_key: str = Security(get_api_key),
 ):
-    model, stream = parse_body(requestData)
-    url = httpx.URL(
-        path=model + "/" + request.url.path, query=request.url.query.encode("utf-8")
-    )
-    headers = request.headers.mutablecopy()
-    headers["X-APIkey"] = infernence_apikey
-    req = client.build_request(
-        request.method, url, headers=headers, content=await request.body()
+    content = await request.body()
+    stream, req, model = await build_request(
+        requestData,
+        request.headers.mutablecopy(),
+        request.url.path,
+        request.method,
+        content.decode(),
     )
     if stream:
         responselogger = StreamLogger(
             logging_handler=logger, source=api_key, iskey=True, model=model
         )
         # no logging implemented yet...
-        r = await client.send(req, stream=True)
-        background_tasks.add_task(r.aclose())
+        r = await stream_client.send(req, stream=True)
+        background_tasks.add_task(r.aclose)
         return LoggingStreamResponse(
             content=event_generator(r.aiter_raw()), logger=responselogger
         )
     else:
-        response = await client.send(req)
-        responseData = response.json()
-        tokens = responseData["usage"]["total_tokens"]
-        background_tasks.add_task(logger.log_usage_for_key(api_key, model, tokens))
+        r = await stream_client.send(req)
+        responseData = r.json()
+        tokens = responseData["usage"]["completion_tokens"]
+        background_tasks.add_task(logger.log_usage_for_key, api_key, model, tokens)
         return responseData
 
 
 @app.get("/v1/models/")
+@app.get("/v1/models")
 def getModels():
     # At the moment hard-coded. Will update
     return {

@@ -52,7 +52,9 @@ class LoggingHandler:
         - model (str): The model associated with the usage.
         - key (str): The key for which the usage is logged.
         """
-        log_entry = self.create_log_entry(tokencount, model, key)
+        log_entry = self.create_log_entry(
+            tokencount=tokencount, model=model, source=key
+        )
         self.log_collection.insert_one(log_entry)
 
     def log_usage_for_user(self, tokencount, model, user):
@@ -64,7 +66,9 @@ class LoggingHandler:
         - model (str): The model associated with the usage.
         - user (str): The user for which the usage is logged.
         """
-        log_entry = self.create_log_entry(tokencount, model, user, "user")
+        log_entry = self.create_log_entry(
+            tokencount=tokencount, model=model, source=user, sourcetype="user"
+        )
         self.log_collection.insert_one(log_entry)
 
     def get_usage_for_user(self, username):
