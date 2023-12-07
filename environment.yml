@@ -8,3 +8,7 @@ dependencies:
   - redis-py
   - pymongo
   - schedule
+  - httpx
+  - pip
+  - pip:
+      - sse-starlette>=1.6.1

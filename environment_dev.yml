@@ -6,8 +6,10 @@ dependencies:
   - redis-py
   - pymongo
   - schedule
+  - httpx
   - pytest
   - pip
   - pip:
+      - sse-starlette>=1.6.1
       - pytest-mock-resources[mongo]
       - pytest-mock-resources[redis]
