@@ -39,6 +39,21 @@ class KeyHandler:
         userindices = self.user_collection.index_information()
         if not "username" in userindices:
             self.user_collection.create_index("username", unique=True)
+        self.init_keys()
+
+    def init_keys(self):
+        """
+        Initialize keys from the database
+
+        Parameters:
+        - length (int, optional): Length of the generated API key. Defaults to 64.
+
+        Returns:
+        - str: The generated API key.
+        """
+        activeKeys = [x["key"] for x in self.key_collection.find({"active": True})]
+        self.redis_client.delete("keys")
+        self.redis_client.sadd("keys", *activeKeys)
 
     def generate_api_key(self, length: int = 64):
         """

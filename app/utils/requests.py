@@ -8,7 +8,7 @@
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import utils.llama_types as llama_types
+from . import llama_types
 
 from typing import (
     List,
@@ -246,6 +246,22 @@ class ChatCompletionRequest(BaseModel):
                             role="user", content="What is the capital of France?"
                         ).model_dump(),
                     ]
+                }
+            ]
+        }
+    }
+
+
+class EmbeddingRequest(BaseModel):
+    model: Optional[str] = model_field
+    input: Union[str, List[str]] = Field(description="The input to embed.")
+    user: Optional[str] = Field(default=None)
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "input": "The food was delicious and the waiter...",
                 }
             ]
         }

@@ -4,6 +4,8 @@ channels:
 dependencies:
   - fastapi
   - redis-py
+  - gunicorn
+  - uvicorn
   - pymongo
   - schedule
   - httpx
