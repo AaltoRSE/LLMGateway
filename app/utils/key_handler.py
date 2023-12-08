@@ -44,12 +44,6 @@ class KeyHandler:
     def init_keys(self):
         """
         Initialize keys from the database
-
-        Parameters:
-        - length (int, optional): Length of the generated API key. Defaults to 64.
-
-        Returns:
-        - str: The generated API key.
         """
         activeKeys = [x["key"] for x in self.key_collection.find({"active": True})]
         self.redis_client.delete("keys")
@@ -134,6 +128,29 @@ class KeyHandler:
             else:
                 self.redis_client.srem("keys", key)
 
+    def add_key(self, user: string, name: string, api_key: str):
+        """
+        Adds a key for a specific user if the key doesn't exist yet.
+
+        Args:
+        - user: Username of the user to whom the API key will be associated.
+        - name: Name or label for the API key.
+        - api_key: The key itself
+
+        Returns:
+        - bool: true, if the key was added false if not.
+        """
+        key_created = False
+        found = self.key_collection.find_one({"key": api_key})
+        if found == None:
+            self.key_collection.insert_one(self.build_new_key_object(api_key, name))
+            self.user_collection.update_one(
+                {"username": user}, {"$addToSet": {"keys": api_key}}, upsert=True
+            )
+            self.redis_client.sadd("keys", api_key)
+            key_created = True
+        return key_created
+
     def create_key(self, user: string, name: string):
         """
         Generates a unique API key and associates it with a specified user.
@@ -145,16 +162,8 @@ class KeyHandler:
         Returns:
         - api_key: The generated unique API key associated with the user.
         """
-        key_created = False
         api_key = ""
-        while not key_created:
+        api_key = self.generate_api_key()
+        while not self.add_key(api_key):
             api_key = self.generate_api_key()
-            found = self.key_collection.find_one({"key": api_key})
-            if found == None:
-                self.key_collection.insert_one(self.build_new_key_object(api_key, name))
-                self.user_collection.update_one(
-                    {"username": user}, {"$addToSet": {"keys": api_key}}, upsert=True
-                )
-                self.redis_client.sadd("keys", api_key)
-                key_created = True
         return api_key

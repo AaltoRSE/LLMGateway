@@ -19,20 +19,15 @@ spec:
     spec:
       containers:
         - name: gateway
-          image: # TODO
+          image: harbor.cs.aalto.fi/aaltorse-public/llm_gateway # TODO
           ports:
-            - containerPort: 3000
+            - containerPort: 8000
           resources:
             requests:
               # Maybe needs to be increased later on.
               cpu: 2
               memory: "1000Mi"
           env:
-            # values from https://docs.hedgedoc.org/configuration/
-
-            # Basic settings
-            - { name: NODE_ENV, value: "production" }
-            - { name: CMD_LOGLEVEL, value: "debug" }
             # Mongo settings
             - {
                 name: MONGOUSER,
@@ -42,11 +37,21 @@ spec:
                 name: MONGOPASSWORD,
                 valueFrom: { secretKeyRef: { name: mongo, key: password } },
               }
-            - { name: MONGOHOST, value="LLM-mongo-svc:27017" }
+            - { name: MONGOHOST, value="LLM-mongo-svc" }
             # Redis
             - { name: REDISHOST, value="LLM-redis-svc" }
             - { name: REDISPORT, value="6379" }
-
+            # Default API key
+            - {
+                name: DEFAULT_API_KEY,
+                valueFrom:
+                  { secretKeyRef: { name: llm_gateway, key: gateway_key } },
+              }
+            - {
+                name: INFERENCE_KEY,
+                valueFrom:
+                  { secretKeyRef: { name: llm_gateway, key: inference_key } },
+              }
           #volumeMounts:
           #  - mountPath: /hedgedoc/public/uploads
           #    name: hd-uploads

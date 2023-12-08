@@ -7,6 +7,7 @@ from functools import partial
 
 from fastapi import FastAPI, Request, BackgroundTasks, Security, HTTPException
 from fastapi.security import APIKeyHeader
+from fastapi import status
 
 import httpx
 import logging
@@ -16,23 +17,47 @@ from starlette.datastructures import MutableHeaders
 
 from contextlib import asynccontextmanager
 
-from utils.requests import CompletionRequest, ChatCompletionRequest, EmbeddingRequest
+from utils.llama_requests import (
+    CompletionRequest,
+    ChatCompletionRequest,
+    EmbeddingRequest,
+)
+from utils.requests import (
+    AddAvailableModelRequest,
+    RemoveModelRequest,
+    AddApiKeyRequest,
+)
+
 from utils.responses import LoggingStreamResponse, event_generator
 from utils.stream_logger import StreamLogger
 from utils.logging_handler import LoggingHandler
 from utils.key_handler import KeyHandler
+from utils.model_handler import ModelHandler
 
+import os
 
 key_handler = KeyHandler()
+model_handler = ModelHandler()
+logger = LoggingHandler()
+
 
 logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
 uvlogger = logging.getLogger(__name__)
 
-infernence_apikey = "Bearer 123"
-availablemodels = {"llama2-7b": "llama2", "llama2-7b-chat": "llama2-7b-chat"}
-logger = LoggingHandler()
+admin_key_header = APIKeyHeader(name="AdminKey")
+
+inference_apikey = "Bearer " + os.environ.get("INFERENCE_KEY")
 stream_client = httpx.AsyncClient(base_url="https://llm.k8s-test.cs.aalto.fi")
 api_key_header = APIKeyHeader(name="Authorization")
+
+
+def get_admin_key(admin_key_header: str = Security(admin_key_header)) -> str:
+    if admin_key_header == os.environ.get("ADMIN_KEY"):
+        return admin_key_header
+    raise HTTPException(
+        status_code=401,
+        detail="Priviledged Access required",
+    )
 
 
 # Need to figure out how to offer two alternative authentication methods...
@@ -52,7 +77,7 @@ def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
 def parse_body(data: CompletionRequest | ChatCompletionRequest | EmbeddingRequest):
     # Extract data from request body
     # Replace this with your logic to extract data from the request body
-    model = availablemodels[data.model]
+    model = model_handler.get_model_path(data.model)
     stream = data.stream
     return model, stream
 
@@ -104,7 +129,7 @@ async def build_request(
     # TODO: Need to handle model not found error!
     url = httpx.URL(path=model + path)
     # Add the API Key for the inference server
-    headers["Authorization"] = infernence_apikey
+    headers["Authorization"] = inference_apikey
     headers["host"] = "llm.k8s-test.cs.aalto.fi"
     # extract the body for forwarding.
     req = stream_client.build_request(
@@ -210,20 +235,41 @@ async def infer(
 @app.get("/v1/models")
 def getModels():
     # At the moment hard-coded. Will update
+    models = model_handler.get_models()
     return {
         "object": "list",
         "data": [
             {
-                "id": "llama2-7b-chat",
+                "id": models[x]["id"],
                 "object": "model",
-                "owned_by": "RSE",
+                "owned_by": models[x]["owned_by"],
                 "permissions": [],
-            },
-            {
-                "id": "llama2-7b",
-                "object": "model",
-                "owned_by": "RSE",
-                "permissions": [],
-            },
+            }
+            for x in models
         ],
     }
+
+
+@app.post("admin/addmodel", status_code=status.HTTP_201_CREATED)
+def addModel(
+    RequestData: AddAvailableModelRequest, admin_key: str = Security(get_admin_key)
+):
+    try:
+        model_handler.add_model(RequestData)
+    except:
+        raise HTTPException(status.HTTP_409_CONFLICT)
+
+
+@app.post("admin/removemodel", status_code=status.HTTP_200_OK)
+def addModel(RequestData: RemoveModelRequest, admin_key: str = Security(get_admin_key)):
+    model_handler.remove_model(RequestData)
+
+
+@app.post("admin/addapikey", status_code=status.HTTP_201_CREATED)
+def addModel(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin_key)):
+    if key_handler.add_key(
+        user=RequestData.user, key=RequestData.key, name=RequestData.name
+    ):
+        return
+    else:
+        raise HTTPException(409, "Key already exists")
