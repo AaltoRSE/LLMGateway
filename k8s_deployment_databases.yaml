@@ -3,22 +3,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: LLM-redis
-  namespace: LLMGateway
+  name: llm-redis
+  namespace: rse
   labels:
-    app: LLM-redis
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: llm-redis
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: LLM-redis
+      app.kubernetes.io/component: server
+      app.kubernetes.io/name: llm-redis
   template:
     metadata:
       labels:
-        app: LLM-redis
+        app.kubernetes.io/component: server
+        app.kubernetes.io/name: llm-redis
     spec:
       containers:
-        - name: LMM-redis-db
+        - name: llm-redis-db
           image: redis:7.2.3
           ports:
             - containerPort: 6379
@@ -30,22 +33,25 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: LLM-mongo
-  namespace: LLMGateway
+  name: llm-mongo
+  namespace: rse
   labels:
-    app: LLM-mongo
+    app.kubernetes.io/name: llm-mongo
+    app.kubernetes.io/component: server
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: LLM-mongo
+      app.kubernetes.io/name: llm-mongo
+      app.kubernetes.io/component: server
   template:
     metadata:
       labels:
-        app: LLM-mongo
+        app.kubernetes.io/name: llm-mongo
+        app.kubernetes.io/component: server
     spec:
       containers:
-        - name: LLM-mongo-db
+        - name: llm-mongo-db
           image: mongo:7.0.4
           ports:
             - containerPort: 27017
@@ -63,8 +69,8 @@ spec:
               }
           volumeMounts:
             - mountPath: /data/db
-              name: LLM-mongo
+              name: llm-mongo
       volumes:
-        - name: LLM-mongo
+        - name: llm-mongo
           persistentVolumeClaim:
-            claimName: LLM-mongo
+            claimName: llm-mongo

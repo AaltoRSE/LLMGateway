@@ -1,21 +1,24 @@
 ---
-# hedgedoc itself
+# Gateway deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: LLM-gateway
-  namespace: LLMGateway
+  name: llm-gateway
+  namespace: rse
   labels:
-    app: LLM-gateway
+    app.kubernetes.io/name: llm-gateway
+    app.kubernetes.io/component: server
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: LLM-gateway
+      app.kubernetes.io/name: llm-gateway
+      app.kubernetes.io/component: server
   template:
     metadata:
       labels:
-        app: LLM-gateway
+        app.kubernetes.io/name: llm-gateway
+        app.kubernetes.io/component: server
     spec:
       containers:
         - name: gateway
@@ -26,9 +29,8 @@ spec:
             requests:
               # Maybe needs to be increased later on.
               cpu: 2
-              memory: "1000Mi"
           env:
-            # Mongo settings
+            # Mongo settings ( port will be default )
             - {
                 name: MONGOUSER,
                 valueFrom: { secretKeyRef: { name: mongo, key: user } },
@@ -37,20 +39,21 @@ spec:
                 name: MONGOPASSWORD,
                 valueFrom: { secretKeyRef: { name: mongo, key: password } },
               }
-            - { name: MONGOHOST, value="LLM-mongo-svc" }
+            - { name: MONGOHOST, value: "llm-mongo-svc" }
             # Redis
-            - { name: REDISHOST, value="LLM-redis-svc" }
-            - { name: REDISPORT, value="6379" }
-            # Default API key
+            - { name: REDISHOST, value: "llm-redis-svc" }
+            - { name: REDISPORT, value: "6379" }
+            # This is the admin key, which allows generation/removal of additional keys
             - {
-                name: DEFAULT_API_KEY,
+                name: ADMIN_KEY,
                 valueFrom:
-                  { secretKeyRef: { name: llm_gateway, key: gateway_key } },
+                  { secretKeyRef: { name: llm-gateway, key: gateway_key } },
               }
+            # This is the key for the INFERENCE Server
             - {
                 name: INFERENCE_KEY,
                 valueFrom:
-                  { secretKeyRef: { name: llm_gateway, key: inference_key } },
+                  { secretKeyRef: { name: llm-gateway, key: inference_key } },
               }
           #volumeMounts:
           #  - mountPath: /hedgedoc/public/uploads
