@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 JsonType = Union[None, int, str, bool, List[Any], Dict[str, Any]]
 
 model_field = Field(
-    description="The model to use for generating completions.", default="llama2-7b"
+    description="The model to use for generating completions.", default="llama2-7b_q4"
 )
 
 max_tokens_field = Field(

@@ -262,7 +262,9 @@ def addModel(
 
 
 @app.post("/admin/removemodel", status_code=status.HTTP_200_OK)
-def addModel(RequestData: RemoveModelRequest, admin_key: str = Security(get_admin_key)):
+def removemodel(
+    RequestData: RemoveModelRequest, admin_key: str = Security(get_admin_key)
+):
     try:
         model_handler.remove_model(RequestData)
     except KeyError as e:
@@ -270,10 +272,18 @@ def addModel(RequestData: RemoveModelRequest, admin_key: str = Security(get_admi
 
 
 @app.post("/admin/addapikey", status_code=status.HTTP_201_CREATED)
-def addModel(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin_key)):
+def addKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin_key)):
     if key_handler.add_key(
         user=RequestData.user, api_key=RequestData.key, name=RequestData.name
     ):
+        pass
+    else:
+        raise HTTPException(409, "Key already exists")
+
+
+@app.post("/admin/removeapikey", status_code=status.HTTP_200_OK)
+def removeKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin_key)):
+    if key_handler.delete_key(key=RequestData.key):
         pass
     else:
         raise HTTPException(409, "Key already exists")

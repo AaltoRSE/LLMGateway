@@ -1,11 +1,14 @@
 import redis
 import pymongo
-import secrets
-import string
+import json
 import os
 import urllib
+import logging
+
 
 from .requests import AddAvailableModelRequest, RemoveModelRequest
+
+modelLogger = logging.getLogger()
 
 
 def gen_model_object(id, owned_by, path):
@@ -52,10 +55,14 @@ class ModelHandler:
         Initialize models from the database
         """
         models = {
-            x["id"]: gen_model_object(x["id"], x["owned_by"], x["path"])
-            for x in self.model_collection.find({}, {"id": 1, "owned_by": 1, "path": 1})
+            x["data"]["id"]: gen_model_object(
+                x["data"]["id"], x["data"]["owned_by"], x["path"]
+            )
+            for x in self.model_collection.find({}, {"data": 1, "path": 1})
         }
-        self.redis_client.set("models", *models)
+        # if there are no models we won't init them.
+        if len(models) > 0:
+            self.redis_client.set("models", json.dumps(models))
 
     def get_models(self):
         """
@@ -63,11 +70,12 @@ class ModelHandler:
         Returns:
         - list: A list of all models available
         """
-        models = self.redis_client.get("models")
-        return models
+        models = json.loads(self.redis_client.get("models"))
+        modelLogger.info(models)
+        return [models[x]["data"] for x in models]
 
     def get_model_path(self, model_id):
-        requested_model = self.get_models()[model_id]
+        requested_model = json.loads(self.redis_client.get("models"))[model_id]
         if requested_model:
             return requested_model["path"]
         else:
@@ -79,7 +87,7 @@ class ModelHandler:
         Returns:
         - list: A list of all models available
         """
-        exists = self.model_collection.find_one({"id": model_def.model})
+        exists = self.model_collection.find_one({"data.id": model_def.model})
         if exists:
             raise KeyError("Model already exists")
         else:
@@ -97,7 +105,7 @@ class ModelHandler:
         Returns:
         - list: A list of all models available
         """
-        exists = self.model_collection.find_one_and_delete({"id": model_def.model})
+        exists = self.model_collection.find_one_and_delete({"data.id": model_def.model})
         if exists:
             # update redis
             self.init_models()

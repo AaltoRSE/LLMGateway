@@ -33,7 +33,7 @@ def test_create_key(redis, mongo):
     assert handler.check_key(newKey) == True
 
 
-def test_delete_key(redis, mongo):
+def test_delete_key_for_user(redis, mongo):
     handler = KeyHandler(True)
     handler.setup(mongo, redis)
     newKey = handler.create_key("NewUser", "NewKey")

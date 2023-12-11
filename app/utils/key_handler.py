@@ -47,7 +47,8 @@ class KeyHandler:
         """
         activeKeys = [x["key"] for x in self.key_collection.find({"active": True})]
         self.redis_client.delete("keys")
-        self.redis_client.sadd("keys", *activeKeys)
+        if len(activeKeys) > 0:
+            self.redis_client.sadd("keys", *activeKeys)
 
     def generate_api_key(self, length: int = 64):
         """
@@ -88,7 +89,7 @@ class KeyHandler:
         """
         return self.redis_client.sismember("keys", key)
 
-    def delete_key(self, key: string, user: string):
+    def delete_key_for_user(self, key: string, user: string):
         """
         Function to delete an existing key
 
@@ -99,6 +100,24 @@ class KeyHandler:
         """
         updated_user = self.user_collection.find_one_and_update(
             {"username": user, "keys": {"$elemMatch": {"$eq": key}}},
+            {"$pull": {"keys": key}},
+        )
+        if not updated_user == None:
+            # We found, and updated the user, so we can remove the key
+            # removal should be instantaneous
+            self.key_collection.delete_one({"key": key})
+            self.redis_client.srem("keys", key)
+
+    def delete_key(self, key: string):
+        """
+        Function to delete an existing key irrespective of who had that key
+
+        Parameters:
+        - key (str): The key to check.
+
+        """
+        updated_user = self.user_collection.find_one_and_update(
+            {"keys": {"$elemMatch": {"$eq": key}}},
             {"$pull": {"keys": key}},
         )
         if not updated_user == None:

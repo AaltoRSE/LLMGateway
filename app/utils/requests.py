@@ -1,9 +1,3 @@
-from typing import (
-    List,
-    Optional,
-    Union,
-)
-from typing_extensions import Literal
 from pydantic import BaseModel, Field
 
 model_field = Field(description="The name of the Model")
@@ -23,3 +17,7 @@ class AddApiKeyRequest(BaseModel):
 
 class RemoveModelRequest(BaseModel):
     model: str = model_field
+
+
+class RemoveKeyRequest(BaseModel):
+    key: str = Field(description="The key to add.")
