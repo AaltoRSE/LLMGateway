@@ -77,7 +77,12 @@ def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
 def parse_body(data: CompletionRequest | ChatCompletionRequest | EmbeddingRequest):
     # Extract data from request body
     # Replace this with your logic to extract data from the request body
-    model = model_handler.get_model_path(data.model)
+    try:
+        model = model_handler.get_model_path(data.model)
+    except KeyError as e:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Requested Model not available"
+        )
     stream = data.stream
     return model, stream
 
@@ -236,40 +241,39 @@ async def infer(
 def getModels():
     # At the moment hard-coded. Will update
     models = model_handler.get_models()
-    return {
-        "object": "list",
-        "data": [
-            {
-                "id": models[x]["id"],
-                "object": "model",
-                "owned_by": models[x]["owned_by"],
-                "permissions": [],
-            }
-            for x in models
-        ],
-    }
+    if len(models) > 0:
+        return {
+            "object": "list",
+            "data": models,
+        }
+    else:
+        # Should never actually happen, since it should always have one...
+        raise HTTPException(status.HTTP_418_IM_A_TEAPOT)
 
 
-@app.post("admin/addmodel", status_code=status.HTTP_201_CREATED)
+@app.post("/admin/addmodel", status_code=status.HTTP_201_CREATED)
 def addModel(
     RequestData: AddAvailableModelRequest, admin_key: str = Security(get_admin_key)
 ):
     try:
         model_handler.add_model(RequestData)
-    except:
+    except KeyError as e:
         raise HTTPException(status.HTTP_409_CONFLICT)
 
 
-@app.post("admin/removemodel", status_code=status.HTTP_200_OK)
+@app.post("/admin/removemodel", status_code=status.HTTP_200_OK)
 def addModel(RequestData: RemoveModelRequest, admin_key: str = Security(get_admin_key)):
-    model_handler.remove_model(RequestData)
+    try:
+        model_handler.remove_model(RequestData)
+    except KeyError as e:
+        raise HTTPException(status.HTTP_410_GONE)
 
 
-@app.post("admin/addapikey", status_code=status.HTTP_201_CREATED)
+@app.post("/admin/addapikey", status_code=status.HTTP_201_CREATED)
 def addModel(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin_key)):
     if key_handler.add_key(
-        user=RequestData.user, key=RequestData.key, name=RequestData.name
+        user=RequestData.user, api_key=RequestData.key, name=RequestData.name
     ):
-        return
+        pass
     else:
         raise HTTPException(409, "Key already exists")
