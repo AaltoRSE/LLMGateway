@@ -9,6 +9,7 @@ dependencies:
   - pymongo
   - schedule
   - httpx
+  - python3-saml
   - pip
   - pip:
       - sse-starlette>=1.6.1

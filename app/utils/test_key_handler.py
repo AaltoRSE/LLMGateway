@@ -1,8 +1,7 @@
 from pytest_mock_resources import create_redis_fixture
 from pytest_mock_resources import create_mongo_fixture
 from key_handler import KeyHandler
-import redis
-import pymongo
+
 
 redis = create_redis_fixture()
 mongo = create_mongo_fixture()

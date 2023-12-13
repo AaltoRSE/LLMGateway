@@ -10,6 +10,7 @@ dependencies:
   - schedule
   - httpx
   - pytest
+  - python3-saml
   - pip
   - pip:
       - sse-starlette>=1.6.1
