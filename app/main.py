@@ -23,6 +23,7 @@ from utils.llama_requests import (
     ChatCompletionRequest,
     EmbeddingRequest,
 )
+from utils.llama_responses import ModelList, Completion, ChatCompletion, Embedding
 from app.utils.api_requests import (
     AddAvailableModelRequest,
     RemoveModelRequest,
@@ -149,7 +150,7 @@ async def completion(
     request: Request,
     background_tasks: BackgroundTasks,
     api_key: str = Security(get_api_key),
-):
+) -> Completion:
     content = await request.body()
     req, model, stream = await build_request(
         requestData,
@@ -187,7 +188,7 @@ async def chat_completion(
     request: Request,
     background_tasks: BackgroundTasks,
     api_key: str = Security(get_api_key),
-):
+) -> ChatCompletion:
     content = await request.body()
     req, model, stream = await build_request(
         requestData,
@@ -225,7 +226,7 @@ async def embedding(
     request: Request,
     background_tasks: BackgroundTasks,
     api_key: str = Security(get_api_key),
-):
+) -> Embedding:
     content = await request.body()
     req, model, stream = await build_request(
         requestData,
@@ -247,7 +248,7 @@ async def embedding(
 
 @app.get("/v1/models/")
 @app.get("/v1/models")
-def getModels():
+def getModels() -> ModelList:
     # At the moment hard-coded. Will update
     models = model_handler.get_models()
     if len(models) > 0:
