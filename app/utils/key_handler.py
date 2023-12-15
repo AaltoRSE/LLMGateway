@@ -91,13 +91,15 @@ class KeyHandler:
 
     def delete_key_for_user(self, key: string, user: string):
         """
-        Function to delete an existing key
+        Function to delete an existing key for agiven user. only delete
+        the key if it exists for this user.
 
         Parameters:
         - key (str): The key to check.
         - user (str): The user that requests this deletion
 
         """
+
         updated_user = self.user_collection.find_one_and_update(
             {"username": user, "keys": {"$elemMatch": {"$eq": key}}},
             {"$pull": {"keys": key}},
@@ -120,6 +122,7 @@ class KeyHandler:
             {"keys": {"$elemMatch": {"$eq": key}}},
             {"$pull": {"keys": key}},
         )
+        # Since all keys have to be associated with a user...
         if not updated_user == None:
             # We found, and updated the user, so we can remove the key
             # removal should be instantaneous
@@ -183,6 +186,6 @@ class KeyHandler:
         """
         api_key = ""
         api_key = self.generate_api_key()
-        while not self.add_key(api_key):
+        while not self.add_key(user=user, name=name, api_key=api_key):
             api_key = self.generate_api_key()
         return api_key

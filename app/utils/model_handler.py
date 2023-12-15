@@ -6,7 +6,7 @@ import urllib
 import logging
 
 
-from .requests import AddAvailableModelRequest, RemoveModelRequest
+from api_requests import AddAvailableModelRequest, RemoveModelRequest
 
 modelLogger = logging.getLogger()
 
@@ -64,18 +64,23 @@ class ModelHandler:
         if len(models) > 0:
             self.redis_client.set("models", json.dumps(models))
 
+    def load_models(self):
+        try:
+            return json.loads(self.redis_client.get("models"))
+        except:
+            return {}
+
     def get_models(self):
         """
         Function to get all models currently served
         Returns:
         - list: A list of all models available
         """
-        models = json.loads(self.redis_client.get("models"))
-        modelLogger.info(models)
+        models = self.load_models()
         return [models[x]["data"] for x in models]
 
     def get_model_path(self, model_id):
-        requested_model = json.loads(self.redis_client.get("models"))[model_id]
+        requested_model = self.load_models()[model_id]
         if requested_model:
             return requested_model["path"]
         else:

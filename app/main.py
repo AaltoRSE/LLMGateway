@@ -8,6 +8,7 @@ from functools import partial
 from fastapi import FastAPI, Request, BackgroundTasks, Security, HTTPException
 from fastapi.security import APIKeyHeader
 from fastapi import status
+from fastapi.security import APIKeyCookie
 
 import httpx
 import logging
@@ -22,17 +23,18 @@ from utils.llama_requests import (
     ChatCompletionRequest,
     EmbeddingRequest,
 )
-from utils.requests import (
+from app.utils.api_requests import (
     AddAvailableModelRequest,
     RemoveModelRequest,
     AddApiKeyRequest,
 )
 
-from utils.responses import LoggingStreamResponse, event_generator
+from app.utils.api_responses import LoggingStreamResponse, event_generator
 from utils.stream_logger import StreamLogger
 from utils.logging_handler import LoggingHandler
 from utils.key_handler import KeyHandler
 from utils.model_handler import ModelHandler
+
 
 import os
 
@@ -40,15 +42,16 @@ key_handler = KeyHandler()
 model_handler = ModelHandler()
 logger = LoggingHandler()
 
-
 logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
 uvlogger = logging.getLogger(__name__)
 
-admin_key_header = APIKeyHeader(name="AdminKey")
 
 inference_apikey = "Bearer " + os.environ.get("INFERENCE_KEY")
 stream_client = httpx.AsyncClient(base_url="https://llm.k8s-test.cs.aalto.fi")
+
+
 api_key_header = APIKeyHeader(name="Authorization")
+admin_key_header = APIKeyHeader(name="AdminKey")
 
 
 def get_admin_key(admin_key_header: str = Security(admin_key_header)) -> str:
@@ -163,22 +166,27 @@ async def infer(
         request.method,
         content.decode(),
     )
-    if stream:
-        responselogger = StreamLogger(
-            logging_handler=logger, source=api_key, iskey=True, model=model
-        )
-        # no logging implemented yet...
-        r = await stream_client.send(req, stream=True)
-        background_tasks.add_task(r.aclose)
-        return LoggingStreamResponse(
-            content=event_generator(r.aiter_raw()), logger=responselogger
-        )
-    else:
-        r = await stream_client.send(req)
-        responseData = r.json()
-        tokens = responseData["usage"]["completion_tokens"]
-        background_tasks.add_task(logger.log_usage_for_key, api_key, model, tokens)
-        return responseData
+    try:
+        if stream:
+            responselogger = StreamLogger(
+                logging_handler=logger, source=api_key, iskey=True, model=model
+            )
+            # no logging implemented yet...
+            r = await stream_client.send(req, stream=True)
+            background_tasks.add_task(r.aclose)
+            return LoggingStreamResponse(
+                content=event_generator(r.aiter_raw()), logger=responselogger
+            )
+        else:
+            r = await stream_client.send(req)
+            responseData = r.json()
+            tokens = responseData["usage"]["completion_tokens"]
+            background_tasks.add_task(logger.log_usage_for_key, api_key, model, tokens)
+            return responseData
+    except Exception as e:
+        uvlogger.exception(e)
+        # re-raise to let FastAPI handle it.
+        raise e
 
 
 @app.post("/v1/chat/completions")
@@ -196,22 +204,27 @@ async def infer(
         request.method,
         content.decode(),
     )
-    if stream:
-        responselogger = StreamLogger(
-            logging_handler=logger, source=api_key, iskey=True, model=model
-        )
-        # no logging implemented yet...
-        r = await stream_client.send(req, stream=True)
-        background_tasks.add_task(r.aclose)
-        return LoggingStreamResponse(
-            content=event_generator(r.aiter_raw()), logger=responselogger
-        )
-    else:
-        r = await stream_client.send(req)
-        responseData = r.json()
-        tokens = responseData["usage"]["completion_tokens"]
-        background_tasks.add_task(logger.log_usage_for_key, api_key, model, tokens)
-        return responseData
+    try:
+        if stream:
+            responselogger = StreamLogger(
+                logging_handler=logger, source=api_key, iskey=True, model=model
+            )
+            # no logging implemented yet...
+            r = await stream_client.send(req, stream=True)
+            background_tasks.add_task(r.aclose)
+            return LoggingStreamResponse(
+                content=event_generator(r.aiter_raw()), logger=responselogger
+            )
+        else:
+            r = await stream_client.send(req)
+            responseData = r.json()
+            tokens = responseData["usage"]["completion_tokens"]
+            background_tasks.add_task(logger.log_usage_for_key, api_key, model, tokens)
+            return responseData
+    except Exception as e:
+        uvlogger.exception(e)
+        # re-raise to let FastAPI handle it.
+        raise e
 
 
 @app.post("/v1/embeddings")
@@ -229,11 +242,15 @@ async def infer(
         request.method,
         content.decode(),
     )
-    r = await stream_client.send(req)
-    responseData = r.json()
-    tokens = responseData["usage"]["prompt_tokens"]
-    background_tasks.add_task(logger.log_usage_for_key, api_key, model, tokens)
-    return responseData
+    try:
+        r = await stream_client.send(req)
+        responseData = r.json()
+        tokens = responseData["usage"]["prompt_tokens"]
+        background_tasks.add_task(logger.log_usage_for_key, api_key, model, tokens)
+        return responseData
+    except Exception as e:
+        uvlogger.exception(e)
+        raise e
 
 
 @app.get("/v1/models/")
@@ -287,3 +304,18 @@ def removeKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin
         pass
     else:
         raise HTTPException(409, "Key already exists")
+
+
+@app.post("/login")
+def login():
+    strAcsUrl = "http://llm-gateway.k8s-test.cs.aalto.fi/acs"
+    # Issuer URL listed here:
+    strIssuer = "***********************"
+    # Sign In URL listed here:
+    strSingleSignOnURL = "**********************************"
+    return RedirectResponse(
+        "{uIDPUrl}?{bParams}".format(
+            uIDPUrl=strSingleSignOnURL,
+            bParams=SAML_Interface.SAML_Request.GetSAMLRequest(strAcsUrl, strIssuer),
+        )
+    )
