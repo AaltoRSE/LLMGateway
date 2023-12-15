@@ -1,13 +1,13 @@
 from pytest_mock_resources import create_redis_fixture
 from pytest_mock_resources import create_mongo_fixture
 from key_handler import KeyHandler
-import redis
-import pymongo
+
 
 redis = create_redis_fixture()
 mongo = create_mongo_fixture()
 
 
+# Testing whether keys are checked correctly
 def test_check_key(redis, mongo):
     handler = KeyHandler(True)
     handler.setup(mongo, redis)
@@ -18,6 +18,7 @@ def test_check_key(redis, mongo):
     assert handler.check_key("BCE") == False
 
 
+# Testing whether keys are created correctly
 def test_create_key(redis, mongo):
     handler = KeyHandler(True)
     handler.setup(mongo, redis)
@@ -33,6 +34,24 @@ def test_create_key(redis, mongo):
     assert handler.check_key(newKey) == True
 
 
+def test_delete_key_for_user(redis, mongo):
+    handler = KeyHandler(True)
+    handler.setup(mongo, redis)
+    newKey = handler.create_key("NewUser", "NewKey")
+    db = mongo["gateway"]
+    user_collection = db["users"]
+    key_collection = db["apikeys"]
+    assert user_collection.count_documents({}) == 1
+    assert key_collection.count_documents({}) == 1
+    assert handler.check_key(newKey) == True
+    handler.delete_key_for_user(newKey, "NewUser")
+    user = user_collection.find_one({})
+    assert user["username"] == "NewUser"
+    assert len(user["keys"]) == 0
+    assert key_collection.count_documents({}) == 0
+    assert handler.check_key(newKey) == False
+
+
 def test_delete_key(redis, mongo):
     handler = KeyHandler(True)
     handler.setup(mongo, redis)
@@ -43,7 +62,7 @@ def test_delete_key(redis, mongo):
     assert user_collection.count_documents({}) == 1
     assert key_collection.count_documents({}) == 1
     assert handler.check_key(newKey) == True
-    handler.delete_key(newKey, "NewUser")
+    handler.delete_key(newKey)
     user = user_collection.find_one({})
     assert user["username"] == "NewUser"
     assert len(user["keys"]) == 0

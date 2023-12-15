@@ -39,6 +39,16 @@ class KeyHandler:
         userindices = self.user_collection.index_information()
         if not "username" in userindices:
             self.user_collection.create_index("username", unique=True)
+        self.init_keys()
+
+    def init_keys(self):
+        """
+        Initialize keys from the database
+        """
+        activeKeys = [x["key"] for x in self.key_collection.find({"active": True})]
+        self.redis_client.delete("keys")
+        if len(activeKeys) > 0:
+            self.redis_client.sadd("keys", *activeKeys)
 
     def generate_api_key(self, length: int = 64):
         """
@@ -79,19 +89,40 @@ class KeyHandler:
         """
         return self.redis_client.sismember("keys", key)
 
-    def delete_key(self, key: string, user: string):
+    def delete_key_for_user(self, key: string, user: string):
         """
-        Function to delete an existing key
+        Function to delete an existing key for agiven user. only delete
+        the key if it exists for this user.
 
         Parameters:
         - key (str): The key to check.
         - user (str): The user that requests this deletion
 
         """
+
         updated_user = self.user_collection.find_one_and_update(
             {"username": user, "keys": {"$elemMatch": {"$eq": key}}},
             {"$pull": {"keys": key}},
         )
+        if not updated_user == None:
+            # We found, and updated the user, so we can remove the key
+            # removal should be instantaneous
+            self.key_collection.delete_one({"key": key})
+            self.redis_client.srem("keys", key)
+
+    def delete_key(self, key: string):
+        """
+        Function to delete an existing key irrespective of who had that key
+
+        Parameters:
+        - key (str): The key to check.
+
+        """
+        updated_user = self.user_collection.find_one_and_update(
+            {"keys": {"$elemMatch": {"$eq": key}}},
+            {"$pull": {"keys": key}},
+        )
+        # Since all keys have to be associated with a user...
         if not updated_user == None:
             # We found, and updated the user, so we can remove the key
             # removal should be instantaneous
@@ -119,6 +150,29 @@ class KeyHandler:
             else:
                 self.redis_client.srem("keys", key)
 
+    def add_key(self, user: string, name: string, api_key: str):
+        """
+        Adds a key for a specific user if the key doesn't exist yet.
+
+        Args:
+        - user: Username of the user to whom the API key will be associated.
+        - name: Name or label for the API key.
+        - api_key: The key itself
+
+        Returns:
+        - bool: true, if the key was added false if not.
+        """
+        key_created = False
+        found = self.key_collection.find_one({"key": api_key})
+        if found == None:
+            self.key_collection.insert_one(self.build_new_key_object(api_key, name))
+            self.user_collection.update_one(
+                {"username": user}, {"$addToSet": {"keys": api_key}}, upsert=True
+            )
+            self.redis_client.sadd("keys", api_key)
+            key_created = True
+        return key_created
+
     def create_key(self, user: string, name: string):
         """
         Generates a unique API key and associates it with a specified user.
@@ -130,16 +184,8 @@ class KeyHandler:
         Returns:
         - api_key: The generated unique API key associated with the user.
         """
-        key_created = False
         api_key = ""
-        while not key_created:
+        api_key = self.generate_api_key()
+        while not self.add_key(user=user, name=name, api_key=api_key):
             api_key = self.generate_api_key()
-            found = self.key_collection.find_one({"key": api_key})
-            if found == None:
-                self.key_collection.insert_one(self.build_new_key_object(api_key, name))
-                self.user_collection.update_one(
-                    {"username": user}, {"$addToSet": {"keys": api_key}}, upsert=True
-                )
-                self.redis_client.sadd("keys", api_key)
-                key_created = True
         return api_key
