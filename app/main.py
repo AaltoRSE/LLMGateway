@@ -34,7 +34,7 @@ from utils.stream_logger import StreamLogger
 from utils.logging_handler import LoggingHandler
 from utils.key_handler import KeyHandler
 from utils.model_handler import ModelHandler
-
+from utils.serverlogging import RouterLogging
 
 import os
 
@@ -111,17 +111,9 @@ def log_non_streamed_usage(sourcetype, source, model, responseData):
         logger.log_usage_for_user(tokens, model, source)
 
 
-app = FastAPI(lifespan=lifespan)
-
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
+app = FastAPI(lifespan=lifespan, debug=True)
+# Add Request logging
+app.add_middleware(RouterLogging, uvlogger)
 
 
 async def build_request(
@@ -152,7 +144,7 @@ async def build_request(
 
 
 @app.post("/v1/completions")
-async def infer(
+async def completion(
     requestData: CompletionRequest,
     request: Request,
     background_tasks: BackgroundTasks,
@@ -190,7 +182,7 @@ async def infer(
 
 
 @app.post("/v1/chat/completions")
-async def infer(
+async def chat_completion(
     requestData: ChatCompletionRequest,
     request: Request,
     background_tasks: BackgroundTasks,
@@ -228,7 +220,7 @@ async def infer(
 
 
 @app.post("/v1/embeddings")
-async def infer(
+async def embedding(
     requestData: EmbeddingRequest,
     request: Request,
     background_tasks: BackgroundTasks,
