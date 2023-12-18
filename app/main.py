@@ -24,13 +24,13 @@ from utils.llama_requests import (
     EmbeddingRequest,
 )
 from utils.llama_responses import ModelList, Completion, ChatCompletion, Embedding
-from app.utils.api_requests import (
+from utils.api_requests import (
     AddAvailableModelRequest,
     RemoveModelRequest,
     AddApiKeyRequest,
 )
 
-from app.utils.api_responses import LoggingStreamResponse, event_generator
+from utils.api_responses import LoggingStreamResponse, event_generator
 from utils.stream_logger import StreamLogger
 from utils.logging_handler import LoggingHandler
 from utils.key_handler import KeyHandler
@@ -44,7 +44,7 @@ model_handler = ModelHandler()
 logger = LoggingHandler()
 
 logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
-uvlogger = logging.getLogger(__name__)
+uvlogger = logging.getLogger("app")
 
 
 inference_apikey = "Bearer " + os.environ.get("INFERENCE_KEY")
@@ -114,7 +114,7 @@ def log_non_streamed_usage(sourcetype, source, model, responseData):
 
 app = FastAPI(lifespan=lifespan, debug=True)
 # Add Request logging
-app.add_middleware(RouterLogging, uvlogger)
+app.add_middleware(RouterLogging, logger=uvlogger)
 
 
 async def build_request(
