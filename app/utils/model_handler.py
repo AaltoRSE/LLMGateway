@@ -6,7 +6,7 @@ import urllib
 import logging
 
 
-from api_requests import AddAvailableModelRequest, RemoveModelRequest
+from .api_requests import AddAvailableModelRequest, RemoveModelRequest
 
 modelLogger = logging.getLogger()
 
