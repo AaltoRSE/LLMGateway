@@ -5,16 +5,26 @@ A placeholder hello world app.
 from typing import Union
 from functools import partial
 
-from fastapi import FastAPI, Request, BackgroundTasks, Security, HTTPException
+from fastapi import FastAPI, Request, BackgroundTasks, Security, HTTPException, Response
 from fastapi.security import APIKeyHeader
 from fastapi import status
+
 from fastapi.security import APIKeyCookie
+
+from onelogin.saml2.auth import OneLogin_Saml2_Auth
+
+from saml2.metadata import entity_descriptor
+from saml2.sigver import security_context
+from saml2 import BINDING_HTTP_REDIRECT
+from saml2 import BINDING_HTTP_POST
+from saml2.saml import NAME_FORMAT_URI
 
 import httpx
 import logging
 import re
 
 from starlette.datastructures import MutableHeaders
+from starlette.responses import RedirectResponse
 
 from contextlib import asynccontextmanager
 
@@ -29,6 +39,8 @@ from utils.api_requests import (
     RemoveModelRequest,
     AddApiKeyRequest,
 )
+
+from utils.saml_setup import saml_settings
 
 from utils.api_responses import LoggingStreamResponse, event_generator
 from utils.stream_logger import StreamLogger
@@ -299,16 +311,40 @@ def removeKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin
         raise HTTPException(409, "Key already exists")
 
 
-@app.post("/login")
-def login():
-    strAcsUrl = "http://llm-gateway.k8s-test.cs.aalto.fi/acs"
-    # Issuer URL listed here:
-    strIssuer = "***********************"
-    # Sign In URL listed here:
-    strSingleSignOnURL = "**********************************"
-    return RedirectResponse(
-        "{uIDPUrl}?{bParams}".format(
-            uIDPUrl=strSingleSignOnURL,
-            bParams=SAML_Interface.SAML_Request.GetSAMLRequest(strAcsUrl, strIssuer),
-        )
-    )
+async def prepare_from_fastapi_request(request, debug=False):
+    rv = {
+        "http_host": request.client.host,
+        "server_port": request.url.port,
+        "script_name": request.url.path,
+        "post_data": {},
+        "get_data": {}
+        # Advanced request options
+        # "https": "",
+        # "request_uri": "",
+        # "query_string": "",
+        # "validate_signature_from_qs": False,
+        # "lowercase_urlencoding": False
+    }
+    return rv
+
+
+@app.get("/login")
+async def login(request: Request):
+    req = await prepare_from_fastapi_request(request)
+    auth = OneLogin_Saml2_Auth(req, saml_settings)
+    # saml_settings = auth.get_settings()
+    # metadata = saml_settings.get_sp_metadata()
+    # errors = saml_settings.validate_metadata(metadata)
+    # if len(errors) == 0:
+    #   print(metadata)
+    # else:
+    #   print("Error found on Metadata: %s" % (', '.join(errors)))
+    callback_url = auth.login()
+    response = RedirectResponse(url=callback_url)
+    return response
+
+
+@app.get("/saml/metadata")
+async def metadata():
+    metadata = saml_settings.get_sp_metadata()
+    return Response(content=metadata, media_type="text/xml")
