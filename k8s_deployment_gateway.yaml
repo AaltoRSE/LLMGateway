@@ -20,6 +20,10 @@ spec:
         app.kubernetes.io/name: llm-gateway
         app.kubernetes.io/component: server
     spec:
+      volumes:
+        - name: certificate-volume
+          secret:
+            secretName: llm-gatewaysaml-secret
       containers:
         - name: gateway
           image: harbor.cs.aalto.fi/aaltorse-public/llm_gateway # TODO
@@ -55,6 +59,7 @@ spec:
                 valueFrom:
                   { secretKeyRef: { name: llm-gateway, key: inference_key } },
               }
-          #volumeMounts:
-          #  - mountPath: /hedgedoc/public/uploads
-          #    name: hd-uploads
+          volumeMounts:
+            - mountPath: /app/saml/certs
+              name: certificate-volume
+              readOnly: true

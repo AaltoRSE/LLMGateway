@@ -18,15 +18,15 @@
     "contactPerson": {
         "technical": {
             "givenName": "Thomas Pfau",
-            "emailAddress": "thomas.pfau@aalto.fi",
+            "emailAddress": "thomas.pfau@aalto.fi"
         },
-        "support": {"givenName": "Thomas Pfau", "emailAddress": "thomas.pfau@aalto.fi"},
+        "support": {"givenName": "Aalto Science IT", "emailAddress": "science-it@aalto.fi"}
     },
     "organization": {
         "en-US": {
             "name": "Aalto SciComp",
             "displayname": "Aalto SciComp",
-            "url": "http://scicomp.aalto.fi",
+            "url": "http://scicomp.aalto.fi"
         }
     }
 }

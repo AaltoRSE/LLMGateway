@@ -15,7 +15,7 @@ RUN micromamba create -f /opt/environment.yml -p /opt/env/
 ENV PATH="/opt/env/bin:$PATH"
 
 # Change work directory
-WORKDIR / 
+WORKDIR /app 
 
 # Copy application contents
 COPY ./app .
