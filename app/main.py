@@ -13,12 +13,6 @@ from fastapi.security import APIKeyCookie
 
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 
-from saml2.metadata import entity_descriptor
-from saml2.sigver import security_context
-from saml2 import BINDING_HTTP_REDIRECT
-from saml2 import BINDING_HTTP_POST
-from saml2.saml import NAME_FORMAT_URI
-
 import httpx
 import logging
 import re
@@ -48,26 +42,38 @@ from utils.logging_handler import LoggingHandler
 from utils.key_handler import KeyHandler
 from utils.model_handler import ModelHandler
 from utils.serverlogging import RouterLogging
+from utils.request_building import BodyHandler
 
 import os
 
 key_handler = KeyHandler()
 model_handler = ModelHandler()
 logger = LoggingHandler()
-
 logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
 uvlogger = logging.getLogger("app")
 
+inference_request_builder = BodyHandler(uvlogger, model_handler)
 
 inference_apikey = "Bearer " + os.environ.get("INFERENCE_KEY")
 stream_client = httpx.AsyncClient(base_url="https://llm.k8s-test.cs.aalto.fi")
-
-
 api_key_header = APIKeyHeader(name="Authorization")
 admin_key_header = APIKeyHeader(name="AdminKey")
 
 
 def get_admin_key(admin_key_header: str = Security(admin_key_header)) -> str:
+    """
+    Retrieves the admin key from the header for privileged access.
+
+    Args:
+    - admin_key_header (str): Header containing the admin key.
+
+    Returns:
+    - str: The admin key if it matches the value stored in the environment variable.
+
+    Raises:
+    - HTTPException: If the provided admin key doesn't match the one stored in the environment.
+        It raises a 401 status code error with the detail "Privileged Access required".
+    """
     if admin_key_header == os.environ.get("ADMIN_KEY"):
         return admin_key_header
     raise HTTPException(
@@ -78,6 +84,19 @@ def get_admin_key(admin_key_header: str = Security(admin_key_header)) -> str:
 
 # Need to figure out how to offer two alternative authentication methods...
 def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
+    """
+    Retrieves and validates the API key from the header.
+
+    Args:
+    - api_key_header (str): Header containing the API key preceded by 'Bearer '.
+
+    Returns:
+    - str: The validated API key (without 'Bearer' prefix) if it passes the validation check.
+
+    Raises:
+    - HTTPException: If the provided API key is invalid or missing, it raises a 401 status code error
+        with the detail "Invalid or missing API Key". Additionally, logs information about the header and key.
+    """
     api_key = re.sub("^Bearer ", "", api_key_header)
     if key_handler.check_key(api_key):
         return api_key
@@ -90,19 +109,6 @@ def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
     )
 
 
-def parse_body(data: CompletionRequest | ChatCompletionRequest | EmbeddingRequest):
-    # Extract data from request body
-    # Replace this with your logic to extract data from the request body
-    try:
-        model = model_handler.get_model_path(data.model)
-    except KeyError as e:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Requested Model not available"
-        )
-    stream = data.stream
-    return model, stream
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load the ML model
@@ -112,48 +118,9 @@ async def lifespan(app: FastAPI):
     await stream_client.aclose()
 
 
-def log_streamed_usage():
-    pass
-
-
-def log_non_streamed_usage(sourcetype, source, model, responseData):
-    tokens = responseData["usage"]["total_tokens"]
-    if sourcetype == "apikey":
-        logger.log_usage_for_key(tokens, model, source)
-    else:
-        logger.log_usage_for_user(tokens, model, source)
-
-
 app = FastAPI(lifespan=lifespan, debug=True)
 # Add Request logging
 app.add_middleware(RouterLogging, logger=uvlogger)
-
-
-async def build_request(
-    requestData: ChatCompletionRequest,
-    headers: MutableHeaders,
-    path: str,
-    method: str,
-    body: str,
-):
-    model, stream = parse_body(requestData)
-    uvlogger.info("Got Request")
-    # Update the request path
-    # TODO: Need to handle model not found error!
-    url = httpx.URL(path=model + path)
-    # Add the API Key for the inference server
-    headers["Authorization"] = inference_apikey
-    headers["host"] = "llm.k8s-test.cs.aalto.fi"
-    # extract the body for forwarding.
-    req = stream_client.build_request(
-        method,
-        url,
-        headers=headers,
-        content=body,
-        timeout=300.0,
-    )
-
-    return req, model, stream
 
 
 @app.post("/v1/completions")
@@ -164,7 +131,8 @@ async def completion(
     api_key: str = Security(get_api_key),
 ) -> Completion:
     content = await request.body()
-    req, model, stream = await build_request(
+    uvlogger.info(content)
+    req, model, stream = await inference_request_builder.build_request(
         requestData,
         request.headers.mutablecopy(),
         request.url.path,
@@ -202,7 +170,8 @@ async def chat_completion(
     api_key: str = Security(get_api_key),
 ) -> ChatCompletion:
     content = await request.body()
-    req, model, stream = await build_request(
+    uvlogger.info(content)
+    req, model, stream = await inference_request_builder.build_request(
         requestData,
         request.headers.mutablecopy(),
         request.url.path,
@@ -240,7 +209,8 @@ async def embedding(
     api_key: str = Security(get_api_key),
 ) -> Embedding:
     content = await request.body()
-    req, model, stream = await build_request(
+    uvlogger.info(content)
+    req, model, stream = await inference_request_builder.build_request(
         requestData,
         request.headers.mutablecopy(),
         request.url.path,
