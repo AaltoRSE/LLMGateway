@@ -188,3 +188,6 @@ Vagrantfile
 
 # vscode stuff
 .vscode/**/*
+
+# SAML certificates
+app/saml/certs/*
