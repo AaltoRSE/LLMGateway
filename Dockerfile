@@ -27,4 +27,4 @@ RUN groupadd -r $USER && useradd -r -g $USER $USER
 USER $USER
 
 # Entrypoint
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["./entrypoint.sh"]

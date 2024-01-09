@@ -138,6 +138,7 @@ async def completion(
         request.url.path,
         request.method,
         content.decode(),
+        stream_client,
     )
     try:
         if stream:
@@ -177,6 +178,7 @@ async def chat_completion(
         request.url.path,
         request.method,
         content.decode(),
+        stream_client,
     )
     try:
         if stream:
@@ -216,6 +218,7 @@ async def embedding(
         request.url.path,
         request.method,
         content.decode(),
+        stream_client,
     )
     try:
         r = await stream_client.send(req)
@@ -298,7 +301,7 @@ async def prepare_from_fastapi_request(request, debug=False):
     return rv
 
 
-@app.get("/login")
+@app.get("/saml/login")
 async def login(request: Request):
     req = await prepare_from_fastapi_request(request)
     auth = OneLogin_Saml2_Auth(req, saml_settings)
@@ -312,6 +315,27 @@ async def login(request: Request):
     callback_url = auth.login()
     response = RedirectResponse(url=callback_url)
     return response
+
+
+@app.get("/saml/acs")
+async def saml_callback(request: Request):
+    req = await prepare_from_fastapi_request(request, True)
+    auth = OneLogin_Saml2_Auth(req, saml_settings)
+    auth.process_response()  # Process IdP response
+    errors = auth.get_errors()  # This method receives an array with the errors
+    if len(errors) == 0:
+        if (
+            not auth.is_authenticated()
+        ):  # This check if the response was ok and the user data retrieved or not (user authenticated)
+            return "user Not authenticated"
+        else:
+            return "User authenticated"
+    else:
+        print(
+            "Error when processing SAML Response: %s %s"
+            % (", ".join(errors), auth.get_last_error_reason())
+        )
+        return "Error in callback"
 
 
 @app.get("/saml/metadata")
