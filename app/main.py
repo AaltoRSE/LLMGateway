@@ -35,6 +35,7 @@ from utils.api_requests import (
 )
 
 from utils.saml_setup import saml_settings
+from utils.saml_setup import CallBackRequest
 
 from utils.api_responses import LoggingStreamResponse, event_generator
 from utils.stream_logger import StreamLogger
@@ -284,7 +285,7 @@ def removeKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin
         raise HTTPException(409, "Key already exists")
 
 
-async def prepare_from_fastapi_request(request, debug=False):
+async def prepare_from_fastapi_request(request: Request | CallBackRequest, debug=False):
     rv = {
         "http_host": request.client.host,
         "server_port": request.url.port,
@@ -298,6 +299,17 @@ async def prepare_from_fastapi_request(request, debug=False):
         # "validate_signature_from_qs": False,
         # "lowercase_urlencoding": False
     }
+    if request.query_params:
+        rv["get_data"] = (request.query_params,)
+    form_data = await request.form()
+    uvlogger.info(form_data)
+    if "SAMLResponse" in form_data:
+        SAMLResponse = form_data["SAMLResponse"]
+        rv["post_data"]["SAMLResponse"] = SAMLResponse
+    if "RelayState" in form_data:
+        RelayState = form_data["RelayState"]
+        rv["post_data"]["RelayState"] = RelayState
+
     return rv
 
 
@@ -317,7 +329,7 @@ async def login(request: Request):
     return response
 
 
-@app.get("/saml/acs")
+@app.post("/saml/acs")
 async def saml_callback(request: Request):
     req = await prepare_from_fastapi_request(request, True)
     auth = OneLogin_Saml2_Auth(req, saml_settings)
