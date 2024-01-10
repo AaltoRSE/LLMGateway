@@ -11,6 +11,7 @@ dependencies:
   - httpx
   - pytest
   - python3-saml
+  - python-multipart
   - pip
   - pip:
       - sse-starlette>=1.6.1

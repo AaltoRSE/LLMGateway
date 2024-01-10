@@ -35,7 +35,6 @@ from utils.api_requests import (
 )
 
 from utils.saml_setup import saml_settings
-from utils.saml_setup import CallBackRequest
 
 from utils.api_responses import LoggingStreamResponse, event_generator
 from utils.stream_logger import StreamLogger
@@ -285,7 +284,11 @@ def removeKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin
         raise HTTPException(409, "Key already exists")
 
 
-async def prepare_from_fastapi_request(request: Request | CallBackRequest, debug=False):
+async def prepare_from_fastapi_request(request: Request, debug=False):
+    uvlogger.info(request.client.host)
+    uvlogger.info(request.url.port)
+    uvlogger.info(request.url.path)
+    print()
     rv = {
         "http_host": request.client.host,
         "server_port": request.url.port,
@@ -332,6 +335,7 @@ async def login(request: Request):
 @app.post("/saml/acs")
 async def saml_callback(request: Request):
     req = await prepare_from_fastapi_request(request, True)
+    uvlogger.info(saml_settings.get_idp_data())
     auth = OneLogin_Saml2_Auth(req, saml_settings)
     auth.process_response()  # Process IdP response
     errors = auth.get_errors()  # This method receives an array with the errors
