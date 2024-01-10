@@ -18,7 +18,7 @@
     },
     
     "idp" : {
-        "entityID" : "https://devel.idp.aalto.fi/idp/shibboleth",
+        "entityId" : "https://devel.idp.aalto.fi/idp/shibboleth",
         "singleSignOnService": {
             "url" : "https://devel.idp.aalto.fi/idp/profile/SAML2/Redirect/SSO",
             "binding" : "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" 
