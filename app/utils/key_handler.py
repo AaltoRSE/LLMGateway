@@ -4,7 +4,7 @@ import secrets
 import string
 import os
 import urllib
-
+from logging import Logger
 
 class KeyHandler:
     def __init__(self, testing: bool = False):
@@ -40,6 +40,9 @@ class KeyHandler:
         if not "username" in userindices:
             self.user_collection.create_index("username", unique=True)
         self.init_keys()
+
+    def set_logger(self, logger : Logger):
+        self.logger = logger
 
     def init_keys(self):
         """
@@ -189,3 +192,19 @@ class KeyHandler:
         while not self.add_key(user=user, name=name, api_key=api_key):
             api_key = self.generate_api_key()
         return api_key
+    
+    def list_keys(self):
+        """
+        Generates a unique API key and associates it with a specified user.
+
+        Args:
+        - user: Username of the user to whom the API key will be associated.
+        - name: Name or label for the API key.
+
+        Returns:
+        - api_key: The generated unique API key associated with the user.
+        """
+        self.logger.info("Trying to obtain keys")
+        keys = [x for x in self.key_collection.find({})]       
+        self.logger.info(keys) 
+        return [ {"key": x["key"], "active" : x["active"], "name" : x["name"] } for x in keys]

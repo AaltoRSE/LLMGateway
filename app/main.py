@@ -5,11 +5,9 @@ A placeholder hello world app.
 from typing import Union
 from functools import partial
 
-from fastapi import FastAPI, Request, BackgroundTasks, Security, HTTPException, Response
+from fastapi import Depends, FastAPI, Request, BackgroundTasks, Security, HTTPException, Response
 from fastapi.security import APIKeyHeader
 from fastapi import status
-
-from fastapi.security import APIKeyCookie
 
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 
@@ -43,71 +41,22 @@ from utils.key_handler import KeyHandler
 from utils.model_handler import ModelHandler
 from utils.serverlogging import RouterLogging
 from utils.request_building import BodyHandler
+from security.api_keys import get_api_key, get_admin_key, key_handler
 
 import os
 
-key_handler = KeyHandler()
+
 model_handler = ModelHandler()
 logger = LoggingHandler()
 logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
 uvlogger = logging.getLogger("app")
+key_handler.set_logger(uvlogger)
 
 inference_request_builder = BodyHandler(uvlogger, model_handler)
 
 inference_apikey = "Bearer " + os.environ.get("INFERENCE_KEY")
 stream_client = httpx.AsyncClient(base_url="https://llm.k8s-test.cs.aalto.fi")
 api_key_header = APIKeyHeader(name="Authorization")
-admin_key_header = APIKeyHeader(name="AdminKey")
-
-
-def get_admin_key(admin_key_header: str = Security(admin_key_header)) -> str:
-    """
-    Retrieves the admin key from the header for privileged access.
-
-    Args:
-    - admin_key_header (str): Header containing the admin key.
-
-    Returns:
-    - str: The admin key if it matches the value stored in the environment variable.
-
-    Raises:
-    - HTTPException: If the provided admin key doesn't match the one stored in the environment.
-        It raises a 401 status code error with the detail "Privileged Access required".
-    """
-    if admin_key_header == os.environ.get("ADMIN_KEY"):
-        return admin_key_header
-    raise HTTPException(
-        status_code=401,
-        detail="Priviledged Access required",
-    )
-
-
-# Need to figure out how to offer two alternative authentication methods...
-def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
-    """
-    Retrieves and validates the API key from the header.
-
-    Args:
-    - api_key_header (str): Header containing the API key preceded by 'Bearer '.
-
-    Returns:
-    - str: The validated API key (without 'Bearer' prefix) if it passes the validation check.
-
-    Raises:
-    - HTTPException: If the provided API key is invalid or missing, it raises a 401 status code error
-        with the detail "Invalid or missing API Key". Additionally, logs information about the header and key.
-    """
-    api_key = re.sub("^Bearer ", "", api_key_header)
-    if key_handler.check_key(api_key):
-        return api_key
-    else:
-        uvlogger.info(api_key_header)
-        uvlogger.info(api_key)
-    raise HTTPException(
-        status_code=401,
-        detail="Invalid or missing API Key",
-    )
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -283,20 +232,26 @@ def removeKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin
     else:
         raise HTTPException(409, "Key already exists")
 
+@app.get("/admin/listkeys", status_code=status.HTTP_200_OK)
+def listKeys(RequestData: Request, admin_key: str = Security(get_admin_key)):
+    uvlogger.info("Keys requested")
+    return key_handler.list_keys()
 
 async def prepare_from_fastapi_request(request: Request, debug=False):
     uvlogger.info(request.client.host)
     uvlogger.info(request.url.port)
     uvlogger.info(request.url.path)
-    print()
+    uvlogger.info(request.headers.get("X-Forwarded-For"))
+    uvlogger.info(request.client)
+    uvlogger.info(request.url)
     rv = {
-        "http_host": request.client.host,
+        "http_host": request.url.hostname,
         "server_port": request.url.port,
         "script_name": request.url.path,
         "post_data": {},
-        "get_data": {}
+        "get_data": {},
         # Advanced request options
-        # "https": "",
+        "https": ""
         # "request_uri": "",
         # "query_string": "",
         # "validate_signature_from_qs": False,
@@ -345,6 +300,7 @@ async def saml_callback(request: Request):
         ):  # This check if the response was ok and the user data retrieved or not (user authenticated)
             return "user Not authenticated"
         else:
+            uvlogger.info(auth.get_attributes())
             return "User authenticated"
     else:
         print(
