@@ -193,18 +193,26 @@ class KeyHandler:
             api_key = self.generate_api_key()
         return api_key
     
-    def list_keys(self):
+    def list_keys(self, user = None):
         """
-        Generates a unique API key and associates it with a specified user.
+        List the available 
 
         Args:
-        - user: Username of the user to whom the API key will be associated.
-        - name: Name or label for the API key.
+        - user: Username of the user who requests their keys, None if all keys are requested         
 
         Returns:
-        - api_key: The generated unique API key associated with the user.
+        - a list of keys in the format [{'key' : key, 'active' : True/False, 'name' : keyname}]
         """
-        self.logger.info("Trying to obtain keys")
-        keys = [x for x in self.key_collection.find({})]       
-        self.logger.info(keys) 
+        if user == None:
+            # Return everything
+            self.logger.info("Trying to obtain keys")
+            keys = [x for x in self.key_collection.find({})]                   
+        else:
+            userinfo = self.user_collection.find(
+                {"username": user}
+            )
+            userkeys = userinfo[0]['keys']
+            keys = self.key_collection.find({'key' : { "$in" : userkeys}})
+
         return [ {"key": x["key"], "active" : x["active"], "name" : x["name"] } for x in keys]
+

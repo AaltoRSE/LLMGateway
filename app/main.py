@@ -32,7 +32,7 @@ from utils.api_requests import (
     AddApiKeyRequest,
 )
 
-from utils.saml_setup import saml_settings
+from utils.saml_setup import saml_settings, prepare_from_fastapi_request
 
 from utils.api_responses import LoggingStreamResponse, event_generator
 from utils.stream_logger import StreamLogger
@@ -42,7 +42,14 @@ from utils.model_handler import ModelHandler
 from utils.serverlogging import RouterLogging
 from utils.request_building import BodyHandler
 from security.api_keys import get_api_key, get_admin_key, key_handler
-
+from security.jwt import (
+    create_access_token,
+    get_current_user,
+    TokenRequest,
+    get_authed_user,
+    User,
+    api_key_header,
+)
 import os
 
 
@@ -71,7 +78,7 @@ app = FastAPI(lifespan=lifespan, debug=True)
 # Add Request logging
 app.add_middleware(RouterLogging, logger=uvlogger)
 
-
+# LLM API Endpoints
 @app.post("/v1/completions")
 async def completion(
     requestData: CompletionRequest,
@@ -194,7 +201,7 @@ def getModels() -> ModelList:
         # Should never actually happen, since it should always have one...
         raise HTTPException(status.HTTP_418_IM_A_TEAPOT)
 
-
+# Admin endpoints
 @app.post("/admin/addmodel", status_code=status.HTTP_201_CREATED)
 def addModel(
     RequestData: AddAvailableModelRequest, admin_key: str = Security(get_admin_key)
@@ -237,51 +244,11 @@ def listKeys(RequestData: Request, admin_key: str = Security(get_admin_key)):
     uvlogger.info("Keys requested")
     return key_handler.list_keys()
 
-async def prepare_from_fastapi_request(request: Request, debug=False):
-    uvlogger.info(request.client.host)
-    uvlogger.info(request.url.port)
-    uvlogger.info(request.url.path)
-    uvlogger.info(request.headers.get("X-Forwarded-For"))
-    uvlogger.info(request.client)
-    uvlogger.info(request.url)
-    rv = {
-        "http_host": request.url.hostname,
-        "server_port": request.url.port,
-        "script_name": request.url.path,
-        "post_data": {},
-        "get_data": {},
-        # Advanced request options
-        "https": ""
-        # "request_uri": "",
-        # "query_string": "",
-        # "validate_signature_from_qs": False,
-        # "lowercase_urlencoding": False
-    }
-    if request.query_params:
-        rv["get_data"] = (request.query_params,)
-    form_data = await request.form()
-    uvlogger.info(form_data)
-    if "SAMLResponse" in form_data:
-        SAMLResponse = form_data["SAMLResponse"]
-        rv["post_data"]["SAMLResponse"] = SAMLResponse
-    if "RelayState" in form_data:
-        RelayState = form_data["RelayState"]
-        rv["post_data"]["RelayState"] = RelayState
-
-    return rv
-
-
+# SAML Endpoints
 @app.get("/saml/login")
 async def login(request: Request):
     req = await prepare_from_fastapi_request(request)
     auth = OneLogin_Saml2_Auth(req, saml_settings)
-    # saml_settings = auth.get_settings()
-    # metadata = saml_settings.get_sp_metadata()
-    # errors = saml_settings.validate_metadata(metadata)
-    # if len(errors) == 0:
-    #   print(metadata)
-    # else:
-    #   print("Error found on Metadata: %s" % (', '.join(errors)))
     callback_url = auth.login()
     response = RedirectResponse(url=callback_url)
     return response
@@ -309,8 +276,32 @@ async def saml_callback(request: Request):
         )
         return "Error in callback"
 
-
 @app.get("/saml/metadata")
 async def metadata():
     metadata = saml_settings.get_sp_metadata()
     return Response(content=metadata, media_type="text/xml")
+
+# JWT specific endpoints
+@app.post("/auth/test")
+async def auth_test(request: Request):
+    # Obtain the auth manually here, because we want to provide
+    # Information about the authentication status, and using security would make this fail with Unauthorized
+    # Responses...
+    bearer = request.headers.get("Authorization")
+    if bearer != None:
+        try:
+            # This should get the token
+            token = bearer.split(" ", 1)[1]
+            try:
+                user = await get_current_user(token)
+                return {"authed": True, "user": user.username}
+            except Exception as e:
+                uvlogger.info(e)                
+                return {"authed": False, "reason": str(e)}
+        except:
+            return {
+                "authed": False,
+                "reason": "Invalid Authorization Header, must be 'Bearer tokendata' ",
+            }
+    else:
+        return {"authed": False, "reason": "No Token provided"}
