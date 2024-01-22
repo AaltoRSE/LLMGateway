@@ -20,7 +20,8 @@ class BodyHandler:
         self.inference_apikey = "Bearer " + os.environ.get("INFERENCE_KEY")
 
     def parse_body(
-        self, data: CompletionRequest | ChatCompletionRequest | EmbeddingRequest
+        self,
+        data: CompletionRequest | ChatCompletionRequest | EmbeddingRequest,
     ):
         # Extract data from request body
         # Replace this with your logic to extract data from the request body
@@ -30,8 +31,8 @@ class BodyHandler:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, "Requested Model not available"
             )
-        stream = data.stream
-        return model, stream
+
+        return model
 
     async def build_request(
         self,
@@ -42,7 +43,7 @@ class BodyHandler:
         body: str,
         stream_client: httpx.AsyncClient,
     ):
-        model, stream = self.parse_body(requestData)
+        model = self.parse_body(requestData)
         self.logger.info("Got Request")
         # Update the request path
         # TODO: Need to handle model not found error!
@@ -59,4 +60,4 @@ class BodyHandler:
             timeout=300.0,
         )
 
-        return req, model, stream
+        return req, model

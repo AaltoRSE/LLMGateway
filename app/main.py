@@ -5,7 +5,15 @@ A placeholder hello world app.
 from typing import Union
 from functools import partial
 
-from fastapi import Depends, FastAPI, Request, BackgroundTasks, Security, HTTPException, Response
+from fastapi import (
+    Depends,
+    FastAPI,
+    Request,
+    BackgroundTasks,
+    Security,
+    HTTPException,
+    Response,
+)
 from fastapi.security import APIKeyHeader
 from fastapi import status
 
@@ -65,6 +73,7 @@ inference_apikey = "Bearer " + os.environ.get("INFERENCE_KEY")
 stream_client = httpx.AsyncClient(base_url="https://llm.k8s-test.cs.aalto.fi")
 api_key_header = APIKeyHeader(name="Authorization")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load the ML model
@@ -78,6 +87,7 @@ app = FastAPI(lifespan=lifespan, debug=True)
 # Add Request logging
 app.add_middleware(RouterLogging, logger=uvlogger)
 
+
 # LLM API Endpoints
 @app.post("/v1/completions")
 async def completion(
@@ -88,7 +98,8 @@ async def completion(
 ) -> Completion:
     content = await request.body()
     uvlogger.info(content)
-    req, model, stream = await inference_request_builder.build_request(
+    stream = requestData.stream
+    req, model = await inference_request_builder.build_request(
         requestData,
         request.headers.mutablecopy(),
         request.url.path,
@@ -128,7 +139,8 @@ async def chat_completion(
 ) -> ChatCompletion:
     content = await request.body()
     uvlogger.info(content)
-    req, model, stream = await inference_request_builder.build_request(
+    stream = requestData.stream
+    req, model = await inference_request_builder.build_request(
         requestData,
         request.headers.mutablecopy(),
         request.url.path,
@@ -168,7 +180,7 @@ async def embedding(
 ) -> Embedding:
     content = await request.body()
     uvlogger.info(content)
-    req, model, stream = await inference_request_builder.build_request(
+    req, model = await inference_request_builder.build_request(
         requestData,
         request.headers.mutablecopy(),
         request.url.path,
@@ -200,6 +212,7 @@ def getModels() -> ModelList:
     else:
         # Should never actually happen, since it should always have one...
         raise HTTPException(status.HTTP_418_IM_A_TEAPOT)
+
 
 # Admin endpoints
 @app.post("/admin/addmodel", status_code=status.HTTP_201_CREATED)
@@ -239,10 +252,12 @@ def removeKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin
     else:
         raise HTTPException(409, "Key already exists")
 
+
 @app.get("/admin/listkeys", status_code=status.HTTP_200_OK)
 def listKeys(RequestData: Request, admin_key: str = Security(get_admin_key)):
     uvlogger.info("Keys requested")
     return key_handler.list_keys()
+
 
 # SAML Endpoints
 @app.get("/saml/login")
@@ -276,10 +291,12 @@ async def saml_callback(request: Request):
         )
         return "Error in callback"
 
+
 @app.get("/saml/metadata")
 async def metadata():
     metadata = saml_settings.get_sp_metadata()
     return Response(content=metadata, media_type="text/xml")
+
 
 # JWT specific endpoints
 @app.post("/auth/test")
@@ -296,7 +313,7 @@ async def auth_test(request: Request):
                 user = await get_current_user(token)
                 return {"authed": True, "user": user.username}
             except Exception as e:
-                uvlogger.info(e)                
+                uvlogger.info(e)
                 return {"authed": False, "reason": str(e)}
         except:
             return {
