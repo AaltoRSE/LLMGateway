@@ -33,7 +33,12 @@ from utils.llama_requests import (
     ChatCompletionRequest,
     EmbeddingRequest,
 )
-from utils.llama_responses import ModelList, Completion, ChatCompletion, Embedding
+from utils.llama_responses import (
+    ModelList,
+    Completion,
+    ChatCompletion,
+    CreateEmbeddingResponse,
+)
 from utils.api_requests import (
     AddAvailableModelRequest,
     RemoveModelRequest,
@@ -50,14 +55,7 @@ from utils.model_handler import ModelHandler
 from utils.serverlogging import RouterLogging
 from utils.request_building import BodyHandler
 from security.api_keys import get_api_key, get_admin_key, key_handler
-from security.jwt import (
-    create_access_token,
-    get_current_user,
-    TokenRequest,
-    get_authed_user,
-    User,
-    api_key_header,
-)
+from security.jwt import get_current_user
 import os
 
 
@@ -177,7 +175,7 @@ async def embedding(
     request: Request,
     background_tasks: BackgroundTasks,
     api_key: str = Security(get_api_key),
-) -> Embedding:
+) -> CreateEmbeddingResponse:
     content = await request.body()
     uvlogger.info(content)
     req, model = await inference_request_builder.build_request(
@@ -189,6 +187,7 @@ async def embedding(
         stream_client,
     )
     try:
+        uvlogger.info(req.content)
         r = await stream_client.send(req)
         responseData = r.json()
         tokens = responseData["usage"]["prompt_tokens"]
