@@ -58,6 +58,7 @@ from security.api_keys import get_api_key, get_admin_key, key_handler
 from security.jwt import get_current_user
 import os
 
+debugging = True
 
 model_handler = ModelHandler()
 logger = LoggingHandler()
@@ -83,7 +84,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, debug=True)
 # Add Request logging
-app.add_middleware(RouterLogging, logger=uvlogger)
+app.add_middleware(RouterLogging, logger=uvlogger, debug=debugging)
 
 
 # LLM API Endpoints
