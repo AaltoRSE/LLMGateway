@@ -69,7 +69,7 @@ async def prepare_from_fastapi_request(request: Request, debug=False):
         "post_data": {},
         "get_data": dict(request.query_params),
         # Advanced request options
-        # "https": ""  # Uncomment if you are running a server using https!
+        "https": "",  # Uncomment if you are running a server using https!
         # "request_uri": "",
         "query_string": request.url.query,
         # "validate_signature_from_qs": False,
