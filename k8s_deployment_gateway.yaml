@@ -44,6 +44,7 @@ spec:
                 valueFrom: { secretKeyRef: { name: mongo, key: password } },
               }
             - { name: MONGOHOST, value: "llm-mongo-svc" }
+            - { name: LLM_BASE_URL, value: "https://llm.k8s-test.cs.aalto.fi" }
             # Redis
             - { name: REDISHOST, value: "llm-redis-svc" }
             - { name: REDISPORT, value: "6379" }
@@ -60,6 +61,6 @@ spec:
                   { secretKeyRef: { name: llm-gateway, key: inference_key } },
               }
           volumeMounts:
-            - mountPath: /app/saml/certs
+            - mountPath: /app/saml/saml_data/certs
               name: certificate-volume
               readOnly: true

@@ -27,7 +27,7 @@ async def create_key(createRequest: CreateKeyRequest, user=Security(get_authed_u
 
 
 @router.post("/deletekey")
-async def create_key(deleteRequest: DeleteKeyRequest, user=Security(get_authed_user)):
+async def delete_key(deleteRequest: DeleteKeyRequest, user=Security(get_authed_user)):
     if not user == None:
         key_handler.delete_key_for_user(user=user.username, key=deleteRequest.key)
     else:
