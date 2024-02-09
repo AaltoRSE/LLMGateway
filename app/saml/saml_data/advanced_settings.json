@@ -8,7 +8,7 @@
         "wantMessagesSigned": true,
         "wantAssertionsSigned": true,
         "wantNameId" : true,
-        "wantNameIdEncrypted": false,
+        "wantNameIdEncrypted": true,
         "wantAssertionsEncrypted": true,
         "allowSingleLabelDomains": false,
         "signatureAlgorithm": "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
