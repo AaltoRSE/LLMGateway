@@ -28,7 +28,7 @@ spec:
         - name: gateway
           image: harbor.cs.aalto.fi/aaltorse-public/llm_gateway # TODO
           ports:
-            - containerPort: 8000
+            - containerPort: 3000
           resources:
             requests:
               # Maybe needs to be increased later on.
