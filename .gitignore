@@ -191,3 +191,7 @@ Vagrantfile
 
 # SAML certificates
 app/saml/certs/*
+
+# dev databases
+mongodb/**/*
+data/**/*

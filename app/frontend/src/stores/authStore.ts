@@ -12,14 +12,11 @@ export const useAuthStore = defineStore({
   state: () => ({
     user: null as null | authedUser,
     loggedIn: false as Boolean,
-    rerouting: false
+    isAdmin: false as undefined | Boolean
   }),
   actions: {
     async login(token: String) {
       if (token) {
-        const claims = atob(token.split('.')[1])
-        console.log(claims)
-        this.user = { username: 'user', token: token }
         axios.defaults.headers.common['Authorization'] = 'Bearer ' + token
         try {
           const result = await axios.post('/auth/test', {
@@ -28,6 +25,7 @@ export const useAuthStore = defineStore({
           if (result.data.authed) {
             this.user = { username: result.data.user, token: token }
             this.loggedIn = true
+            this.isAdmin = result.data.isAdmin
           } else {
             console.log('Not / no longer authed')
             axios.defaults.headers.common['Authorization'] = undefined

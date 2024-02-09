@@ -13,6 +13,8 @@ import 'primevue/resources/primevue.min.css'
 
 // Primeflex css
 import 'primeflex/primeflex.css'
+import axios from 'axios'
+axios.defaults.headers.post['Content-Type'] = 'application/json'
 
 const app = createApp(App)
 

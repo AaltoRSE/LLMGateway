@@ -12,6 +12,8 @@ class RouterLogging(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         self._logger.debug("{}: {}".format(request.method, str(request.url)))
+        self._logger.info(request.headers)
+        self._logger.info(request.client)
         # TODO: Need to deactivate once this actually gets into production!
         if self.debug:
             self._logger.debug(await request.body())

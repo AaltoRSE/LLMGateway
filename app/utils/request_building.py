@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from fastapi import status
 import httpx
 
-from utils.llama_requests import (
+from llmapi.llama_requests import (
     CompletionRequest,
     ChatCompletionRequest,
     EmbeddingRequest,

@@ -2,6 +2,99 @@ import pymongo
 from datetime import datetime
 import os
 import urllib
+import logging
+
+logger = logging.getLogger("app")
+
+
+def model_usage_pipeline(
+    model: str,
+    from_time: datetime = datetime.fromtimestamp(0),
+    to_time: datetime = None,
+):
+    if to_time == None:
+        to_time = datetime.now()
+    pipeline = [
+        {
+            "$lookup": {
+                "from": "apikeys",
+                "localField": "key",
+                "foreignField": "key",
+                "as": "key_info",
+            }
+        },
+        {"$unwind": "$key_info"},
+        {"$match": {"model": model, "timestamp": {"$gte": from_time, "$lte": to_time}}},
+        {
+            "$group": {
+                "_id": "$key_info.key",
+                "total_tokens": {"$sum": "$tokencount"},
+                "keys": {
+                    "$addToSet": {
+                        "name": "$key_info.name",
+                        "token_count": "$tokencount",
+                    }
+                },
+            }
+        },
+        {"$project": {"_id": 0, "total": "$total_tokens", "keys": "$keys"}},
+    ]
+    return pipeline
+
+
+def obtain_key_usage(
+    keys,
+    model: str = None,
+    from_time: datetime = datetime.fromtimestamp(0),
+    to_time: datetime = None,
+):
+    base_match = {
+        "source": {"$in": keys},
+        "sourcetype": "apikey",
+        "timestamp": {"$gte": from_time, "$lte": to_time},
+    }
+    if not model == None:
+        base_match["model"] = model
+    if to_time == None:
+        to_time = datetime.now()
+    pipeline = [
+        # Match logs based on the selected keys
+        {"$match": base_match},
+        {
+            "$group": {
+                "_id": {"source": "$source", "model": "$model"},
+                "tokencount": {"$sum": "$tokencount"},
+            }
+        },
+        {
+            "$group": {
+                "_id": "$_id.source",
+                "tokencount": {"$sum": "$tokencount"},
+                "models": {
+                    "$push": {"model": "$_id.model", "tokencount": "$tokencount"}
+                },
+            }
+        },
+        {
+            "$lookup": {
+                "from": "apikeys",
+                "localField": "_id",
+                "foreignField": "key",
+                "as": "key_info",
+            }
+        },
+        {"$unwind": "$key_info"},
+        {
+            "$project": {
+                "_id": 0,
+                "key_name": "$key_info.name",
+                "key": "$_id",
+                "tokencount": 1,
+                "models": 1,
+            }
+        },
+    ]
+    return pipeline
 
 
 # Needs to be escaped if necessary
@@ -20,6 +113,7 @@ class LoggingHandler:
     def setup(self, mongo_client):
         self.db = mongo_client["gateway"]
         self.log_collection = self.db["logs"]
+        self.key_collection = self.db["apikeys"]
         self.user_collection = self.db["users"]
 
     def create_log_entry(self, tokencount, model, source, sourcetype="apikey"):
@@ -40,7 +134,7 @@ class LoggingHandler:
             "model": model,
             "source": source,
             "sourcetype": sourcetype,
-            "timestamp": datetime.utcnow(),  # Current timestamp in UTC
+            "timestamp": datetime.now(),  # Current timestamp in UTC
         }
 
     def log_usage_for_key(self, tokencount, model, key):
@@ -71,14 +165,128 @@ class LoggingHandler:
         )
         self.log_collection.insert_one(log_entry)
 
-    def get_usage_for_user(self, username):
-        raise NotImplementedError
+    def get_usage_for_user(
+        self,
+        username: str,
+        from_time: datetime = datetime.fromtimestamp(0),
+        to_time: datetime = None,
+    ):
+        if to_time == None:
+            to_time = datetime.now()
+        # we retrieve all data for the user
+        # First, we get all keys for the user
+        userData = self.user_collection.find_one({"username": username})
+        if userData == None:
+            # The user has no entry yet.
+            logger.info("No user data, returning empty info")
+            return {"keys": {}, "total_use": 0}
+        logger.info(userData)
+        data = self.get_usage_for_keys(userData["keys"])
+        logger.info(data)
+        total_use = sum([element["usage"] for element in data])
+        logger.info({"total_use": total_use, "keys": data})
+        return {"total_use": total_use, "keys": data}
 
-    def get_usage_for_key(self, key):
-        raise NotImplementedError
+    def get_usage_for_keys(
+        self,
+        restrict_to_keys,
+        from_time: datetime = datetime.fromtimestamp(0),
+        to_time: datetime = None,
+    ):
+        if to_time == None:
+            to_time = datetime.now()
+        logger.info(
+            obtain_key_usage(restrict_to_keys, from_time=from_time, to_time=to_time)
+        )
+        pipeline = obtain_key_usage(
+            restrict_to_keys, from_time=from_time, to_time=to_time
+        )
+        logger.info(pipeline[0]["$match"])
+        logger.info([x for x in self.log_collection.find(pipeline[0]["$match"])])
+        key_info = self.key_collection.find({"key": {"$in": restrict_to_keys}})
+        key_data = self.log_collection.aggregate(
+            obtain_key_usage(restrict_to_keys, from_time=from_time, to_time=to_time)
+        )
+        key_data = [entry for entry in key_data]
+        logger.info(key_data)
+        key_info = [entry for entry in key_info]
+        result = []
+        keys_with_usage = []
+        for entry in key_data:
+            keys_with_usage.append(entry["key"])
+            result.append(
+                {
+                    "key": entry["key"],
+                    "name": entry["key_name"],
+                    "usage": entry["tokencount"],
+                    "modeldata": entry["models"],
+                }
+            )
+        no_use_keys = list(set(restrict_to_keys) - set(keys_with_usage))
+        logger.info(no_use_keys)
+        logger.info([entry for entry in key_info])
+        for keydata in key_info:
+            logger.info(keydata)
+            if keydata["key"] in no_use_keys:
+                result.append(
+                    {
+                        "key": keydata["key"],
+                        "name": keydata["name"],
+                        "usage": 0,
+                        "modeldata": [],
+                    }
+                )
+        return result
 
-    def get_usage_for_model(self, model):
-        raise NotImplementedError
+    def get_usage_for_model(
+        self,
+        model: str,
+        from_time: datetime = datetime.fromtimestamp(0),
+        to_time: datetime = None,
+    ):
+        if to_time == None:
+            to_time = datetime.now()
 
-    def get_usage_for_timerange(self, start, end):
-        raise NotImplementedError
+        result = self.db.users.aggregate(
+            model_usage_pipeline(model, from_time, to_time)
+        )
+        return [
+            {
+                "key": entry["key"],
+                "name": entry["key_name"],
+                "usage": entry["total_tokens"],
+            }
+            for entry in result
+        ]
+
+    def get_usage_for_time_range(
+        self,
+        from_time: datetime,
+        to_time: datetime = None,
+        model: str = None,
+        user: str = None,
+    ):
+        base_match = {
+            "timestamp": {"$gte": from_time},
+        }
+        if not model == None:
+            base_match["model"] = model
+        if not to_time == None:
+            base_match["timestamp"] = {"$gte": from_time, "$lte": to_time}
+        if not user == None:
+            keys = [
+                entry.key
+                for entry in self.key_collection.aggregate(
+                    [{"$match": {"user": user}}, {"$project": {"_id": 0, "key": 1}}]
+                )
+            ]
+            if len(keys) == 0:
+                return {"total_usage": 0, "data": []}
+            else:
+                base_match["source"] = {"$in": keys}
+        pipeline = [
+            {"$match": base_match},
+            {"$group": {"_id": "sum", "tokencount": {"$sum": "$tokencount"}}},
+        ]
+
+        return self.log_collection.aggregate(pipeline)[0]["tokencount"]

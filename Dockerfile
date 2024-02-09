@@ -17,14 +17,18 @@ ENV PATH="/opt/env/bin:$PATH"
 # Change work directory
 WORKDIR /app 
 
-# Copy application contents
-COPY ./app .
-COPY ./entrypoint.sh .
-
 # run the container as a non-root user
 ENV USER=aaltorse
 RUN groupadd -r $USER && useradd -r -g $USER $USER
 USER $USER
+
+# Copy application contents (exlcuding the frontend files)
+COPY --chown=aaltorse:aaltorse ./app .
+COPY ./entrypoint.sh .
+
+
+# Copy the frontend static files. Need to be generated beforehand
+COPY /app/frontend/dist .
 
 # Entrypoint
 ENTRYPOINT ["./entrypoint.sh"]

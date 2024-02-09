@@ -1,14 +1,12 @@
-
 from fastapi import Security, HTTPException
 from fastapi.security import APIKeyHeader
-from fastapi.openapi.models import SecurityBase
-from functools import partial
-from utils.key_handler import KeyHandler
+from utils.handlers import key_handler
+
 import logging
 import re
 import os
 
-key_handler = KeyHandler()
+
 
 
 admin_key_header = APIKeyHeader(name="AdminKey")
