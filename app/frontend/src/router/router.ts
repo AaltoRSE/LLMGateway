@@ -16,7 +16,8 @@ const routes = [
     redirect: (to: RouteLocationNormalized) => {
       console.log('rerouting to login')
       // This needs to be changed to your server address.
-      window.location.href = 'http://127.0.0.1:3000/saml/login'
+      const currentport = window.location.port ? `:${window.location.port}` : ''
+      window.location.href = `${window.location.protocol}://${window.location.hostname}${currentport}/saml/login`
       return { path: '' }
     }
   },
@@ -26,7 +27,8 @@ const routes = [
     redirect: (to: RouteLocationNormalized) => {
       console.log('rerouting to logout')
       // This needs to be changed to your server address.
-      window.location.href = 'http://127.0.0.1:3000/saml/slo'
+      const currentport = window.location.port ? `:${window.location.port}` : ''
+      window.location.href = `${window.location.protocol}://${window.location.hostname}${currentport}/saml/slo`
       return { path: '' }
     }
   }
