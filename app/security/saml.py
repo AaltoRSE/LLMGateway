@@ -1,7 +1,7 @@
 from fastapi import Request, HTTPException, status
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
 from starlette.requests import HTTPConnection
-from xmlsec import xmlsec
+import xmlsec
 import logging
 import os
 
@@ -17,17 +17,14 @@ saml_settings = OneLogin_Saml2_Settings(
     settings=None, custom_base_path=SAML_DIR, sp_validation_only=True
 )
 saml_keyFile = os.path.join(SAML_DIR, "certs", "sp.key")
-with open(saml_keyFile, "rb") as private_key_file:
-    private_key = private_key_file.read()
+private_key = xmlsec.Key.from_file(saml_keyFile, xmlsec.constants.KeyDataFormatPem)
+manager = xmlsec.KeysManager()
+manager.add_key(private_key)
+enc_ctx = xmlsec.EncryptionContext(manager)
 
 
 def decrypt_name_id(encrypted_name_id: str):
-    return xmlsec.decrypt(
-        encrypted_name_id,
-        key=private_key,
-        key_type=xmlsec.KeyDataFormatPem,
-        key_deserialize_flags=xmlsec.KeyInfoOriginMemory,
-    )
+    return enc_ctx.decrypt(encrypted_name_id)
 
 
 def get_authed_user(conn: HTTPConnection):
