@@ -196,3 +196,5 @@ app/saml/saml_data/settings.json
 # dev databases
 mongodb/**/*
 data/**/*
+
+keyfile.key
