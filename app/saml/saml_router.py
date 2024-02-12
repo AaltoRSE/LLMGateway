@@ -57,6 +57,7 @@ async def saml_callback(request: Request):
         else:
             sessionData = {}
             sessionData["samlUserdata"] = auth.get_attributes()
+            logger.info(auth.get_nameid())
             sessionData["samlNameId"] = decrypt_name_id(auth.get_nameid())
             sessionData["samlNameIdFormat"] = auth.get_nameid_format()
             sessionData["samlNameIdNameQualifier"] = auth.get_nameid_nq()
