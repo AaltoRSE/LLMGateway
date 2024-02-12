@@ -12,7 +12,12 @@ from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from starlette.responses import RedirectResponse
 from utils.handlers import session_handler
 
-from security.saml import saml_settings, prepare_from_fastapi_request, get_authed_user
+from security.saml import (
+    saml_settings,
+    prepare_from_fastapi_request,
+    get_authed_user,
+    decrypt_name_id,
+)
 from security.auth import clean_session, get_request_source
 
 import logging
@@ -52,7 +57,7 @@ async def saml_callback(request: Request):
         else:
             sessionData = {}
             sessionData["samlUserdata"] = auth.get_attributes()
-            sessionData["samlNameId"] = auth.get_nameid()
+            sessionData["samlNameId"] = decrypt_name_id(auth.get_nameid())
             sessionData["samlNameIdFormat"] = auth.get_nameid_format()
             sessionData["samlNameIdNameQualifier"] = auth.get_nameid_nq()
             sessionData["samlNameIdSPNameQualifier"] = auth.get_nameid_spnq()
