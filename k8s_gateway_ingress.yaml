@@ -21,6 +21,9 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
     nginx.ingress.kubernetes.io/upstream-vhost: llm-gateway.k8s-test.cs.aalto.fi
+    # Comment out during dev
+    # nginx.ingress.kubernetes.io/whitelist-source-range: 130.233.0.0/16
+
 # Spec tells the actual parameters: hosts to listen on, path prefixes.
 spec:
   tls:

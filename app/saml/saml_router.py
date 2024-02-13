@@ -133,6 +133,7 @@ async def saml_logout(request: Request, user: any = Security(get_authed_user)):
     request_id = None
     if "LogoutRequestID" in request.session:
         request_id = request.session["LogoutRequestID"]
+    logger.info(request_id)
     dscb = lambda: clean_session(request.session)
     url = auth.process_slo(request_id=request_id, delete_session_cb=dscb)
     logger.info(url)
