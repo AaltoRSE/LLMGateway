@@ -137,16 +137,22 @@ async def saml_logout(request: Request, user: any = Security(get_authed_user)):
     url = auth.process_slo(request_id=request_id, delete_session_cb=dscb)
     logger.info(url)
     errors = auth.get_errors()
+    logger.info(errors)
     if len(errors) == 0:
+        logger.info("Redirecting")
         if url is not None:
+            logger.info("Redirecting to indicated url")
             # To avoid 'Open Redirect' attacks, before execute the redirection confirm
             # the value of the url is a trusted URL.
             return RedirectResponse(url)
         else:
+            logger.info("Redirecting to default")
             # Return back to main page
             return RedirectResponse(url="/")
     elif auth.get_settings().is_debug_active():
+        logger.info("Got an error")
         error_reason = auth.get_last_error_reason()
+        logger.info(error_reason)
         return error_reason
     else:
         logger.error(auth.get_last_error_reason())
