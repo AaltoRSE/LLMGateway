@@ -153,6 +153,7 @@ async def saml_logout(request: Request, user: any = Security(get_authed_user)):
         logger.info("Got an error")
         error_reason = auth.get_last_error_reason()
         logger.info(error_reason)
+        logger.info(auth._last_response)
         return error_reason
     else:
         logger.error(auth.get_last_error_reason())
