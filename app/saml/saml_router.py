@@ -1,10 +1,4 @@
-from fastapi import (
-    APIRouter,
-    Request,
-    Security,
-    Response,
-)
-from fastapi import status
+from fastapi import APIRouter, Request, Security, Response, HTTPException, status
 
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 
@@ -57,6 +51,18 @@ async def saml_callback(request: Request):
         else:
             sessionData = {}
             sessionData["samlUserdata"] = auth.get_attributes()
+            # Now, we check, whether the user is an employee, and thus eligible to use the service
+            try:
+                if (
+                    not "employee"
+                    in sessionData["samlUser"]["urn:oid:1.3.6.1.4.1.5923.1.1.1.1"]
+                ):
+                    raise HTTPException(
+                        status.HTTP_403_FORBIDDEN,
+                        "Only staff can use this self service",
+                    )
+            except:
+                raise HTTPException(status.HTTP_403_FORBIDDEN, "Authentication invalid")
             sessionData["samlNameId"] = auth.get_nameid()
             sessionData["samlNameIdFormat"] = auth.get_nameid_format()
             sessionData["samlNameIdNameQualifier"] = auth.get_nameid_nq()
