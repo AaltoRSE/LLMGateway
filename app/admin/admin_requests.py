@@ -25,3 +25,6 @@ class RemoveKeyRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     key: str = Field(description="The key to add.")
+
+class LLMKeyRequest(BaseModel):
+    key: str = Field(description="The key to set.")

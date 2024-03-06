@@ -2,6 +2,7 @@ from .logging_handler import LoggingHandler
 from .key_handler import KeyHandler
 from .model_handler import model_handler
 from .request_building import BodyHandler
+from .llmkey_handler import LLMKeyHandler
 from security.session import SessionHandler
 from contextlib import asynccontextmanager
 
@@ -13,6 +14,7 @@ import logging
 import os
 import httpx
 
+
 uvlogger = logging.getLogger("app")
 inference_request_builder = BodyHandler(uvlogger, model_handler)
 inference_apikey = "Bearer " + os.environ.get("INFERENCE_KEY")
@@ -23,3 +25,4 @@ logging_handler = LoggingHandler()
 session_handler = SessionHandler()
 key_handler = KeyHandler()
 key_handler.set_logger(uvlogger)
+llmkey_handler = LLMKeyHandler()
