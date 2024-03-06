@@ -10,6 +10,8 @@ from llmapi.llama_requests import (
 )
 from .model_handler import ModelHandler
 from logging import Logger
+from .handlers import llmkey_handler
+from .quota import server_quota
 import os
 
 
@@ -49,8 +51,10 @@ class BodyHandler:
         # TODO: Need to handle model not found error!
         url = httpx.URL(path=model + path)
         # Add the API Key for the inference server
-        headers["Authorization"] = self.inference_apikey
+        headers["Authorization"] = llmkey_handler.get_key()
         headers["host"] = "llm.k8s-test.cs.aalto.fi"
+        messages = requestData.messages
+        
         # extract the body for forwarding.
         req = stream_client.build_request(
             method,
