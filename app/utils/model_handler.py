@@ -11,7 +11,7 @@ if "PYTEST_CURRENT_TEST" in os.environ:
     testig = True
 
 
-modelLogger = logging.getLogger()
+modelLogger = logging.getLogger(__name__)
 
 
 def gen_model_object(id, owned_by, path):
@@ -66,6 +66,8 @@ class ModelHandler:
         # if there are no models we won't init them.
         if len(models) > 0:
             self.redis_client.set("models", json.dumps(models))
+        else:
+            self.redis_client.delete("models")
 
     def load_models(self):
         try:
@@ -89,7 +91,7 @@ class ModelHandler:
         else:
             return None
 
-    def add_model(self, model: str, owner : str, path : str):
+    def add_model(self, model: str, owner: str, path: str):
         """
         Function to add a model to the served models
         Returns:
@@ -99,11 +101,7 @@ class ModelHandler:
         if exists:
             raise KeyError("Model already exists")
         else:
-            self.model_collection.insert_one(
-                gen_model_object(
-                    model, owner, path
-                )
-            )
+            self.model_collection.insert_one(gen_model_object(model, owner, path))
             # Update the models, setting them.
             self.init_models()
 
