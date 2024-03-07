@@ -7,8 +7,6 @@ import re
 import os
 
 
-
-
 admin_key_header = APIKeyHeader(name="AdminKey")
 api_key_header = APIKeyHeader(name="Authorization")
 
@@ -30,6 +28,7 @@ def get_api_key(api_key: str = Security(api_key_header)) -> str:
     - HTTPException: If the provided API key is invalid or missing, it raises a 401 status code error
         with the detail "Invalid or missing API Key". Additionally, logs information about the header and key.
     """
+
     api_key = re.sub("^Bearer ", "", api_key)
     if key_handler.check_key(api_key):
         return api_key
@@ -56,6 +55,7 @@ def get_admin_key(admin_key_header: str = Security(admin_key_header)) -> str:
     - HTTPException: If the provided admin key doesn't match the one stored in the environment.
         It raises a 401 status code error with the detail "Privileged Access required".
     """
+    uvlogger.debug(admin_key_header)
     if admin_key_header == os.environ.get("ADMIN_KEY"):
         return admin_key_header
     raise HTTPException(

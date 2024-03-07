@@ -55,6 +55,7 @@ from starlette.responses import Response
 from starlette.types import Receive, Scope, Send
 from utils.stream_logger import StreamLogger
 from .quota import server_quota
+
 _log = logging.getLogger(__name__)
 
 
@@ -292,6 +293,7 @@ class LoggingStreamResponse(Response):
             chunk = ensure_bytes(data, self.sep)
             _log.debug(f"chunk: {chunk.decode()}")
             self.streamlogger.handle_chunk(chunk.decode())
+            # At worst this will underestimate the price a little bit
             server_quota.add_price(1, True)
             with anyio.move_on_after(self.send_timeout) as timeout:
                 await send(

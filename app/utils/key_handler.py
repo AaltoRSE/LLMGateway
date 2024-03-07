@@ -4,11 +4,15 @@ import secrets
 import string
 import os
 import urllib
+import logging
 from logging import Logger
+
+logger = logging.getLogger(__name__)
 
 
 class KeyHandler:
     def __init__(self, testing: bool = False):
+        self.logger = logger
         if not testing:
             # Needs to be escaped if necessary
             mongo_user = urllib.parse.quote_plus(os.environ.get("MONGOUSER"))
@@ -43,6 +47,7 @@ class KeyHandler:
         self.init_keys()
 
     def set_logger(self, logger: Logger):
+
         self.logger = logger
 
     def init_keys(self):
@@ -50,6 +55,7 @@ class KeyHandler:
         Initialize keys from the database
         """
         activeKeys = [x["key"] for x in self.key_collection.find({"active": True})]
+        self.logger.debug(activeKeys)
         self.redis_client.delete("keys")
         if len(activeKeys) > 0:
             self.redis_client.sadd("keys", *activeKeys)
