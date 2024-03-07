@@ -42,11 +42,17 @@ class LLMKeyHandler:
             self.redis_client.set("llmkey", key)
         except:
             self.redis_client.set("llmkey", "default")
-    
+
     def set_key(self, key):
         self.redis_client.set("llmkey", key)
         self.key_collection.update_one({}, {"$set": {"key": key}})
 
-    def get_key(self):
-        return self.redis_client.get("llmkey")
-    
+    def get_key(self) -> str:
+        """
+        Get the string value of the current key for the LLM api
+        """
+        key_value = self.redis_client.get("llmkey")
+        if key_value is not None:
+            return key_value.decode("utf-8")
+        else:
+            return "default"

@@ -193,27 +193,6 @@ class KeyHandler:
             key_created = True
         return key_created
 
-    def create_key(self, user: string, name: string):
-        """
-        Generates a unique API key and associates it with a specified user.
-
-        Args:
-        - user: Username of the user to whom the API key will be associated.
-        - name: Name or label for the API key.
-
-        Returns:
-        - api_key: The generated unique API key associated with the user.
-        """
-        api_key = ""
-        api_key = self.generate_api_key()
-        userinfo = self.user_collection.find_one({"username": user})
-        if userinfo == None or len(userinfo["keys"]) < 10:
-            while not self.add_key(user=user, name=name, api_key=api_key):
-                api_key = self.generate_api_key()
-            return api_key
-        else:
-            return None
-
     def list_keys(self, user=None):
         """
         List the available

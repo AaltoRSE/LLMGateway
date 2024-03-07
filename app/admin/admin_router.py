@@ -1,9 +1,11 @@
 from .admin_requests import *
 from fastapi import APIRouter, Request, Security, HTTPException, status
 from security.api_keys import get_admin_key, key_handler
-from utils.handlers import model_handler
-from utils.handlers import llmkey_handler
+from utils.llmkey_handler import LLMKeyHandler
 import logging
+
+
+llmkey_handler = LLMKeyHandler()
 
 router = APIRouter(
     prefix="/admin", tags=["admin"], dependencies=[Security(get_admin_key)]

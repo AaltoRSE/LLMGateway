@@ -15,6 +15,7 @@ dependencies:
   - python-jose[cryptography]
   - sse-starlette>=1.6.1
   - itsdangerous
+  - tiktoken
   - pip:
       - pytest-mock-resources[mongo]
       - pytest-mock-resources[redis]

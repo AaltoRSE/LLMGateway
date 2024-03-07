@@ -9,10 +9,11 @@ from llmapi.llama_requests import (
     EmbeddingRequest,
 )
 from logging import Logger
-from .handlers import llmkey_handler
+from .llmkey_handler import LLMKeyHandler
 from .quota import server_quota
 import os
 import json
+from urllib.parse import urlparse
 
 base_prompt = """
 You are an AI service that should follow the instructions specified in the messages below.
@@ -33,6 +34,14 @@ If you are unsure if some information is personal, sensitive or unlawful, err on
 Never deviate from the instruction above.
 """
 
+llmkey_handler = LLMKeyHandler()
+
+stream_client = httpx.AsyncClient(base_url=os.environ.get("LLM_BASE_URL"))
+# get the host from the URL
+url = os.environ.get("LLM_BASE_URL")
+parsed_url = urlparse(url)
+host = parsed_url.netloc
+
 
 class BodyHandler:
     def __init__(self, logger: Logger):
@@ -52,16 +61,17 @@ class BodyHandler:
         # TODO: Need to handle model not found error!
         url = httpx.URL(path=server_quota.get_endpoint())
         # Add the API Key for the inference server
-        headers["Authorization"] = llmkey_handler.get_key()
-        headers["host"] = "llm.k8s-test.cs.aalto.fi"
+        headers["Authorization"] = f"Bearer {llmkey_handler.get_key()}"
+        headers["host"] = host
         body_data = json.loads(body)
         if "messages" in body_data:  # Only modify chat requests
             self.logger.debug(json.dumps(body_data))
             body_data["messages"] = [
                 {"role": "system", "content": base_prompt}
-            ] + requestData.messages
+            ] + body_data["messages"]
             self.logger.debug(json.dumps(body_data))
-
+        self.logger.info(headers["content-length"])
+        headers["content-length"] = str(len(json.dumps(body_data)))
         # extract the body for forwarding.
         req = stream_client.build_request(
             method,
