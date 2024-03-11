@@ -2,14 +2,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: llm-redis-svc
+  name: llm-azure-redis-svc
   labels:
-    app.kubernetes.io/name: llm-redis-svc
+    app.kubernetes.io/name: llm-azure-redis-svc
     app.kubernetes.io/component: server
   namespace: rse
 spec:
   selector:
-    app.kubernetes.io/name: llm-redis
+    app.kubernetes.io/name: llm-azure-redis
   ports:
     - protocol: TCP
       port: 6379
@@ -18,14 +18,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: llm-mongo-svc
+  name: llm-azure-mongo-svc
   labels:
-    app.kubernetes.io/name: llm-mongo-svc
+    app.kubernetes.io/name: llm-azure-mongo-svc
     app.kubernetes.io/component: server
   namespace: rse
 spec:
   selector:
-    app.kubernetes.io/name: llm-mongo
+    app.kubernetes.io/name: llm-azure-mongo
   ports:
     - protocol: TCP
       port: 27017
@@ -34,14 +34,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: llm-gateway-svc
+  name: llm-azure-gateway-svc
   labels:
-    app.kubernetes.io/name: llm-gateway-svc
+    app.kubernetes.io/name: llm-azure-gateway-svc
     app.kubernetes.io/component: server
   namespace: rse
 spec:
   selector:
-    app.kubernetes.io/name: llm-gateway
+    app.kubernetes.io/name: llm-azure-gateway
     app.kubernetes.io/component: server
   ports:
     - protocol: TCP
