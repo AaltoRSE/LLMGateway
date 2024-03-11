@@ -52,14 +52,14 @@ async def saml_callback(request: Request):
         else:
             sessionData = {}
             sessionData["samlUserdata"] = auth.get_attributes()
-            logger.info(sessionData["samlUserdata"])
+            logger.debug(sessionData["samlUserdata"])
             # Now, we check, whether the user is an employee, and thus eligible to use the service
             debug = int(os.environ.get("GATEWAY_DEBUG", 0)) == 1        
-            logger.info(debug)
+            logger.debug(debug)
             try:                
                 if (not debug) and (
                     not "employee"
-                    in sessionData["samlUser"]["urn:oid:1.3.6.1.4.1.5923.1.1.1.1"]
+                    in sessionData["samlUserdata"]["urn:oid:1.3.6.1.4.1.5923.1.1.1.1"]
                 ):
                     raise HTTPException(
                         status.HTTP_403_FORBIDDEN,
@@ -67,7 +67,7 @@ async def saml_callback(request: Request):
                     )
             except Exception as e:
                 logger.error(e)
-                logger.info(sessionData)
+                logger.debug(sessionData)
                 raise HTTPException(status.HTTP_403_FORBIDDEN, "Authentication invalid")
             sessionData["samlNameId"] = auth.get_nameid()
             sessionData["samlNameIdFormat"] = auth.get_nameid_format()
@@ -75,13 +75,13 @@ async def saml_callback(request: Request):
             sessionData["samlNameIdSPNameQualifier"] = auth.get_nameid_spnq()
             sessionData["samlSessionIndex"] = auth.get_session_index()
             sessionData["UserIP"] = get_request_source(request)
-            logger.info(sessionData)
+            logger.debug(sessionData)
             session_key = session_handler.create_session(sessionData)
-            logger.info("Session key created, adding to request session")
+            logger.debug("Session key created, adding to request session")
             request.session["key"] = session_key
             request.session["invalid"] = False
             forwardAddress = f"/"
-            logger.info("Forwarding to /")
+            logger.debug("Forwarding to /")
             return RedirectResponse(
                 url=forwardAddress, status_code=status.HTTP_303_SEE_OTHER
             )

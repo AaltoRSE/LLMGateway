@@ -12,7 +12,7 @@
             "url": "http://127.0.0.1:3000/saml/sls",
             "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
         },
-        "NameIDFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified",
+        "NameIDFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
         "x509cert": "",
         "privateKey": ""
     },
@@ -27,7 +27,7 @@
             "binding":"urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
             "url" :"http://localhost:8081/realms/test/protocol/saml"
         },
-        "x509cert": "MIIClzCCAX8CBgGNiK15pjANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDDAR0ZXN0MB4XDTI0MDIwODEyMjMwNloXDTM0MDIwODEyMjQ0NlowDzENMAsGA1UEAwwEdGVzdDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJ3RSIoL2ahQf5zyhlOXf5NgX5kzASckfAxkhPjon4+8htpOvQ6YcT3QinPBwfUtfieNyT6AqOcHoEEw9cih8m2MBxAQfKcq3ADeybKh+UZIKb7pm/jzMOFB1c0B2SS5xTEjAKZHG2+0lkY0xARrEU+7dEbapia9qfYt01NdOcPdvvQJRXyIuwdIQcge8LibJ2tl0v6XSg1rdOEYsUppbzdKAIXEj9+2xZ99jZHj547ibG027RmynA4DHg7y1gQ5MqtgnV1m+FscGJFiKPzUTsHFEj6OCE7N7RLg9ug5S/cvYX4GFN0XU3V/l5yHxsWeiDFFt+k6OwQf9uVKOjyqMP8CAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAnavkSmro/evrZtA9YsGMDYxAqR1t6cNjVXu5ScTG6kDkur0LEWgaru5jCFKnl44T96oNo46uR2rUz8MQ/0duaP+zXhSkzt1QO9R036khH3fl4Omfm1qGQQjjjoFETgPiXVid4S95Rrr+jDt29Z05zyudYtzfNgLaqq54q8ih6fpXAiq9woZWu4IjdiPVFxzOqx1rqb861LZiYFtjgzFpj9g0ueEBwBNndQG3MGhH3Mz/ZgZY1cIfftIs+52xHYQl711seVjXJfCfwDiX3Cwru6NG4EJV05sbQcBM48O895KXR6rlfGqmshBvq35TD38+4XKLIUFmpqFbklStwL3hfQ=="
+        "x509cert": "MIIClzCCAX8CBgGOLO7WmzANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDDAR0ZXN0MB4XDTI0MDMxMTA5NTIxM1oXDTM0MDMxMTA5NTM1M1owDzENMAsGA1UEAwwEdGVzdDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKdqLPpgbLkrFAfawPpJfGlm2N7mzZ01DZ4t8lOU2ZFadYqjxw8Hi/VfEkHPYT4VowQe24jNVMV6sNKsv0vd9SW7a9VkJTbWEa6mczngdAQonejM/3jzIcCyfyX/QFeJS5AqnjYg67hUWGmt2jj3H90BBcdQr0lRkhZMn4hrx/A6w7KTEIwL7aRE+jvMS44vdvGFs7RV3QkBMx8OuaFJyBaQJD3m/SNulgSuJzVzvAzo2CA0iyZNA0m7VtA6O4vazzZhPIiLFG0MZD76uHkLCvCqn7qAkle4gZtLtY0xB2BieBh0Rvv3df20qAVquzb3ps2BfXXyg31WW7ld4e3ZRRMCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAP1R4owio/VEqyyRy7PCd/XNEEFa5IIPsWZyun7ae99cPEB0ZkfJlxFOTuN2VWkkdtW+D/pt6sZyMUepEDrW52RUy3mHURxvBcz/gGnNh9IEdDnoP78FFh1IQBbcePoQVln9vdKch2HQ2584CJ2c6eXPwoqVvfZ6RM7qX9DF+pTJINGB9gTIvOHQDX/Sfj0PVJtV2B65DoICm2nlqIi9gIPXACLhjRsxYvsd+jN9WedNt02iLHtU4L1zwTX5PZ9gsMQQWscqTi/tWu8eyTLD06LKFLq09J3s6wnQ7lBFKt748TkziMsZpGAFxcrDY9kFe0BCeupr3x1Zz2/1MMVSXug=="
     
     }  
 }
