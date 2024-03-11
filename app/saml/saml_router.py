@@ -15,6 +15,7 @@ from security.saml import (
 from security.auth import clean_session, get_request_source
 
 import logging
+import os 
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +52,12 @@ async def saml_callback(request: Request):
         else:
             sessionData = {}
             sessionData["samlUserdata"] = auth.get_attributes()
+            logger.info(sessionData["samlUserdata"])
             # Now, we check, whether the user is an employee, and thus eligible to use the service
-            try:
-                if (
+            debug = int(os.environ.get("GATEWAY_DEBUG", 0)) == 1        
+            logger.info(debug)
+            try:                
+                if (not debug) and (
                     not "employee"
                     in sessionData["samlUser"]["urn:oid:1.3.6.1.4.1.5923.1.1.1.1"]
                 ):
@@ -61,7 +65,9 @@ async def saml_callback(request: Request):
                         status.HTTP_403_FORBIDDEN,
                         "Only staff can use this self service",
                     )
-            except:
+            except Exception as e:
+                logger.error(e)
+                logger.info(sessionData)
                 raise HTTPException(status.HTTP_403_FORBIDDEN, "Authentication invalid")
             sessionData["samlNameId"] = auth.get_nameid()
             sessionData["samlNameIdFormat"] = auth.get_nameid_format()
