@@ -59,7 +59,7 @@ class SAMLSessionBackend(AuthenticationBackend):
                 return
         except HTTPException:
             return
-        return AuthCredentials(["authenticated"]), SAMLUser(data["samlNameId"], data)
+        return AuthCredentials(["authenticated"]), SAMLUser(data["UserName"], data)
 
 
 def clean_session(session):

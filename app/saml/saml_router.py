@@ -15,7 +15,7 @@ from security.saml import (
 from security.auth import clean_session, get_request_source
 
 import logging
-import os 
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +54,9 @@ async def saml_callback(request: Request):
             sessionData["samlUserdata"] = auth.get_attributes()
             logger.debug(sessionData["samlUserdata"])
             # Now, we check, whether the user is an employee, and thus eligible to use the service
-            debug = int(os.environ.get("GATEWAY_DEBUG", 0)) == 1        
+            debug = int(os.environ.get("GATEWAY_DEBUG", 0)) == 1
             logger.debug(debug)
-            try:                
+            try:
                 if (not debug) and (
                     not "employee"
                     in sessionData["samlUserdata"]["urn:oid:1.3.6.1.4.1.5923.1.1.1.1"]
@@ -76,6 +76,16 @@ async def saml_callback(request: Request):
             sessionData["samlSessionIndex"] = auth.get_session_index()
             sessionData["UserIP"] = get_request_source(request)
             logger.debug(sessionData)
+            try:
+                sessionData["UserName"] = sessionData["samlUserdata"][
+                    "urn:oid:1.3.6.1.4.1.5923.1.1.1.6"
+                ]
+            except Exception as e:
+                logger.error(e)
+                raise HTTPException(
+                    status.HTTP_403_FORBIDDEN,
+                    "Authentication invalid, missing saml data",
+                )
             session_key = session_handler.create_session(sessionData)
             logger.debug("Session key created, adding to request session")
             request.session["key"] = session_key
