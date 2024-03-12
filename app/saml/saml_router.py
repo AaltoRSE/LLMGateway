@@ -79,7 +79,7 @@ async def saml_callback(request: Request):
             try:
                 sessionData["UserName"] = sessionData["samlUserdata"][
                     "urn:oid:1.3.6.1.4.1.5923.1.1.1.6"
-                ]
+                ][0]
             except Exception as e:
                 logger.error(e)
                 raise HTTPException(
