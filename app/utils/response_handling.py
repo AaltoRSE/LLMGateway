@@ -291,7 +291,6 @@ class LoggingStreamResponse(Response):
         )
         async for data in self.body_iterator:
             chunk = ensure_bytes(data, self.sep)
-            _log.debug(f"chunk: {chunk.decode()}")
             self.streamlogger.handle_chunk(chunk.decode())
             # At worst this will underestimate the price a little bit
             server_quota.add_price(1, True)

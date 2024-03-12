@@ -56,21 +56,17 @@ class BodyHandler:
         body: str,
         stream_client: httpx.AsyncClient,
     ):
-        self.logger.info("Got Request")
         # Update the request path
         # TODO: Need to handle model not found error!
         url = httpx.URL(path=server_quota.get_endpoint())
         # Add the API Key for the inference server
-        headers["Authorization"] = f"Bearer {llmkey_handler.get_key()}"
+        headers["Ocp-Apim-Subscription-key"] = f"{llmkey_handler.get_key()}"
         headers["host"] = host
         body_data = json.loads(body)
-        if "messages" in body_data:  # Only modify chat requests
-            self.logger.debug(json.dumps(body_data))
+        if "messages" in body_data:  # Only modify chat requests            
             body_data["messages"] = [
                 {"role": "system", "content": base_prompt}
-            ] + body_data["messages"]
-            self.logger.debug(json.dumps(body_data))
-        self.logger.info(headers["content-length"])
+            ] + body_data["messages"]            
         headers["content-length"] = str(len(json.dumps(body_data)))
         # extract the body for forwarding.
         req = stream_client.build_request(

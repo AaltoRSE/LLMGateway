@@ -48,7 +48,6 @@ llm_logger.info(stream_client)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    llm_logger.info("Lifespan called")
     stream_client = httpx.AsyncClient(base_url=os.environ.get("LLM_BASE_URL"))
     yield
     await stream_client.aclose()
@@ -73,10 +72,6 @@ async def chat_completion(
 
     try:
         if stream:
-            llm_logger.info("Trying to send streaming request to LLM")
-            llm_logger.info(req.url)
-            llm_logger.info(req.headers)
-            llm_logger.info(req)
             responselogger = StreamLogger(
                 logging_handler=logging_handler,
                 source=api_key,
@@ -93,10 +88,6 @@ async def chat_completion(
                 streamlogger=responselogger,
             )
         else:
-            llm_logger.info("Trying to send non streaming request to LLM")
-            llm_logger.info(req.url)
-            llm_logger.info(req.headers)
-            llm_logger.info(req)
             r = await stream_client.send(req)
             if not r.status_code == httpx.codes.OK:
                 raise HTTPException(r.status_code)

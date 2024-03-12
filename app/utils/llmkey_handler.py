@@ -45,7 +45,7 @@ class LLMKeyHandler:
 
     def set_key(self, key):
         self.redis_client.set("llmkey", key)
-        self.key_collection.update_one({}, {"$set": {"key": key}})
+        self.key_collection.update_one({}, {"$set": {"key": key}},upsert=True)
 
     def get_key(self) -> str:
         """
