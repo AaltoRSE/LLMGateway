@@ -3,16 +3,18 @@ channels:
   - conda-forge
 dependencies:
   - fastapi
-  - redis-py
   - gunicorn
   - uvicorn
+  - redis-py
   - pymongo
   - schedule
   - httpx
   - pytest
   - python3-saml
-  - pip
+  - python-multipart
+  - python-jose[cryptography]
+  - sse-starlette>=1.6.1
+  - itsdangerous
   - pip:
-      - sse-starlette>=1.6.1
       - pytest-mock-resources[mongo]
       - pytest-mock-resources[redis]

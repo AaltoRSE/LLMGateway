@@ -15,26 +15,17 @@ def test_add_model(redis, mongo):
     db = mongo["gateway"]
     model_collection = db["model"]
     assert len(currentModels) == 0
-    assert model_collection.count_documents({}) == 0
-    addRequest = AddAvailableModelRequest(
-        model="test", target_path="test2", owner="test3"
-    )
-    handler.add_model(addRequest)
+    assert model_collection.count_documents({}) == 0    
+    handler.add_model(model="test", path="test2", owner="test3")
     # Adding model works
     assert model_collection.count_documents({}) == 1
     failed = False
-    try:
-        addRequest = AddAvailableModelRequest(
-            model="test", target_path="test2", owner="test3"
-        )
-        handler.add_model(addRequest)
+    try:        
+        handler.add_model(model="test", path="test2", owner="test3")
     except KeyError as e:
         failed = True
-    assert failed
-    addRequest = AddAvailableModelRequest(
-        model="test2", target_path="test2", owner="test3"
-    )
-    handler.add_model(addRequest)
+    assert failed    
+    handler.add_model(model="test2", path="test2", owner="test3")
     # Adding second model works
     assert model_collection.count_documents({}) == 2
 
@@ -46,16 +37,10 @@ def test_model_path_and_get(redis, mongo):
     db = mongo["gateway"]
     model_collection = db["model"]
     assert len(currentModels) == 0
-    assert model_collection.count_documents({}) == 0
-    addRequest = AddAvailableModelRequest(
-        model="test", target_path="test2", owner="test3"
-    )
-    handler.add_model(addRequest)
-    assert model_collection.count_documents({}) == 1
-    addRequest = AddAvailableModelRequest(
-        model="test2", target_path="test2", owner="test4"
-    )
-    handler.add_model(addRequest)
+    assert model_collection.count_documents({}) == 0    
+    handler.add_model(model="test", path="test2", owner="test3")
+    assert model_collection.count_documents({}) == 1    
+    handler.add_model(model="test2", path="test2", owner="test4")
     models = handler.get_models()
     assert len(models) == 2
     found1 = False
@@ -72,12 +57,8 @@ def test_model_path_and_get(redis, mongo):
             assert len(model["permissions"]) == 0
             assert model["object"] == "model"
 
-    assert found1 and found2
-
-    addRequest = AddAvailableModelRequest(
-        model="test3", target_path="test3", owner="test3"
-    )
-    handler.add_model(addRequest)
+    assert found1 and found2    
+    handler.add_model(model="test3", path="test3", owner="test3")
     assert model_collection.count_documents({}) == 3
     assert handler.get_model_path("test") == "test2"
     assert handler.get_model_path("test2") == "test2"
@@ -93,17 +74,11 @@ def test_remove_model(redis, mongo):
     db = mongo["gateway"]
     model_collection = db["model"]
     assert len(currentModels) == 0
-    assert model_collection.count_documents({}) == 0
-    addRequest = AddAvailableModelRequest(
-        model="test", target_path="test2", owner="test3"
-    )
-    handler.add_model(addRequest)
-    addRequest = AddAvailableModelRequest(
-        model="test2", target_path="test2", owner="test4"
-    )
-    handler.add_model(addRequest)
-    removeRequest = RemoveModelRequest(model="test2")
-    handler.remove_model(removeRequest)
+    assert model_collection.count_documents({}) == 0    
+    handler.add_model(model="test", path="test2", owner="test3")
+    
+    handler.add_model(model="test2", path="test2", owner="test4")    
+    handler.remove_model(model="test2")
     assert len(handler.get_models()) == 1
     assert model_collection.count_documents({}) == 1
     assert model_collection.count_documents({"data.id": "test2"}) == 0

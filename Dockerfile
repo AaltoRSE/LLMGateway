@@ -15,16 +15,16 @@ RUN micromamba create -f /opt/environment.yml -p /opt/env/
 ENV PATH="/opt/env/bin:$PATH"
 
 # Change work directory
-WORKDIR / 
-
-# Copy application contents
-COPY ./app .
-COPY ./entrypoint.sh .
+WORKDIR /app 
 
 # run the container as a non-root user
 ENV USER=aaltorse
 RUN groupadd -r $USER && useradd -r -g $USER $USER
 USER $USER
 
+# Copy application contents (this includes the frontend files, and only those)
+COPY --chown=aaltorse:aaltorse ./app .
+COPY ./entrypoint.sh .
+
 # Entrypoint
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["./entrypoint.sh"]

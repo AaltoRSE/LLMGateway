@@ -4,6 +4,7 @@ import secrets
 import string
 import os
 import urllib
+from logging import Logger
 
 
 class KeyHandler:
@@ -41,6 +42,9 @@ class KeyHandler:
             self.user_collection.create_index("username", unique=True)
         self.init_keys()
 
+    def set_logger(self, logger: Logger):
+        self.logger = logger
+
     def init_keys(self):
         """
         Initialize keys from the database
@@ -64,7 +68,7 @@ class KeyHandler:
         api_key = "".join(secrets.choice(alphabet) for _ in range(length))
         return api_key
 
-    def build_new_key_object(self, key: string, name: string):
+    def build_new_key_object(self, user: string, key: string, name: string):
         """
         Function to create a new key object.
 
@@ -75,7 +79,7 @@ class KeyHandler:
         Returns:
         - dict: A dictionary representing the key object with "active" status, key, and name.
         """
-        return {"active": True, "key": key, "name": name}
+        return {"user": user, "active": True, "key": key, "name": name}
 
     def check_key(self, key: string):
         """
@@ -107,10 +111,10 @@ class KeyHandler:
         if not updated_user == None:
             # We found, and updated the user, so we can remove the key
             # removal should be instantaneous
-            self.key_collection.delete_one({"key": key})
+            self.key_collection.update_one({"key": key}, {"$set": {"active": False}})
             self.redis_client.srem("keys", key)
 
-    def delete_key(self, key: string):
+    def delete_key(self, key: string, user: string = None):
         """
         Function to delete an existing key irrespective of who had that key
 
@@ -118,15 +122,23 @@ class KeyHandler:
         - key (str): The key to check.
 
         """
-        updated_user = self.user_collection.find_one_and_update(
-            {"keys": {"$elemMatch": {"$eq": key}}},
-            {"$pull": {"keys": key}},
-        )
+        if not user == None:
+            updated_user = self.user_collection.find_one_and_update(
+                {"keys": {"$elemMatch": {"$eq": key}}, "username": user},
+                {"$pull": {"keys": key}},
+            )
+        else:
+            # This should be an admin call.
+            updated_user = self.user_collection.find_one_and_update(
+                {"keys": {"$elemMatch": {"$eq": key}}},
+                {"$pull": {"keys": key}},
+            )
         # Since all keys have to be associated with a user...
         if not updated_user == None:
             # We found, and updated the user, so we can remove the key
             # removal should be instantaneous
             self.key_collection.delete_one({"key": key})
+            # NOTE: We do NOT remove any log files for the key.
             self.redis_client.srem("keys", key)
 
     def set_key_activity(self, key: string, user: string, active: bool):
@@ -165,7 +177,9 @@ class KeyHandler:
         key_created = False
         found = self.key_collection.find_one({"key": api_key})
         if found == None:
-            self.key_collection.insert_one(self.build_new_key_object(api_key, name))
+            self.key_collection.insert_one(
+                self.build_new_key_object(user, api_key, name)
+            )
             self.user_collection.update_one(
                 {"username": user}, {"$addToSet": {"keys": api_key}}, upsert=True
             )
@@ -186,6 +200,33 @@ class KeyHandler:
         """
         api_key = ""
         api_key = self.generate_api_key()
-        while not self.add_key(user=user, name=name, api_key=api_key):
-            api_key = self.generate_api_key()
-        return api_key
+        userinfo = self.user_collection.find_one({"username": user})
+        if userinfo == None or len(userinfo["keys"]) < 10:
+            while not self.add_key(user=user, name=name, api_key=api_key):
+                api_key = self.generate_api_key()
+            return api_key
+        else:
+            return None
+
+    def list_keys(self, user=None):
+        """
+        List the available
+
+        Args:
+        - user: Username of the user who requests their keys, None if all keys are requested
+
+        Returns:
+        - a list of keys in the format [{'key' : key, 'active' : True/False, 'name' : keyname}]
+        """
+        if user == None:
+            # Return everything
+            self.logger.info("Trying to obtain keys")
+            keys = [x for x in self.key_collection.find({})]
+        else:
+            userinfo = self.user_collection.find({"username": user})
+            userkeys = userinfo[0]["keys"]
+            keys = self.key_collection.find({"key": {"$in": userkeys}})
+
+        return [
+            {"key": x["key"], "active": x["active"], "name": x["name"]} for x in keys
+        ]

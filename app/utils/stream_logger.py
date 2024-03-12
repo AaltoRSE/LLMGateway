@@ -38,6 +38,10 @@ class StreamLogger:
     def handle_chunk(self, chunk: str):
         self.tokenCount = self.tokenCount + getTokensForChunk(chunk)
 
+    def debug(self, data: str):
+        if data.startswith("chunk:"):
+            self.handle_chunk(data.split("chunk:")[1])
+
     def finish(self):
         if self.iskey:
             self.logger.log_usage_for_key(

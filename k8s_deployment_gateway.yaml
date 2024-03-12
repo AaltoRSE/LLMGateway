@@ -20,11 +20,15 @@ spec:
         app.kubernetes.io/name: llm-gateway
         app.kubernetes.io/component: server
     spec:
+      volumes:
+        - name: certificate-volume
+          secret:
+            secretName: llm-gatewaysaml-secret
       containers:
         - name: gateway
           image: harbor.cs.aalto.fi/aaltorse-public/llm_gateway # TODO
           ports:
-            - containerPort: 8000
+            - containerPort: 3000
           resources:
             requests:
               # Maybe needs to be increased later on.
@@ -40,6 +44,7 @@ spec:
                 valueFrom: { secretKeyRef: { name: mongo, key: password } },
               }
             - { name: MONGOHOST, value: "llm-mongo-svc" }
+            - { name: LLM_BASE_URL, value: "https://llm.k8s-test.cs.aalto.fi" }
             # Redis
             - { name: REDISHOST, value: "llm-redis-svc" }
             - { name: REDISPORT, value: "6379" }
@@ -55,6 +60,7 @@ spec:
                 valueFrom:
                   { secretKeyRef: { name: llm-gateway, key: inference_key } },
               }
-          #volumeMounts:
-          #  - mountPath: /hedgedoc/public/uploads
-          #    name: hd-uploads
+          volumeMounts:
+            - mountPath: /app/saml/saml_data/certs
+              name: certificate-volume
+              readOnly: true

@@ -6,9 +6,12 @@ import urllib
 import logging
 
 
-from .api_requests import AddAvailableModelRequest, RemoveModelRequest
+testing = False
+if "PYTEST_CURRENT_TEST" in os.environ:
+    testig = True
 
-modelLogger = logging.getLogger()
+
+modelLogger = logging.getLogger(__name__)
 
 
 def gen_model_object(id, owned_by, path):
@@ -24,7 +27,7 @@ def gen_model_object(id, owned_by, path):
 
 
 class ModelHandler:
-    def __init__(self, testing: bool = False):
+    def __init__(self):
         if not testing:
             # Needs to be escaped if necessary
             mongo_user = urllib.parse.quote_plus(os.environ.get("MONGOUSER"))
@@ -63,6 +66,8 @@ class ModelHandler:
         # if there are no models we won't init them.
         if len(models) > 0:
             self.redis_client.set("models", json.dumps(models))
+        else:
+            self.redis_client.delete("models")
 
     def load_models(self):
         try:
@@ -86,33 +91,33 @@ class ModelHandler:
         else:
             return None
 
-    def add_model(self, model_def: AddAvailableModelRequest):
+    def add_model(self, model: str, owner: str, path: str):
         """
         Function to add a model to the served models
         Returns:
         - list: A list of all models available
         """
-        exists = self.model_collection.find_one({"data.id": model_def.model})
+        exists = self.model_collection.find_one({"data.id": model})
         if exists:
             raise KeyError("Model already exists")
         else:
-            self.model_collection.insert_one(
-                gen_model_object(
-                    model_def.model, model_def.owner, model_def.target_path
-                )
-            )
+            self.model_collection.insert_one(gen_model_object(model, owner, path))
             # Update the models, setting them.
             self.init_models()
 
-    def remove_model(self, model_def: RemoveModelRequest):
+    def remove_model(self, model: str):
         """
         Function to remove a model to the served models
         Returns:
         - list: A list of all models available
         """
-        exists = self.model_collection.find_one_and_delete({"data.id": model_def.model})
+        exists = self.model_collection.find_one_and_delete({"data.id": model})
         if exists:
             # update redis
             self.init_models()
         else:
             raise KeyError("Model does not exist")
+
+
+if not testing:
+    model_handler = ModelHandler()

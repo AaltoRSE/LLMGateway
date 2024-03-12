@@ -21,3 +21,7 @@ class RemoveModelRequest(BaseModel):
 
 class RemoveKeyRequest(BaseModel):
     key: str = Field(description="The key to add.")
+
+
+class LoginRequest(BaseModel):
+    key: str = Field(description="The key to add.")
