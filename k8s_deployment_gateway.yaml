@@ -37,12 +37,13 @@ spec:
             # Mongo settings ( port will be default )
             - {
                 name: MONGOUSER,
-                valueFrom: { secretKeyRef: { name: azure-mongo, key: user } },
+                valueFrom:
+                  { secretKeyRef: { name: azure-dbs, key: mongouser } },
               }
             - {
                 name: MONGOPASSWORD,
                 valueFrom:
-                  { secretKeyRef: { name: azure-mongo, key: password } },
+                  { secretKeyRef: { name: azure-dbs, key: mongopassword } },
               }
             - { name: MONGOHOST, value: "llm-azure-mongo-svc" }
             - {

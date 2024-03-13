@@ -61,12 +61,13 @@ spec:
           env:
             - {
                 name: MONGO_INITDB_ROOT_USERNAME,
-                valueFrom: { secretKeyRef: { name: azure-mongo, key: user } },
+                valueFrom:
+                  { secretKeyRef: { name: azure-dbs, key: mongouser } },
               }
             - {
                 name: MONGO_INITDB_ROOT_PASSWORD,
                 valueFrom:
-                  { secretKeyRef: { name: azure-mongo, key: password } },
+                  { secretKeyRef: { name: azure-dbs, key: mongopassword } },
               }
           volumeMounts:
             - mountPath: /data/db
