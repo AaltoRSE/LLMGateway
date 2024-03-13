@@ -20,10 +20,6 @@ spec:
         app.kubernetes.io/name: llm-azure-gateway
         app.kubernetes.io/component: server
     spec:
-      volumes:
-        - name: certificate-volume
-          secret:
-            secretName: llm-gatewaysaml-secret
       containers:
         - name: gateway
           image: harbor.cs.aalto.fi/aaltorse-public/llm_gateway:azure # TODO
@@ -61,7 +57,3 @@ spec:
                     secretKeyRef: { name: llm-azure-gateway, key: gateway_key },
                   },
               }
-          volumeMounts:
-            - mountPath: /app/saml/saml_data/certs
-              name: certificate-volume
-              readOnly: true
