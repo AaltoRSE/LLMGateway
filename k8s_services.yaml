@@ -49,4 +49,30 @@ spec:
       port: 80
       targetPort: 3000
 ---
-
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: llm-azure-mongo-access
+spec:
+  podSelector:
+    matchLabels:
+      app: llm-azure-mongo-svc
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: llm-azure-gateway-svc
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: llm-azureredis-access
+spec:
+  podSelector:
+    matchLabels:
+      app: llm-azure-redis-svc
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: llm-azure-gateway-svc
