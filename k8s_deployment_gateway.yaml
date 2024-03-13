@@ -3,21 +3,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: llm-gateway
+  name: llm-azure-gateway
   namespace: rse
   labels:
-    app.kubernetes.io/name: llm-gateway
+    app.kubernetes.io/name: llm-azure-gateway
     app.kubernetes.io/component: server
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: llm-gateway
+      app.kubernetes.io/name: llm-azure-gateway
       app.kubernetes.io/component: server
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: llm-gateway
+        app.kubernetes.io/name: llm-azure-gateway
         app.kubernetes.io/component: server
     spec:
       volumes:
@@ -26,7 +26,7 @@ spec:
             secretName: llm-gatewaysaml-secret
       containers:
         - name: gateway
-          image: harbor.cs.aalto.fi/aaltorse-public/llm_gateway # TODO
+          image: harbor.cs.aalto.fi/aaltorse-public/llm_gateway:azure # TODO
           ports:
             - containerPort: 3000
           resources:
@@ -37,28 +37,28 @@ spec:
             # Mongo settings ( port will be default )
             - {
                 name: MONGOUSER,
-                valueFrom: { secretKeyRef: { name: mongo, key: user } },
+                valueFrom: { secretKeyRef: { name: azure-mongo, key: user } },
               }
             - {
                 name: MONGOPASSWORD,
-                valueFrom: { secretKeyRef: { name: mongo, key: password } },
+                valueFrom:
+                  { secretKeyRef: { name: azure-mongo, key: password } },
               }
-            - { name: MONGOHOST, value: "llm-mongo-svc" }
-            - { name: LLM_BASE_URL, value: "https://llm.k8s-test.cs.aalto.fi" }
+            - { name: MONGOHOST, value: "llm-azure-mongo-svc" }
+            - {
+                name: LLM_BASE_URL,
+                value: "https://aalto-openai-apigw.azure-api.net/v1/",
+              }
             # Redis
-            - { name: REDISHOST, value: "llm-redis-svc" }
+            - { name: REDISHOST, value: "llm-azure-redis-svc" }
             - { name: REDISPORT, value: "6379" }
             # This is the admin key, which allows generation/removal of additional keys
             - {
                 name: ADMIN_KEY,
                 valueFrom:
-                  { secretKeyRef: { name: llm-gateway, key: gateway_key } },
-              }
-            # This is the key for the INFERENCE Server
-            - {
-                name: INFERENCE_KEY,
-                valueFrom:
-                  { secretKeyRef: { name: llm-gateway, key: inference_key } },
+                  {
+                    secretKeyRef: { name: llm-azure-gateway, key: gateway_key },
+                  },
               }
           volumeMounts:
             - mountPath: /app/saml/saml_data/certs

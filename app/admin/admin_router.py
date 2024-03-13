@@ -2,6 +2,7 @@ from .admin_requests import *
 from fastapi import APIRouter, Request, Security, HTTPException, status
 from security.api_keys import get_admin_key, key_handler
 from utils.llmkey_handler import LLMKeyHandler
+from utils.handlers import inference_request_builder
 import logging
 
 
@@ -12,6 +13,7 @@ router = APIRouter(
 )
 
 logger = logging.getLogger("admin")
+
 
 
 # Admin endpoints
@@ -42,3 +44,7 @@ def setllmKey(RequestData: LLMKeyRequest, admin_key: str = Security(get_admin_ke
 def listKeys(RequestData: Request, admin_key: str = Security(get_admin_key)):
     logger.info("Keys requested")
     return key_handler.list_keys()
+
+@router.post("/setprompt", status_code=status.HTTP_200_OK)
+def listKeys(request: SetPromptRequest, admin_key: str = Security(get_admin_key)):
+    inference_request_builder.set_base_prompt(request.prompt)

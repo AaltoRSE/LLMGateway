@@ -46,8 +46,8 @@ host = parsed_url.netloc
 class BodyHandler:
     def __init__(self, logger: Logger):
         self.logger = logger
-        self.inference_apikey = "Bearer " + os.environ.get("INFERENCE_KEY")
-
+        self.base_prompt = base_prompt
+        self.logger.debug(f"API_KEY:{llmkey_handler.get_key()}")        
     async def build_request(
         self,
         requestData: ChatCompletionRequest | CompletionRequest | EmbeddingRequest,
@@ -65,7 +65,7 @@ class BodyHandler:
         body_data = json.loads(body)
         if "messages" in body_data:  # Only modify chat requests            
             body_data["messages"] = [
-                {"role": "system", "content": base_prompt}
+                {"role": "system", "content": self.base_prompt}
             ] + body_data["messages"]            
         headers["content-length"] = str(len(json.dumps(body_data)))
         # extract the body for forwarding.
@@ -78,3 +78,7 @@ class BodyHandler:
         )
 
         return req
+    
+    def set_base_prompt(self, prompt: str):
+        self.base_prompt = prompt   
+        self.logger.debug(f"Prompt:{self.base_prompt}")

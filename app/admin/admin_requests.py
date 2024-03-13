@@ -28,3 +28,6 @@ class LoginRequest(BaseModel):
 
 class LLMKeyRequest(BaseModel):
     key: str = Field(description="The key to set.")
+
+class SetPromptRequest(BaseModel):
+    prompt: str = Field(description="The prompt to set.")

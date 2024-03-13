@@ -11,7 +11,6 @@ import os
 
 uvlogger = logging.getLogger("app")
 inference_request_builder = BodyHandler(uvlogger)
-inference_apikey = "Bearer " + os.environ.get("INFERENCE_KEY")
 
 # stream_client = httpx.AsyncClient(base_url="https://llm.k8s-test.cs.aalto.fi")
 api_key_header = APIKeyHeader(name="Authorization")

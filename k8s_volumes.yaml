@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: llm-mongo
+  name: llm-azure-mongo
   namespace: rse
 spec:
   storageClassName: nfs-client # Empty string must be explicitly set otherwise default StorageClass will be set
