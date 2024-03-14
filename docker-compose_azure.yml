@@ -1,0 +1,32 @@
+version: "3.9"
+services:
+  backend:
+    build:
+      dockerfile: Dockerfile
+    environment:
+      - ADMIN_KEY=321
+      - MONGO_SESSION_COLLECTION=sessions
+      # Indicate where you have a LLM Running.
+      - LLM_BASE_URL=https://aalto-openai-apigw.azure-api.net/v1/
+      - MONGOUSER=test
+      - MONGOPASSWORD=test
+      - MONGOHOST=mongo
+      - REDISHOST=redis
+      - REDISPORT=6379
+    container_name: gateway-server
+    ports:
+      - 127.0.0.1:3000:3000
+    depends_on:
+      - mongo
+      - redis
+  mongo:
+    extends:
+      file: docker_databases.yml
+      service: mongo
+  redis:
+    extends:
+      file: docker_databases.yml
+      service: redis
+networks:
+  default:
+    name: inference-network
