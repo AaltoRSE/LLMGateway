@@ -10,7 +10,7 @@ from llmapi.llama_requests import (
 )
 from logging import Logger
 from .llmkey_handler import LLMKeyHandler
-from .quota import server_quota
+from .quota import server_quota, num_tokens_from_messages
 import os
 import json
 from urllib.parse import urlparse
@@ -47,7 +47,8 @@ class BodyHandler:
     def __init__(self, logger: Logger):
         self.logger = logger
         self.base_prompt = base_prompt
-        self.logger.debug(f"API_KEY:{llmkey_handler.get_key()}")        
+        self.logger.debug(f"API_KEY:{llmkey_handler.get_key()}")
+
     async def build_request(
         self,
         requestData: ChatCompletionRequest | CompletionRequest | EmbeddingRequest,
@@ -63,11 +64,15 @@ class BodyHandler:
         headers["Ocp-Apim-Subscription-key"] = f"{llmkey_handler.get_key()}"
         headers["host"] = host
         body_data = json.loads(body)
-        if "messages" in body_data:  # Only modify chat requests            
+        if "messages" in body_data:  # Only modify chat requests
             body_data["messages"] = [
                 {"role": "system", "content": self.base_prompt}
-            ] + body_data["messages"]            
+            ] + body_data["messages"]
+        message_tokens = num_tokens_from_messages(body_data["messages"])
+        # Store the prompt tokens
+        server_quota.update_price(message_tokens, True)
         headers["content-length"] = str(len(json.dumps(body_data)))
+
         # extract the body for forwarding.
         req = stream_client.build_request(
             method,
@@ -78,7 +83,7 @@ class BodyHandler:
         )
 
         return req
-    
+
     def set_base_prompt(self, prompt: str):
-        self.base_prompt = prompt   
+        self.base_prompt = prompt
         self.logger.debug(f"Prompt:{self.base_prompt}")

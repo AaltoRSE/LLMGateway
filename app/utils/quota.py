@@ -2,6 +2,9 @@
 import threading
 from fastapi import HTTPException, status
 import tiktoken
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def num_tokens_from_messages(messages):
@@ -23,13 +26,13 @@ def num_tokens_from_messages(messages):
 endpoints = {
     "gpt4": {
         "endpoint": "openai/gpt4-1106-preview/chat/completions",
-        "prompt": 0.01 / 1000,
-        "completion": 0.028 / 1000,
+        "prompt": 0.01 / 1000.0,
+        "completion": 0.028 / 1000.0,
     },
     "gpt3": {
         "endpoint": "chat",
-        "prompt": 0.0005 / 1000,
-        "completion": 0.0014 / 1000,
+        "prompt": 0.0005 / 1000.0,
+        "completion": 0.0014 / 1000.0,
     },
 }
 
@@ -52,7 +55,8 @@ class Quota:
             self.cost += new_value
 
     def get_endpoint(self):
-        return endpoints[self.get_current_model()]["endpoint"]
+        model = self.get_current_model()
+        return endpoints[model]["endpoint"]
 
     def get_current_model(self):
         current_price = self.get_price()
@@ -70,14 +74,15 @@ class Quota:
         the number of tokens is used and the type of token (whether prompt or completion)
         is used to calculate the price.
         """
-        self.add_price(self.calculate_request_price(token_number, is_prompt))
+        new_price = self.calculate_request_price(token_number, is_prompt)
+        self.add_price(new_price)
 
     def calculate_request_price(self, token_number: int, is_prompt: bool):
         """This function retrieves the price of the prompt based on the current endpoint.
         the number of tokens is used and the type of token (whether prompt or completion)
         is used to calculate the price.
         """
-        endpoint = self.get_endpoint()
+        endpoint = self.get_current_model()
         cost = (
             endpoints[endpoint]["prompt"]
             if is_prompt
@@ -96,7 +101,6 @@ server_quota = Quota()
 def set_value():
     # Replace this with your logic to set the value
     new_value = server_quota.set_price(0)
-    server_quota.set_value(new_value)
     print(f"Setting value to: {new_value}")
 
 
