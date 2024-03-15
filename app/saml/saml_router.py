@@ -113,7 +113,7 @@ async def metadata():
 
 
 @router.get("/slo")
-async def saml_logout(request: Request, user: any = Security(get_authed_user)):
+async def saml_slo_logout(request: Request, user: any = Security(get_authed_user)):
     """
     Logout endpoint
     """
@@ -145,7 +145,7 @@ async def saml_logout(request: Request, user: any = Security(get_authed_user)):
 
 
 @router.get("/sls")
-async def saml_logout(request: Request, user: any = Security(get_authed_user)):
+async def saml_sls_logout(request: Request, user: any = Security(get_authed_user)):
     """
     Single logout callback endpoint
     """
@@ -177,6 +177,11 @@ async def saml_logout(request: Request, user: any = Security(get_authed_user)):
         error_reason = auth.get_last_error_reason()
         logger.info(error_reason)
         logger.info(auth._last_response)
-        return error_reason
+        # We will clean/i.e. logout the session anyways.
+        clean_session(request.session)
+        return RedirectResponse(url="/")
     else:
+        # We will clean/i.e. logout the session anyways.
+        clean_session(request.session)
         logger.error(auth.get_last_error_reason())
+        return RedirectResponse(url="/")
