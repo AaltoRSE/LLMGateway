@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 import tiktoken
 import logging
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,6 +41,7 @@ endpoints = {
 class Quota:
     def __init__(self, initial_value=0):
         self.cost = initial_value
+        self.breakpoints = [10, 50]
         self.lock = threading.Lock()
 
     def get_price(self):
@@ -62,7 +64,7 @@ class Quota:
         current_price = self.get_price()
         if current_price < 10:
             return "gpt4"
-        elif current_price < 30:
+        elif current_price < 50:
             return "gpt3"
         else:
             raise HTTPException(
