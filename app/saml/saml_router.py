@@ -52,23 +52,32 @@ async def saml_callback(request: Request):
         else:
             sessionData = {}
             sessionData["samlUserdata"] = auth.get_attributes()
-            logger.debug(sessionData["samlUserdata"])
+            logger.info(sessionData["samlUserdata"])
             # Now, we check, whether the user is an employee, and thus eligible to use the service
             debug = int(os.environ.get("GATEWAY_DEBUG", 0)) == 1
-            logger.debug(debug)
+            logger.info(debug)
+
             try:
-                if (not debug) and (
-                    not "employee"
-                    in sessionData["samlUserdata"]["urn:oid:1.3.6.1.4.1.5923.1.1.1.1"]
+                userGroups = sessionData["samlUserdata"][
+                    "urn:oid:1.3.6.1.4.1.5923.1.1.1.1"
+                ]
+                if (not debug) and not (
+                    ("employee" in userGroups) or ("faculty" in userGroups)
                 ):
                     raise HTTPException(
                         status.HTTP_403_FORBIDDEN,
                         "Only staff can use this self service",
                     )
             except Exception as e:
-                logger.error(e)
-                logger.debug(sessionData)
-                raise HTTPException(status.HTTP_403_FORBIDDEN, "Authentication invalid")
+                if isinstance(e, HTTPException):
+                    # Only applies to situations, where the user is not an employee
+                    raise e
+                else:
+                    logger.error(e)
+                    logger.debug(sessionData)
+                    raise HTTPException(
+                        status.HTTP_403_FORBIDDEN, "Authentication invalid"
+                    )
             sessionData["samlNameId"] = auth.get_nameid()
             sessionData["samlNameIdFormat"] = auth.get_nameid_format()
             sessionData["samlNameIdNameQualifier"] = auth.get_nameid_nq()

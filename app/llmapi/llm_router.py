@@ -92,7 +92,7 @@ async def completion(
                 streamlogger=responselogger,
             )
         else:
-            r = await stream_client.send(req)
+            r = await stream_client.send(req)            
             responseData = r.json()
             tokens = responseData["usage"]["completion_tokens"]
             background_tasks.add_task(
