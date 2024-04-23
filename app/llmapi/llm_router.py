@@ -10,18 +10,19 @@ from fastapi import (
     FastAPI,
 )
 
+# These are essentially the llama_cpp classes except, that they have a default value for the model
 from .llama_requests import (
     CompletionRequest,
     ChatCompletionRequest,
     EmbeddingRequest,
 )
 
-from .llama_responses import (
-    ModelList,
+from llama_cpp.llama_types import (
     Completion,
     ChatCompletion,
     CreateEmbeddingResponse,
 )
+from llama_cpp.server.types import ModelList
 
 from utils.response_handling import LoggingStreamResponse, event_generator
 from security.api_keys import get_api_key
@@ -68,9 +69,9 @@ async def completion(
     api_key: str = Security(get_api_key),
 ) -> Completion:
     content = await request.body()
-    llm_logger.info(content)
+    llm_logger.debug(content)
     stream = requestData.stream
-    llm_logger.info(stream_client)
+    llm_logger.debug(stream_client)
     req, model = await inference_request_builder.build_request(
         requestData,
         request.headers.mutablecopy(),
@@ -92,7 +93,7 @@ async def completion(
                 streamlogger=responselogger,
             )
         else:
-            r = await stream_client.send(req)            
+            r = await stream_client.send(req)
             responseData = r.json()
             tokens = responseData["usage"]["completion_tokens"]
             background_tasks.add_task(
@@ -116,7 +117,7 @@ async def chat_completion(
     api_key: str = Security(get_api_key),
 ) -> ChatCompletion:
     content = await request.body()
-    llm_logger.info(content)
+    llm_logger.debug(content)
     stream = requestData.stream
     req, model = await inference_request_builder.build_request(
         requestData,
