@@ -7,8 +7,6 @@ import re
 import os
 
 
-
-
 admin_key_header = APIKeyHeader(name="AdminKey")
 api_key_header = APIKeyHeader(name="Authorization")
 
@@ -34,8 +32,8 @@ def get_api_key(api_key: str = Security(api_key_header)) -> str:
     if key_handler.check_key(api_key):
         return api_key
     else:
-        uvlogger.info(api_key_header)
-        uvlogger.info(api_key)
+        uvlogger.warn(api_key_header)
+        uvlogger.warn(f"Attempted usage with invalid key: {api_key}")
     raise HTTPException(
         status_code=401,
         detail="Invalid or missing API Key",

@@ -44,7 +44,7 @@ async def saml_callback(request: Request):
     auth = OneLogin_Saml2_Auth(req, saml_settings)
     auth.process_response()  # Process IdP response
     errors = auth.get_errors()  # This method receives an array with the errors
-    logger.info("SAML processed")
+    logger.debug("SAML processed")
     if len(errors) == 0:
         if not auth.is_authenticated():
             # This check if the response was ok and the user data retrieved or not (user authenticated)
@@ -52,11 +52,11 @@ async def saml_callback(request: Request):
         else:
             sessionData = {}
             sessionData["samlUserdata"] = auth.get_attributes()
-            logger.info(sessionData["samlUserdata"])
+            logger.debug(sessionData["samlUserdata"])
             # Now, we check, whether the user is an employee, and thus eligible to use the service
             debug = int(os.environ.get("GATEWAY_DEBUG", 0)) == 1
-            logger.info(debug)
-
+            # Log any login attempts
+            logger.info(sessionData)
             try:
                 userGroups = sessionData["samlUserdata"][
                     "urn:oid:1.3.6.1.4.1.5923.1.1.1.1"
@@ -64,6 +64,8 @@ async def saml_callback(request: Request):
                 if (not debug) and not (
                     ("employee" in userGroups) or ("faculty" in userGroups)
                 ):
+                    logger.info(f"Unauthorized login attempt by: {auth.get_nameid()}")
+                    logger.info(f"Attributed were: {sessionData["samlUserdata"]}")
                     raise HTTPException(
                         status.HTTP_403_FORBIDDEN,
                         "Only staff can use this self service",
@@ -84,13 +86,14 @@ async def saml_callback(request: Request):
             sessionData["samlNameIdSPNameQualifier"] = auth.get_nameid_spnq()
             sessionData["samlSessionIndex"] = auth.get_session_index()
             sessionData["UserIP"] = get_request_source(request)
-            logger.debug(sessionData)
             try:
                 sessionData["UserName"] = sessionData["samlUserdata"][
                     "urn:oid:1.3.6.1.4.1.5923.1.1.1.6"
                 ][0]
+                logger.info(f"Login by {sessionData["UserName"]}")
             except Exception as e:
                 logger.error(e)
+                logger.error(sessionData)
                 raise HTTPException(
                     status.HTTP_403_FORBIDDEN,
                     "Authentication invalid, missing saml data",
@@ -129,7 +132,7 @@ async def saml_slo_logout(request: Request, user: any = Security(get_authed_user
     req = await prepare_from_fastapi_request(request, True)
     auth = OneLogin_Saml2_Auth(req, saml_settings)
     name_id = session_index = name_id_format = name_id_nq = name_id_spnq = None
-    logger.info(user)
+    logger.debug(user)
     userData = user.get_user_data()
     if "samlNameId" in userData:
         name_id = userData["samlNameId"]
@@ -148,7 +151,7 @@ async def saml_slo_logout(request: Request, user: any = Security(get_authed_user
         name_id_format=name_id_format,
         spnq=name_id_spnq,
     )
-    logger.info(f"Redirecting to {url}")
+    logger.debug(f"Redirecting to {url}")
     request.session["LogoutRequestID"] = auth.get_last_request_id()
     return RedirectResponse(url=url)
 
@@ -160,32 +163,32 @@ async def saml_sls_logout(request: Request, user: any = Security(get_authed_user
     """
     req = await prepare_from_fastapi_request(request, True)
     auth = OneLogin_Saml2_Auth(req, saml_settings)
-    logger.info(req)
+    logger.debug(req)
     request_id = None
     if "LogoutRequestID" in request.session:
         request_id = request.session["LogoutRequestID"]
-    logger.info(request_id)
+    logger.debug(request_id)
     dscb = lambda: clean_session(request.session)
     url = auth.process_slo(request_id=request_id, delete_session_cb=dscb)
-    logger.info(url)
+    logger.debug(url)
     errors = auth.get_errors()
-    logger.info(errors)
     if len(errors) == 0:
-        logger.info("Redirecting")
+        logger.debug("Redirecting")
         if url is not None:
-            logger.info("Redirecting to indicated url")
+            logger.debug("Redirecting to indicated url")
             # To avoid 'Open Redirect' attacks, before execute the redirection confirm
             # the value of the url is a trusted URL.
             return RedirectResponse(url)
         else:
-            logger.info("Redirecting to default")
+            logger.debug("Redirecting to default")
             # Return back to main page
             return RedirectResponse(url="/")
     elif auth.get_settings().is_debug_active():
-        logger.info("Got an error")
+        logger.error("Got an error")
+        logger.error(errors)
         error_reason = auth.get_last_error_reason()
-        logger.info(error_reason)
-        logger.info(auth._last_response)
+        logger.error(error_reason)
+        logger.error(auth._last_response)
         # We will clean/i.e. logout the session anyways.
         clean_session(request.session)
         return RedirectResponse(url="/")

@@ -178,13 +178,13 @@ class LoggingHandler:
         userData = self.user_collection.find_one({"username": username})
         if userData == None:
             # The user has no entry yet.
-            logger.info("No user data, returning empty info")
+            logger.debug("No user data, returning empty info")
             return {"keys": {}, "total_use": 0}
-        logger.info(userData)
+        logger.debug(userData)
         data = self.get_usage_for_keys(userData["keys"])
-        logger.info(data)
+        logger.debug(data)
         total_use = sum([element["usage"] for element in data])
-        logger.info({"total_use": total_use, "keys": data})
+        logger.debug({"total_use": total_use, "keys": data})
         return {"total_use": total_use, "keys": data}
 
     def get_usage_for_keys(
@@ -195,20 +195,20 @@ class LoggingHandler:
     ):
         if to_time == None:
             to_time = datetime.now()
-        logger.info(
+        logger.debug(
             obtain_key_usage(restrict_to_keys, from_time=from_time, to_time=to_time)
         )
         pipeline = obtain_key_usage(
             restrict_to_keys, from_time=from_time, to_time=to_time
         )
-        logger.info(pipeline[0]["$match"])
-        logger.info([x for x in self.log_collection.find(pipeline[0]["$match"])])
+        logger.debug(pipeline[0]["$match"])
+        logger.debug([x for x in self.log_collection.find(pipeline[0]["$match"])])
         key_info = self.key_collection.find({"key": {"$in": restrict_to_keys}})
         key_data = self.log_collection.aggregate(
             obtain_key_usage(restrict_to_keys, from_time=from_time, to_time=to_time)
         )
         key_data = [entry for entry in key_data]
-        logger.info(key_data)
+        logger.debug(key_data)
         key_info = [entry for entry in key_info]
         result = []
         keys_with_usage = []
@@ -223,10 +223,10 @@ class LoggingHandler:
                 }
             )
         no_use_keys = list(set(restrict_to_keys) - set(keys_with_usage))
-        logger.info(no_use_keys)
-        logger.info([entry for entry in key_info])
+        logger.debug(no_use_keys)
+        logger.debug([entry for entry in key_info])
         for keydata in key_info:
-            logger.info(keydata)
+            logger.debug(keydata)
             if keydata["key"] in no_use_keys:
                 result.append(
                     {

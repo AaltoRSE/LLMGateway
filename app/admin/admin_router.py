@@ -17,7 +17,11 @@ def addModel(
     RequestData: AddAvailableModelRequest, admin_key: str = Security(get_admin_key)
 ):
     try:
-        model_handler.add_model(model=RequestData.model, owner=RequestData.owner, path=RequestData.target_path)
+        model_handler.add_model(
+            model=RequestData.model,
+            owner=RequestData.owner,
+            path=RequestData.target_path,
+        )
     except KeyError as e:
         raise HTTPException(status.HTTP_409_CONFLICT)
 
@@ -52,5 +56,5 @@ def removeKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin
 
 @router.get("/listkeys", status_code=status.HTTP_200_OK)
 def listKeys(RequestData: Request, admin_key: str = Security(get_admin_key)):
-    logger.info("Keys requested")
+    logger.debug("Keys requested")
     return key_handler.list_keys()

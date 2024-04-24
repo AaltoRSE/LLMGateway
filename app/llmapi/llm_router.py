@@ -48,14 +48,12 @@ router = APIRouter(
     tags=["LLM Endpoints"],
 )
 
-
+llm_logger.info(f"Request URL used is {os.environ.get("LLM_BASE_URL")}")
 stream_client = httpx.AsyncClient(base_url=os.environ.get("LLM_BASE_URL"))
-llm_logger.info(stream_client)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    llm_logger.info("Lifespan called")
+    llm_logger.debug("Lifespan called")
     stream_client = httpx.AsyncClient(base_url=os.environ.get("LLM_BASE_URL"))
     yield
     await stream_client.aclose()
@@ -94,6 +92,7 @@ async def completion(
             )
         else:
             r = await stream_client.send(req)
+            llm_logger.debug(r.content)
             responseData = r.json()
             tokens = responseData["usage"]["completion_tokens"]
             background_tasks.add_task(
@@ -139,8 +138,9 @@ async def chat_completion(
                 content=event_generator(r.aiter_raw()),
                 streamlogger=responselogger,
             )
-        else:
+        else:            
             r = await stream_client.send(req)
+            llm_logger.debug(r.content)
             responseData = r.json()
             tokens = responseData["usage"]["completion_tokens"]
             background_tasks.add_task(
@@ -164,7 +164,7 @@ async def embedding(
     api_key: str = Security(get_api_key),
 ) -> CreateEmbeddingResponse:
     content = await request.body()
-    llm_logger.info(content)
+    llm_logger.debug(content)
     req, model = await inference_request_builder.build_request(
         requestData,
         request.headers.mutablecopy(),
@@ -174,7 +174,7 @@ async def embedding(
         stream_client,
     )
     try:
-        llm_logger.info(req.content)
+        llm_logger.debug(req.content)
         r = await stream_client.send(req)
         responseData = r.json()
         tokens = responseData["usage"]["prompt_tokens"]

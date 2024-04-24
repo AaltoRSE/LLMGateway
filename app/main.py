@@ -9,13 +9,8 @@ uvlogger = logging.getLogger("app")
 
 
 from fastapi import FastAPI, Request, Security
-from fastapi import status
-
-from onelogin.saml2.auth import OneLogin_Saml2_Auth
 
 
-from starlette.responses import RedirectResponse
-from starlette.requests import HTTPConnection
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 
@@ -26,15 +21,13 @@ from llmapi.llm_router import lifespan
 from security.auth import SAMLSessionBackend
 from security.session import SessionHandler
 from static_files import SPAStaticFiles
-import os
 
-import httpx
 
 debugging = True
 
 from utils.handlers import session_handler
 
-
+uvlogger.info("Starting up the app")
 app = FastAPI(lifespan=lifespan, debug=True)
 
 # Middleware is wrapped "around" existing middleware. i.e. order of execution is done inverse to order of adding.
