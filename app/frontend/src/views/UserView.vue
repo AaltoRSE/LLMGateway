@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-column">
+  <div v-if="agreementOk" class="flex flex-column">
     <div class="flex flex-row">
       <KeyInfo class="w-8 p-2" @showDetails="(event) => (selectedKey = event)"></KeyInfo>
       <KeyDetails class="w-4 p-2" :selectedKey="selectedKey"></KeyDetails>
@@ -19,22 +19,45 @@
       </router-link>
     </div>
   </div>
+  <div
+    v-else
+    class="flex w-full h-full justify-content-center align-content-center align-items-center"
+  >
+    <UserAgreementDialog
+      v-model:isVisible="showAgreementDialog"
+      @confirm="confirmAgreement"
+      @reject="showAgreementDialog = false"
+    />
+    <div class="flex flex-column">
+      <span> You need to accept the Usage Agreement in order to use Aalto GPT </span>
+      <Button label="Show User Agreement" @click="showAgreementDialog = true"></Button>
+    </div>
+  </div>
 </template>
 <script lang="ts">
-import KeyInfo from '@/components/KeyInfo.vue'
+// Stores
 import { useModelStore } from '@/stores/modelStore'
 import { useKeyStore } from '@/stores/keyStore'
+import { useAuthStore } from '@/stores/authStore'
 import { storeToRefs } from 'pinia'
+
+// PrimeVue components
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
+
+// Local components
+import KeyInfo from '@/components/KeyInfo.vue'
 import KeyDetails from '@/components/KeyDetails.vue'
+import UserAgreementDialog from '@/components/UserAgreementDialog.vue'
+
 export default {
   name: 'UserView',
   components: {
     KeyInfo,
     Button,
     InputText,
-    KeyDetails
+    KeyDetails,
+    UserAgreementDialog
   },
   props: {
     selectedModel: {
@@ -54,7 +77,8 @@ export default {
     return {
       showFilters: false,
       keyName: '',
-      selectedKey: undefined
+      selectedKey: undefined,
+      showAgreementDialog: true
     }
   },
   methods: {
@@ -63,6 +87,10 @@ export default {
     },
     updateKey(newKey: string) {
       return
+    },
+    confirmAgreement() {
+      this.authStore.acceptAgreement()
+      this.showAgreementDialog = false
     }
   },
   computed: {
@@ -94,9 +122,11 @@ export default {
   setup() {
     const dateFormat = 'dd-mm-yy' // Adjust the date format as needed
     const modelStore = useModelStore()
+    const authStore = useAuthStore()
     const keyStore = useKeyStore()
+    const { agreementOk } = storeToRefs(authStore)
     const { models } = storeToRefs(modelStore)
-    return { dateFormat, modelStore, models, keyStore }
+    return { dateFormat, modelStore, models, keyStore, authStore, agreementOk }
   },
   mounted() {
     console.log('Fetching models')

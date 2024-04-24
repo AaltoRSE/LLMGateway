@@ -7,12 +7,16 @@ type authedUser = {
   token: String
 }
 
+const AGREEMENT_ACCEPTED_VERSION = '1.0'
+const AGREEMENT_ACCEPTED_FIELD = 'llm-agreement-accepted'
+
 export const useAuthStore = defineStore({
   id: 'authStore',
   state: () => ({
     user: null as null | authedUser,
     loggedIn: false as Boolean,
-    isAdmin: false as undefined | Boolean
+    isAdmin: false as undefined | Boolean,
+    agreementOk: localStorage.getItem(AGREEMENT_ACCEPTED_FIELD) === AGREEMENT_ACCEPTED_VERSION
   }),
   actions: {
     async login(token: String) {
@@ -40,6 +44,10 @@ export const useAuthStore = defineStore({
         this.user = null
         this.loggedIn = false
       }
+    },
+    acceptAgreement() {
+      this.agreementOk = true
+      localStorage.setItem(AGREEMENT_ACCEPTED_FIELD, AGREEMENT_ACCEPTED_VERSION)
     }
   }
 })
