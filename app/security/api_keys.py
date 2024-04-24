@@ -32,7 +32,6 @@ def get_api_key(api_key: str = Security(api_key_header)) -> str:
     if key_handler.check_key(api_key):
         return api_key
     else:
-        uvlogger.warn(api_key_header)
         uvlogger.warn(f"Attempted usage with invalid key: {api_key}")
     raise HTTPException(
         status_code=401,
