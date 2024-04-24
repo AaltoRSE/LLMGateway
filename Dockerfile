@@ -5,7 +5,14 @@ USER root
 
 # Run apt install
 RUN apt-get update -y && apt-get upgrade -y
-
+RUN apt-get install gcc g++ \
+    cmake \
+    git \
+    ninja-build \
+    libopenblas-dev \
+    build-essential \
+    pkg-config -y 
+        
 # Don't write .pyc files into image to reduce image size 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 

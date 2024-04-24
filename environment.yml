@@ -18,4 +18,4 @@ dependencies:
   - pip:
       - pytest-mock-resources[mongo]
       - pytest-mock-resources[redis]
-      - llama-cpp-python[server]
+      - llama-cpp-python[server]==0.2.64
