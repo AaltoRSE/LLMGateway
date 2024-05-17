@@ -12,6 +12,10 @@ from .model_handler import ModelHandler
 from logging import Logger
 import os
 
+llm_url = "http://llm.k8s-test.cs.aalto.fi"
+if "LLM_DEFAULT_URL" in os.environ:
+    llm_url = os.environ.get("LLM_DEFAULT_URL")
+
 
 class BodyHandler:
     def __init__(self, logger: Logger, model_handler: ModelHandler):
@@ -50,7 +54,7 @@ class BodyHandler:
         url = httpx.URL(path=model + path)
         # Add the API Key for the inference server
         headers["Authorization"] = self.inference_apikey
-        headers["host"] = "llm.k8s-test.cs.aalto.fi"
+        headers["host"] = llm_url
         # extract the body for forwarding.
         req = stream_client.build_request(
             method,
