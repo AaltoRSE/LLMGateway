@@ -1,8 +1,15 @@
 # LLMGateway
 
-An API gateway for Aalto LLM deployment.
+This is a front facing gateway for multiple LLMs. The idea, is that this server acts as a middle man between multiple
+different LLMs. The gateway keeps track of users token usage (the current state only tracks completion tokens), and handles 
+access to the LLM servers (i.e. keeps the secrets that allow using them).
 
-Implemented as a FastAPI app, served using gunicorn + uvicorn, and containerized using Docker.
+
+## Architecture
+
+The gateway has two dependencies, a redis server and a mongodb. The redis server is used for faster authorization
+evaluation, while the mongo db is used for logging and persitence. The concept is to run this server on a kubernetes 
+platform  
 
 ## Run container locally
 

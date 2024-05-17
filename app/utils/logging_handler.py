@@ -47,12 +47,26 @@ def obtain_key_usage(
     model: str = None,
     from_time: datetime = datetime.fromtimestamp(0),
     to_time: datetime = None,
+    for_prompt: bool = False,
 ):
     base_match = {
         "source": {"$in": keys},
         "sourcetype": "apikey",
         "timestamp": {"$gte": from_time, "$lte": to_time},
     }
+
+    if for_prompt:
+        # isprompt needs to exist (otherwise it's not a prompt token
+        base_match["$and"] = [
+            {"isprompt": {"$exists": True}},
+            {"isprompt": {"$eq": True}},
+        ]
+    else:
+        # if isprompt doesn't exist, it must be a completion token
+        base_match["$or"] = [
+            {"isprompt": {"$exists": False}},
+            {"isprompt": {"$eq": False}},
+        ]
     if not model == None:
         base_match["model"] = model
     if to_time == None:
@@ -116,7 +130,9 @@ class LoggingHandler:
         self.key_collection = self.db["apikeys"]
         self.user_collection = self.db["users"]
 
-    def create_log_entry(self, tokencount, model, source, sourcetype="apikey"):
+    def create_log_entry(
+        self, tokencount, model, source, is_prompt=False, sourcetype="apikey"
+    ):
         """
         Function to create a log entry.
 
@@ -125,19 +141,21 @@ class LoggingHandler:
         - model (str): The model related to the log entry.
         - source (str): The source that authorized the request that is being logged. This could be a user name or an apikey.
         - sourcetype (str): Specification of what kind of source authorized the request that is being logged (either 'apikey' or 'user').
+        - is_prompt(bool): Whether the tokens are prompt tokens
 
         Returns:
         - dict: A dictionary representing the log entry with timestamp.
         """
         return {
-            "tokencount": tokencount,
+            "tokencount": tokencount,  # This is the completion tokens
+            "isprompt": is_prompt,
             "model": model,
             "source": source,
             "sourcetype": sourcetype,
             "timestamp": datetime.now(),  # Current timestamp in UTC
         }
 
-    def log_usage_for_key(self, tokencount, model, key):
+    def log_usage_for_key(self, tokencount, model, key, isprompt=False):
         """
         Function to log usage for a specific key.
 
@@ -145,13 +163,14 @@ class LoggingHandler:
         - tokencount (int): The count of tokens used.
         - model (str): The model associated with the usage.
         - key (str): The key for which the usage is logged.
+        - is_prompt(bool): Whether the tokens are prompt tokens
         """
         log_entry = self.create_log_entry(
-            tokencount=tokencount, model=model, source=key
+            tokencount=tokencount, model=model, source=key, is_prompt=isprompt
         )
         self.log_collection.insert_one(log_entry)
 
-    def log_usage_for_user(self, tokencount, model, user):
+    def log_usage_for_user(self, tokencount, model, user, is_prompt: bool = False):
         """
         Function to log usage for a specific user.
 
@@ -159,9 +178,14 @@ class LoggingHandler:
         - tokencount (int): The count of tokens used.
         - model (str): The model associated with the usage.
         - user (str): The user for which the usage is logged.
+        - is_prompt(bool): Whether the tokens are prompt tokens
         """
         log_entry = self.create_log_entry(
-            tokencount=tokencount, model=model, source=user, sourcetype="user"
+            tokencount=tokencount,
+            model=model,
+            source=user,
+            sourcetype="user",
+            is_prompt=is_prompt,
         )
         self.log_collection.insert_one(log_entry)
 
@@ -204,24 +228,45 @@ class LoggingHandler:
         logger.debug(pipeline[0]["$match"])
         logger.debug([x for x in self.log_collection.find(pipeline[0]["$match"])])
         key_info = self.key_collection.find({"key": {"$in": restrict_to_keys}})
-        key_data = self.log_collection.aggregate(
+        key_completion_data = self.log_collection.aggregate(
             obtain_key_usage(restrict_to_keys, from_time=from_time, to_time=to_time)
         )
-        key_data = [entry for entry in key_data]
-        logger.debug(key_data)
+        key_prompt_data = self.log_collection.aggregate(
+            obtain_key_usage(
+                restrict_to_keys, from_time=from_time, to_time=to_time, for_prompt=True
+            )
+        )
+        key_completion_data = [entry for entry in key_completion_data]
+        key_prompt_data = [entry for entry in key_prompt_data]
+        logger.debug(key_completion_data)
         key_info = [entry for entry in key_info]
         result = []
         keys_with_usage = []
-        for entry in key_data:
+        keydata = {}
+        for entry in key_completion_data:
             keys_with_usage.append(entry["key"])
-            result.append(
-                {
+            keydata[entry["key"]] = {
+                "key": entry["key"],
+                "name": entry["key_name"],
+                "completion_usage": entry["tokencount"],
+                "completion_modeldata": entry["models"],
+                "prompt_usage": 0,
+                "prompt_modeldata": [],
+            }
+        for entry in key_prompt_data:
+            if entry["key"] in keys_with_usage:
+                keydata[entry["key"]]["prompt_usage"] = entry["tokencount"]
+                keydata[entry["key"]]["prompt_modeldata"] = entry["models"]
+            else:
+                keys_with_usage.append(entry["key"])
+                keydata[entry["key"]] = {
                     "key": entry["key"],
                     "name": entry["key_name"],
-                    "usage": entry["tokencount"],
-                    "modeldata": entry["models"],
+                    "prompt_usage": entry["tokencount"],
+                    "prompt_modeldata": entry["models"],
+                    "completion_usage": 0,
+                    "completion_modeldata": [],
                 }
-            )
         no_use_keys = list(set(restrict_to_keys) - set(keys_with_usage))
         logger.debug(no_use_keys)
         logger.debug([entry for entry in key_info])
@@ -232,8 +277,10 @@ class LoggingHandler:
                     {
                         "key": keydata["key"],
                         "name": keydata["name"],
-                        "usage": 0,
-                        "modeldata": [],
+                        "completion_usage": 0,
+                        "completion_modeldata": [],
+                        "prompt_usage": 0,
+                        "prompt_modeldata": [],
                     }
                 )
         return result
