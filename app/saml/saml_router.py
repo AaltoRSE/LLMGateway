@@ -10,8 +10,8 @@ from security.saml import (
     saml_settings,
     prepare_from_fastapi_request,
     get_authed_user,
-    decrypt_name_id,
 )
+
 from security.auth import clean_session, get_request_source
 
 import logging
@@ -53,6 +53,9 @@ async def saml_callback(request: Request):
             sessionData = {}
             sessionData["samlUserdata"] = auth.get_attributes()
             logger.debug(sessionData["samlUserdata"])
+            # This needs to be updated depending on the SAML attributes and what access restrictions 
+            # Should be placed. At some point this might become a configuration option or more some 
+            # more complex authorization scheme.
             # Now, we check, whether the user is an employee, and thus eligible to use the service
             debug = int(os.environ.get("GATEWAY_DEBUG", 0)) == 1
             # Log any login attempts
