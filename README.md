@@ -36,7 +36,7 @@ access to the LLM servers (i.e. keeps the secrets that allow using them).
 ## Architecture
 
 The Gateway uses two databases Redis and MongoDB. Redis is used for fast key retrieval/checks, while Mongo is used for usage permanent storage. 
-Each model accessible by the gateway has to be hosted separeately and provide a OpenAI compatible API. The models all have to be hosted in a way that they are accessible at the same URL only changing the path (e.g. https://your.llm.server/<model-id1>/v1).
+Each model accessible by the gateway has to be hosted separeately and provide an OpenAI compatible API. The models all have to be hosted in a way that they are accessible at the same URL only changing the path (e.g. https://your.llm.server/<model-id1>/v1). Simplest is to host them on the same kubernetes cluster.
 
 
 ## Logging / Usage 
