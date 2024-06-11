@@ -1,0 +1,42 @@
+version: "3.9"
+services:
+  backend:
+    build:
+      dockerfile: Dockerfile
+    environment:
+      - INFERENCE_KEY=123
+      - ADMIN_KEY=321
+      - MONGO_SESSION_COLLECTION=sessions
+      # Indicate where you have a LLM Running.
+      - LLM_BASE_URL=http://192.168.0.4:8000
+      - MONGOUSER=test
+      - MONGOPASSWORD=test
+      - MONGOHOST=mongo
+      - REDISHOST=redis
+      - REDISPORT=6379
+      - GATEWAY_DEBUG=1
+    container_name: gateway-server
+    ports:
+      - 127.0.0.1:3000:3000
+    depends_on:
+      - mongo
+      - redis
+  mongo:
+    extends:
+      file: docker_databases.yml
+      service: mongo
+  redis:
+    extends:
+      file: docker_databases.yml
+      service: redis
+  mysql:
+    extends:
+      file: docker_databases.yml
+      service: mysql
+  keycloak:
+    extends:
+      file: docker_databases.yml
+      service: keycloak
+networks:
+  default:
+    name: inference-network
