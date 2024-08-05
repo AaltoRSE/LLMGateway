@@ -81,7 +81,7 @@ async def completion(
     try:
         if stream:
             responselogger = StreamLogger(
-                logging_handler=logging_handler, source=api_key, iskey=True, model=model
+                logging_handler=logging_handler, source=api_key, iskey=True, model=requestData.model
             )
             # no logging implemented yet...
             r = await stream_client.send(req, stream=True)
@@ -96,7 +96,7 @@ async def completion(
             responseData = r.json()
             tokens = responseData["usage"]["completion_tokens"]
             background_tasks.add_task(
-                logging_handler.log_usage_for_key, tokens, model, api_key
+                logging_handler.log_usage_for_key, tokens, requestData.model, api_key
             )
             return responseData
     except HTTPException as e:
@@ -117,8 +117,8 @@ async def chat_completion(
 ) -> ChatCompletion:
     content = await request.body()
     llm_logger.debug(content)
-    stream = requestData.stream
-    req, model = await inference_request_builder.build_request(
+    stream = requestData.stream    
+    req, modelpath = await inference_request_builder.build_request(
         requestData,
         request.headers.mutablecopy(),
         request.url.path,
@@ -126,10 +126,11 @@ async def chat_completion(
         content.decode(),
         stream_client,
     )
+    llm_logger.info(req)
     try:
         if stream:
             responselogger = StreamLogger(
-                logging_handler=logging_handler, source=api_key, iskey=True, model=model
+                logging_handler=logging_handler, source=api_key, iskey=True, model=requestData.model
             )
             # no logging implemented yet...
             r = await stream_client.send(req, stream=True)
@@ -144,7 +145,7 @@ async def chat_completion(
             responseData = r.json()
             tokens = responseData["usage"]["completion_tokens"]
             background_tasks.add_task(
-                logging_handler.log_usage_for_key, tokens, model, api_key
+                logging_handler.log_usage_for_key, tokens, requestData.model, api_key
             )
             return responseData
     except HTTPException as e:
@@ -165,7 +166,7 @@ async def embedding(
 ) -> CreateEmbeddingResponse:
     content = await request.body()
     llm_logger.debug(content)
-    req, model = await inference_request_builder.build_request(
+    req = await inference_request_builder.build_request(
         requestData,
         request.headers.mutablecopy(),
         request.url.path,
@@ -179,7 +180,7 @@ async def embedding(
         responseData = r.json()
         tokens = responseData["usage"]["prompt_tokens"]
         background_tasks.add_task(
-            logging_handler.log_usage_for_key, tokens, model, api_key
+            logging_handler.log_usage_for_key, tokens, requestData.model, api_key
         )
         return responseData
     except HTTPException as e:

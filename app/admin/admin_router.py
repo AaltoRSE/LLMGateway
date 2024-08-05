@@ -1,20 +1,38 @@
 from .admin_requests import *
-from fastapi import APIRouter, Request, Security, HTTPException, status
+from fastapi import APIRouter, Request, Security, HTTPException, status, Depends
 from security.api_keys import get_admin_key, key_handler
-from utils.handlers import model_handler
+from utils.handlers import model_handler, logging_handler, admin_handler
 import logging
-
-router = APIRouter(
-    prefix="/admin", tags=["admin"], dependencies=[Security(get_admin_key)]
-)
+from typing import Optional
+from starlette.authentication import SimpleUser
+from security.saml import get_admin_user
 
 logger = logging.getLogger("admin")
+
+
+def get_admin_auth(
+    api_auth: Optional[str] = Depends(get_admin_key),
+    session_auth: Optional[SimpleUser] = Depends(get_admin_user),
+):
+    logger.info("Checking admin authentication")
+    if not api_auth == None or not session_auth == None:
+        return True
+    else:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Invalid authentication, or insufficient permissions",
+        )
+
+
+router = APIRouter(
+    prefix="/admin", tags=["admin"], dependencies=[Security(get_admin_auth)]
+)
 
 
 # Admin endpoints
 @router.post("/addmodel", status_code=status.HTTP_201_CREATED)
 def addModel(
-    RequestData: AddAvailableModelRequest, admin_key: str = Security(get_admin_key)
+    RequestData: AddAvailableModelRequest, is_admin: bool = Security(get_admin_auth)
 ):
     try:
         model_handler.add_model(
@@ -28,7 +46,7 @@ def addModel(
 
 @router.post("/removemodel", status_code=status.HTTP_200_OK)
 def removemodel(
-    RequestData: RemoveModelRequest, admin_key: str = Security(get_admin_key)
+    RequestData: RemoveModelRequest, is_admin: bool = Security(get_admin_auth)
 ):
     try:
         model_handler.remove_model(RequestData.model)
@@ -37,7 +55,7 @@ def removemodel(
 
 
 @router.post("/addapikey", status_code=status.HTTP_201_CREATED)
-def addKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin_key)):
+def addKey(RequestData: AddApiKeyRequest, is_admin: bool = Security(get_admin_auth)):
     if key_handler.add_key(
         user=RequestData.user, api_key=RequestData.key, name=RequestData.name
     ):
@@ -47,7 +65,7 @@ def addKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin_ke
 
 
 @router.post("/removeapikey", status_code=status.HTTP_200_OK)
-def removeKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin_key)):
+def removeKey(RequestData: AddApiKeyRequest, is_admin: bool = Security(get_admin_auth)):
     if key_handler.delete_key(key=RequestData.key):
         pass
     else:
@@ -55,6 +73,25 @@ def removeKey(RequestData: AddApiKeyRequest, admin_key: str = Security(get_admin
 
 
 @router.get("/listkeys", status_code=status.HTTP_200_OK)
-def listKeys(RequestData: Request, admin_key: str = Security(get_admin_key)):
+def listKeys(RequestData: Request, is_admin: bool = Security(get_admin_auth)):
     logger.debug("Keys requested")
     return key_handler.list_keys()
+
+
+@router.get("/getUsage", status_code=status.HTTP_200_OK)
+def listKeys(
+    RequestData: ObtainUsageRequest, is_admin: bool = Security(get_admin_auth)
+):
+    return logging_handler.get_usage_by_user(
+        from_time=RequestData.from_time, to_time=RequestData.to_time
+    )
+
+
+@router.get("/getUsers", status_code=status.HTTP_200_OK)
+def listKeys(RequestData: Request, is_admin: bool = Security(get_admin_auth)):
+    return admin_handler.list_users()
+
+
+@router.get("/makeAdmin", status_code=status.HTTP_200_OK)
+def listKeys(RequestData: MakeAdminRequest, is_admin: bool = Security(get_admin_auth)):
+    return admin_handler.add_admin()

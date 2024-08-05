@@ -49,6 +49,24 @@ def get_authed_user(conn: HTTPConnection):
     return conn.user
 
 
+def get_admin_user(conn: HTTPConnection):
+    """
+    Get the admin user from the
+
+    Parameters:
+    - conn (HTTPConnection): The HTTPConnection object representing the current connection.
+
+    Raises:
+    - HTTPException: If no user or the user is not an admin a 403 Forbidden status is raised with the detail "No user authenticated or autheticated use rnot an admin".
+
+    Returns:
+    - User: The authenticated user object retrieved from the connection.
+    """
+    if not conn.user.is_authenticated or not conn.user.is_admin():
+        return None
+    return conn.user
+
+
 async def prepare_from_fastapi_request(request: Request, debug=False):
     """
     Prepare and extract relevant information from a FastAPI Request object.
@@ -79,7 +97,7 @@ async def prepare_from_fastapi_request(request: Request, debug=False):
         "post_data": {},
         "get_data": dict(request.query_params),
         # Advanced request options
-        #"https": "",  # Uncomment if you are running a server using https!
+        # "https": "",  # Uncomment if you are running a server using https!
         # "request_uri": "",
         "query_string": request.url.query,
         # "validate_signature_from_qs": False,

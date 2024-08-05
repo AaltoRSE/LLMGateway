@@ -54,8 +54,7 @@ def get_admin_key(admin_key_header: str = Security(admin_key_header)) -> str:
         It raises a 401 status code error with the detail "Privileged Access required".
     """
     if admin_key_header == os.environ.get("ADMIN_KEY"):
+        uvlogger.info(f"Found valid Admin key")
         return admin_key_header
-    raise HTTPException(
-        status_code=401,
-        detail="Priviledged Access required",
-    )
+    uvlogger.info(f"Invalid Admin key found")
+    return None

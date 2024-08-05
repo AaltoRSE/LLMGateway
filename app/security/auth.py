@@ -9,6 +9,7 @@ from starlette.authentication import (
 from starlette.requests import HTTPConnection
 from starlette.middleware import Middleware
 from .session import SessionHandler
+from utils.admin_handler import AdminHandler
 from fastapi import HTTPException, status
 import logging
 
@@ -25,17 +26,22 @@ def get_request_source(request: HTTPConnection):
 
 
 class SAMLUser(SimpleUser):
-    def __init__(self, username: str, userdata: dict):
+    def __init__(self, username: str, userdata: dict, admin : bool=False):
         self.username = username
         self.data = userdata
+        self.admin = admin
 
     def get_user_data(self):
         return self.data
 
+    def is_admin(self):
+        return self.admin
+
 
 class SAMLSessionBackend(AuthenticationBackend):
-    def __init__(self, session_handler: SessionHandler):
+    def __init__(self, session_handler: SessionHandler, admin_handler: AdminHandler ):
         self.session_handler = session_handler
+        self.admin_handler = admin_handler
 
     async def authenticate(self, conn):
         try:
@@ -49,6 +55,7 @@ class SAMLSessionBackend(AuthenticationBackend):
             return
         try:
             data = self.session_handler.get_session_data(conn.session["key"])
+            is_admin = self.admin_handler.is_admin(data["UserName"])
             # Check IP correct
             if data == None:
                 # This is not a valid session any more... so we need to reset it somehow.
@@ -59,7 +66,7 @@ class SAMLSessionBackend(AuthenticationBackend):
                 return
         except HTTPException:
             return
-        return AuthCredentials(["authenticated"]), SAMLUser(data["UserName"], data)
+        return AuthCredentials(["authenticated"]), SAMLUser(username=data["UserName"], userdata=data, admin=is_admin)
 
 
 def clean_session(session):

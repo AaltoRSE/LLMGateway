@@ -13,8 +13,8 @@ from logging import Logger
 import os
 
 llm_url = "http://llm.k8s-test.cs.aalto.fi"
-if "LLM_DEFAULT_URL" in os.environ:
-    llm_url = os.environ.get("LLM_DEFAULT_URL")
+if "LLM_BASE_URL" in os.environ:
+    llm_url = os.environ.get("LLM_BASE_URL")
 
 
 class BodyHandler:

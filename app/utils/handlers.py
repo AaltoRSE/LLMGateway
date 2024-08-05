@@ -2,6 +2,7 @@ from .logging_handler import LoggingHandler
 from .key_handler import KeyHandler
 from .model_handler import model_handler
 from .request_building import BodyHandler
+from .admin_handler import AdminHandler
 from security.session import SessionHandler
 from contextlib import asynccontextmanager
 
@@ -21,5 +22,6 @@ inference_apikey = "Bearer " + os.environ.get("INFERENCE_KEY")
 api_key_header = APIKeyHeader(name="Authorization")
 logging_handler = LoggingHandler()
 session_handler = SessionHandler()
+admin_handler = AdminHandler()
 key_handler = KeyHandler()
 key_handler.set_logger(uvlogger)

@@ -8,12 +8,21 @@ logger = logging.getLogger("app")
 
 
 def model_usage_pipeline(
-    model: str,
+    model: str = None,
     from_time: datetime = datetime.fromtimestamp(0),
     to_time: datetime = None,
 ):
     if to_time == None:
         to_time = datetime.now()
+    if model == None:
+        search = ({"$match": {"timestamp": {"$gte": from_time, "$lte": to_time}}},)
+    else:
+        search = {
+            "$match": {
+                "model": model,
+                "timestamp": {"$gte": from_time, "$lte": to_time},
+            }
+        }
     pipeline = [
         {
             "$lookup": {
@@ -24,7 +33,7 @@ def model_usage_pipeline(
             }
         },
         {"$unwind": "$key_info"},
-        {"$match": {"model": model, "timestamp": {"$gte": from_time, "$lte": to_time}}},
+        search,
         {
             "$group": {
                 "_id": "$key_info.key",
@@ -284,9 +293,72 @@ class LoggingHandler:
                 return {"total_usage": 0, "data": []}
             else:
                 base_match["source"] = {"$in": keys}
+
         pipeline = [
             {"$match": base_match},
             {"$group": {"_id": "sum", "tokencount": {"$sum": "$tokencount"}}},
         ]
-
         return self.log_collection.aggregate(pipeline)[0]["tokencount"]
+
+    def get_usage_by_user(
+        self,
+        from_time: datetime = datetime.fromtimestamp(0),
+        to_time: datetime = None,
+        model: str = None,
+        user: str = None,
+    ):
+        base_match = {
+            "timestamp": {"$gte": from_time},
+        }
+        if not model == None:
+            base_match["model"] = model
+        if not to_time == None:
+            base_match["timestamp"] = {"$gte": from_time, "$lte": to_time}
+        if not user == None:
+            keys = [
+                entry.key
+                for entry in self.key_collection.aggregate(
+                    [{"$match": {"user": user}}, {"$project": {"_id": 0, "key": 1}}]
+                )
+            ]
+            # Source can also be the user themselves
+            keys.append(user)
+            if len(keys) == 0:
+                return {"total_usage": 0, "data": []}
+            else:
+                base_match["source"] = {"$in": keys}
+
+        pipeline = [
+            {"$match": base_match},
+            {
+                "$lookup": {
+                    "from": "apikeys",
+                    "localField": "source",
+                    "foreignField": "key",
+                    "as": "key_info",
+                }
+            },
+            {
+                "$addFields": {
+                    "user": {
+                        "$cond": {
+                            "if": {"$eq": ["$sourcetype", "user"]},
+                            "then": "$source",
+                            "else": {"$arrayElemAt": ["$key_info.user", 0]},
+                        }
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "user": 1,
+                    "tokencount": 1,
+                    "timestamp": 1,
+                    "model": 1,
+                    "_id": 0,
+                }
+            },
+        ]
+        res = list(self.log_collection.aggregate(pipeline))
+        logger.info(res)
+        return [result for result in res]

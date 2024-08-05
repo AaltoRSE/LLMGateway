@@ -25,7 +25,7 @@ from static_files import SPAStaticFiles
 
 debugging = True
 
-from utils.handlers import session_handler
+from utils.handlers import session_handler, admin_handler
 
 uvlogger.info("Starting up the app")
 app = FastAPI(lifespan=lifespan, debug=True)
@@ -33,7 +33,7 @@ app = FastAPI(lifespan=lifespan, debug=True)
 # Middleware is wrapped "around" existing middleware. i.e. order of execution is done inverse to order of adding.
 
 app.add_middleware(
-    AuthenticationMiddleware, backend=SAMLSessionBackend(session_handler)
+    AuthenticationMiddleware, backend=SAMLSessionBackend(session_handler, admin_handler)
 )
 
 app.add_middleware(SessionMiddleware, secret_key="some-random-string", max_age=None)
@@ -64,7 +64,11 @@ async def auth_test(request: Request):
     # Information about the authentication status, and using security would make this fail with Unauthorized
     # Responses...
     if request.user.is_authenticated:
-        return {"authed": True, "user": request.user.username}
+        return {
+            "authed": True,
+            "user": request.user.username,
+            "isAdmin": admin_handler.is_admin(request.user.username),
+        }
     else:
         return {"authed": False, "reason": "No Token provided"}
 
