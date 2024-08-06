@@ -54,8 +54,7 @@ class SAMLSessionBackend(AuthenticationBackend):
         if not "key" in conn.session:
             return
         try:
-            data = self.session_handler.get_session_data(conn.session["key"])
-            is_admin = self.admin_handler.is_admin(data["UserName"])
+            data = self.session_handler.get_session_data(conn.session["key"])            
             # Check IP correct
             if data == None:
                 # This is not a valid session any more... so we need to reset it somehow.
@@ -64,11 +63,11 @@ class SAMLSessionBackend(AuthenticationBackend):
             if data["UserIP"] != get_request_source(conn):
                 logger.info(f"Request IP is {get_request_source(conn)} while sored IP for session was {data["UserIP"]}" )
                 return
+            is_admin = self.admin_handler.is_admin(data["UserName"])
         except HTTPException:
             return
         return AuthCredentials(["authenticated"]), SAMLUser(username=data["UserName"], userdata=data, admin=is_admin)
-
-
+        
 def clean_session(session):
     session.pop("key")
     session["invalid"] = True

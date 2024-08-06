@@ -3,7 +3,7 @@ import json
 import os
 import urllib
 import logging
-
+from fastapi import HTTPException
 
 testing = False
 if "PYTEST_CURRENT_TEST" in os.environ:
@@ -51,8 +51,11 @@ class AdminHandler:
         - admin_id (str): The user id of the new admin user
         """
         exists = self.admin_collection.find_one({"userId": admin_id})
-        if not exists:
+        existing_users = self.list_users()
+        if not exists and admin_id in existing_users:
             self.admin_collection.insert_one({"userId": admin_id})
+        if not admin_id in existing_users:
+            raise HTTPException(400, "User does not exist")
 
     def delete_admin(self, admin_id: str):
         """
@@ -68,30 +71,21 @@ class AdminHandler:
     def list_users(self):
         pipeline = [
             {
-                "$lookup": {
-                    "from": "apikeys",
-                    "localField": "source",
-                    "foreignField": "key",
-                    "as": "key_info",
+                "$group": {
+                    "_id": "$user",
                 }
             },
             {
-                "$addFields": {
-                    "user": {
-                        "$cond": {
-                            "if": {"$eq": ["$sourcetype", "user"]},
-                            "then": "$source",
-                            "else": {"$arrayElemAt": ["$key_info.user", 0]},
-                        }
-                    }
+                "$project": {
+                    "_id": 0,
+                    "user": "$_id",
                 }
             },
-            {"$group": {"_id": "$user"}},
         ]
         # Execute the aggregation pipeline
-        result = list(self.db["logs"].aggregate(pipeline))
+        result = list(self.db["apikeys"].aggregate(pipeline))
         # Extract the list of unique users
-        return [entry["_id"] for entry in result]
+        return [entry["user"] for entry in result]
 
 
 if not testing:

@@ -1,5 +1,5 @@
 from pytest_mock_resources import create_mongo_fixture
-from logging_handler import LoggingHandler
+from gateway.app.logging.logging_handler import LoggingHandler
 
 mongo = create_mongo_fixture()
 

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
-from datetime import date
+from datetime import date, datetime
+
 
 model_field = Field(description="The name of the Model")
 
@@ -33,5 +34,11 @@ class LoginRequest(BaseModel):
 
 
 class ObtainUsageRequest(BaseModel):
-    from_time: date = Field(description="The oldest time to check", default=None)
-    to_time: date = Field(description="The latest time to check", default=None)
+    from_time: datetime = Field(
+        description="The oldest time to check", default=datetime.fromtimestamp(0)
+    )
+    to_time: datetime = Field(description="The latest time to check", default=None)
+    user: str = Field(
+        description="The user to check, none provided will give an overview of all",
+        default=None,
+    )

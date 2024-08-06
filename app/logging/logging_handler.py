@@ -307,6 +307,9 @@ class LoggingHandler:
         model: str = None,
         user: str = None,
     ):
+        logger.info("Getting usage")
+        logger.info(from_time)
+        logger.info(to_time)
         base_match = {
             "timestamp": {"$gte": from_time},
         }
@@ -349,16 +352,52 @@ class LoggingHandler:
                     }
                 }
             },
-            {
-                "$project": {
-                    "user": 1,
-                    "tokencount": 1,
-                    "timestamp": 1,
-                    "model": 1,
-                    "_id": 0,
-                }
-            },
         ]
+        logger.info(user)
+        logger.info(user == None)
+        if user == None:
+            logger.info("User is None")
+            pipeline.append(
+                {
+                    "$group": {
+                        "_id": {"user": "$user", "model": "$model"},
+                        "tokencount": {"$sum": "$tokencount"},
+                    }
+                }
+            )
+            pipeline.append(
+                {
+                    "$group": {
+                        "_id": "$_id.user",
+                        "models": {
+                            "$push": {
+                                "model": "$_id.model",
+                                "tokencount": "$tokencount",
+                            }
+                        },
+                    }
+                }
+            )
+            pipeline.append(
+                {
+                    "$project": {
+                        "user": "$_id",
+                        "models": 1,
+                        "_id": 0,
+                    }
+                }
+            )
+        else:
+            pipeline.append(
+                {
+                    "$project": {
+                        "user": 1,
+                        "tokencount": 1,
+                        "timestamp": 1,
+                        "model": 1,
+                        "_id": 0,
+                    }
+                }
+            )
         res = list(self.log_collection.aggregate(pipeline))
-        logger.info(res)
         return [result for result in res]

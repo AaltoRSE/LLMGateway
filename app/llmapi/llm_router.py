@@ -31,7 +31,7 @@ from utils.handlers import (
     inference_request_builder,
     logging_handler,
 )
-from utils.stream_logger import StreamLogger
+from gateway.app.logging.stream_logger import StreamLogger
 from contextlib import asynccontextmanager
 
 

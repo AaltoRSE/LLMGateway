@@ -57,14 +57,13 @@ async def saml_callback(request: Request):
             # Should be placed. At some point this might become a configuration option or more some 
             # more complex authorization scheme.
             # Now, we check, whether the user is an employee, and thus eligible to use the service
-            debug = int(os.environ.get("GATEWAY_DEBUG", 0)) == 1
             # Log any login attempts
             logger.info(sessionData)
             try:
                 userGroups = sessionData["samlUserdata"][
                     "urn:oid:1.3.6.1.4.1.5923.1.1.1.1"
                 ]
-                if (not debug) and not (
+                if not (
                     ("employee" in userGroups) or ("faculty" in userGroups)
                 ):
                     logger.info(f"Unauthorized login attempt by: {auth.get_nameid()}")

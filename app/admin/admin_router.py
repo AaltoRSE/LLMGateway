@@ -34,6 +34,9 @@ router = APIRouter(
 def addModel(
     RequestData: AddAvailableModelRequest, is_admin: bool = Security(get_admin_auth)
 ):
+    # Add a new model, if the model already exists, return a 409
+    # A Model needs a path (forward path to the model), a model name, and an owner
+    # The assumption is, that the API provided by the model server is compatible with openAI API.
     try:
         model_handler.add_model(
             model=RequestData.model,
@@ -78,20 +81,23 @@ def listKeys(RequestData: Request, is_admin: bool = Security(get_admin_auth)):
     return key_handler.list_keys()
 
 
-@router.get("/getUsage", status_code=status.HTTP_200_OK)
+@router.post("/getusage", status_code=status.HTTP_200_OK)
 def listKeys(
     RequestData: ObtainUsageRequest, is_admin: bool = Security(get_admin_auth)
 ):
+    logger.info("Usage Data requested")
     return logging_handler.get_usage_by_user(
-        from_time=RequestData.from_time, to_time=RequestData.to_time
+        from_time=RequestData.from_time,
+        to_time=RequestData.to_time,
+        user=RequestData.user,
     )
 
 
-@router.get("/getUsers", status_code=status.HTTP_200_OK)
+@router.get("/getusers", status_code=status.HTTP_200_OK)
 def listKeys(RequestData: Request, is_admin: bool = Security(get_admin_auth)):
     return admin_handler.list_users()
 
 
-@router.get("/makeAdmin", status_code=status.HTTP_200_OK)
+@router.post("/makeadmin", status_code=status.HTTP_200_OK)
 def listKeys(RequestData: MakeAdminRequest, is_admin: bool = Security(get_admin_auth)):
-    return admin_handler.add_admin()
+    return admin_handler.add_admin(RequestData.username)

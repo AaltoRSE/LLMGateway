@@ -7,7 +7,7 @@ import re
 import os
 
 
-admin_key_header = APIKeyHeader(name="AdminKey")
+admin_key_header = APIKeyHeader(name="AdminKey", auto_error=False)
 api_key_header = APIKeyHeader(name="Authorization")
 
 logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
