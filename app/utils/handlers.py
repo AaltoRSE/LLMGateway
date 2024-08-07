@@ -1,4 +1,4 @@
-from logging.logging_handler import LoggingHandler
+from server_logging.logging_handler import LoggingHandler
 from .key_handler import KeyHandler
 from .model_handler import model_handler
 from .request_building import BodyHandler

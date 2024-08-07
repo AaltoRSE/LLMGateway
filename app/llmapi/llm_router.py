@@ -10,6 +10,10 @@ from fastapi import (
     FastAPI,
 )
 
+from fastapi.responses import (
+    StreamingResponse,    
+)
+
 # These are essentially the llama_cpp classes except, that they have a default value for the model
 from .llama_requests import (
     CompletionRequest,
@@ -24,14 +28,13 @@ from llama_cpp.llama_types import (
 )
 from llama_cpp.server.types import ModelList
 
-from utils.response_handling import LoggingStreamResponse, event_generator
 from security.api_keys import get_api_key
 from utils.handlers import (
     model_handler,
     inference_request_builder,
     logging_handler,
 )
-from gateway.app.logging.stream_logger import StreamLogger
+from server_logging.stream_logger import StreamLogger
 from contextlib import asynccontextmanager
 
 
@@ -79,17 +82,18 @@ async def completion(
         stream_client,
     )
     try:
-        if stream:
-            responselogger = StreamLogger(
-                logging_handler=logging_handler, source=api_key, iskey=True, model=requestData.model
-            )
-            # no logging implemented yet...
+        if stream:            
+            # TODO: Conditionally add "stream_options.include_usage" to the request (and delete the respective cunk from the response)
+            # no logging implemented yet...            
             r = await stream_client.send(req, stream=True)
-            background_tasks.add_task(r.aclose)
-            return LoggingStreamResponse(
-                content=event_generator(r.aiter_raw()),
-                streamlogger=responselogger,
+            responselogger = StreamLogger(
+
+                logging_handler=logging_handler, source=api_key, iskey=True, model=requestData.model, stream = r.aiter_text()
             )
+            background_tasks.add_task(r.aclose)
+            background_tasks.add_task(responselogger.finish)
+            return StreamingResponse(responselogger.process())
+        
         else:
             r = await stream_client.send(req)
             llm_logger.debug(r.content)
@@ -129,16 +133,13 @@ async def chat_completion(
     llm_logger.info(req)
     try:
         if stream:
-            responselogger = StreamLogger(
-                logging_handler=logging_handler, source=api_key, iskey=True, model=requestData.model
-            )
-            # no logging implemented yet...
             r = await stream_client.send(req, stream=True)
-            background_tasks.add_task(r.aclose)
-            return LoggingStreamResponse(
-                content=event_generator(r.aiter_raw()),
-                streamlogger=responselogger,
+            responselogger = StreamLogger(
+                logging_handler=logging_handler, source=api_key, iskey=True, model=requestData.model, stream = r.aiter_text()
             )
+            background_tasks.add_task(r.aclose)
+            background_tasks.add_task(responselogger.finish)
+            return StreamingResponse(responselogger.process())
         else:            
             r = await stream_client.send(req)
             llm_logger.debug(r.content)

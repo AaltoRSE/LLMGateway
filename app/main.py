@@ -16,7 +16,7 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 
 
 from saml.saml_router import get_authed_user
-from gateway.app.logging.serverlogging import RouterLogging
+from server_logging.serverlogging import RouterLogging
 from llmapi.llm_router import lifespan
 from security.auth import SAMLSessionBackend
 from security.session import SessionHandler
