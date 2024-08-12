@@ -99,8 +99,12 @@ async def completion(
             llm_logger.debug(r.content)
             responseData = r.json()
             tokens = responseData["usage"]["completion_tokens"]
+            prompt_tokens = responseData["usage"]["prompt_tokens"]
             background_tasks.add_task(
                 logging_handler.log_usage_for_key, tokens, requestData.model, api_key
+            )
+            background_tasks.add_task(
+                logging_handler.log_usage_for_key, prompt_tokens, requestData.model, api_key, True
             )
             return responseData
     except HTTPException as e:
@@ -145,8 +149,12 @@ async def chat_completion(
             llm_logger.debug(r.content)
             responseData = r.json()
             tokens = responseData["usage"]["completion_tokens"]
+            prompt_tokens = responseData["usage"]["prompt_tokens"]
             background_tasks.add_task(
                 logging_handler.log_usage_for_key, tokens, requestData.model, api_key
+            )
+            background_tasks.add_task(
+                logging_handler.log_usage_for_key, prompt_tokens, requestData.model, api_key, True
             )
             return responseData
     except HTTPException as e:

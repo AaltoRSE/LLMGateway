@@ -8,7 +8,7 @@ import logging
 
 testing = False
 if "PYTEST_CURRENT_TEST" in os.environ:
-    testig = True
+    testing = True
 
 
 modelLogger = logging.getLogger(__name__)

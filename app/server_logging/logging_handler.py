@@ -37,16 +37,25 @@ def model_usage_pipeline(
         {
             "$group": {
                 "_id": "$key_info.key",
-                "total_tokens": {"$sum": "$tokencount"},
+                "completion_tokens": {"$sum": "$completion_tokens"},
+                "prompt_tokens": {"$sum": "$prompt_tokens"},
                 "keys": {
                     "$addToSet": {
                         "name": "$key_info.name",
-                        "token_count": "$tokencount",
+                        "completion_tokens": "$completion_tokens",
+                        "prompt_tokens": "$prompt_tokens",
                     }
                 },
             }
         },
-        {"$project": {"_id": 0, "total": "$total_tokens", "keys": "$keys"}},
+        {
+            "$project": {
+                "_id": 0,
+                "prompt_tokens": "$prompt_tokens",
+                "completion_tokens": "$completion_tokens",
+                "keys": "$keys",
+            }
+        },
     ]
     return pipeline
 
@@ -72,15 +81,21 @@ def obtain_key_usage(
         {
             "$group": {
                 "_id": {"source": "$source", "model": "$model"},
-                "tokencount": {"$sum": "$tokencount"},
+                "completion_tokens": {"$sum": "$completion_tokens"},
+                "prompt_tokens": {"$sum": "$prompt_tokens"},
             }
         },
         {
             "$group": {
                 "_id": "$_id.source",
-                "tokencount": {"$sum": "$tokencount"},
+                "prompt_tokens": {"$sum": "$prompt_tokens"},
+                "completion_tokens": {"$sum": "$completion_tokens"},
                 "models": {
-                    "$push": {"model": "$_id.model", "tokencount": "$tokencount"}
+                    "$push": {
+                        "model": "$_id.model",
+                        "prompt_tokens": "$prompt_tokens",
+                        "completion_tokens": "$completion_tokens",
+                    }
                 },
             }
         },
@@ -98,7 +113,8 @@ def obtain_key_usage(
                 "_id": 0,
                 "key_name": "$key_info.name",
                 "key": "$_id",
-                "tokencount": 1,
+                "prompt_tokens": 1,
+                "completion_tokens": 1,
                 "models": 1,
             }
         },
@@ -117,15 +133,18 @@ class LoggingHandler:
             mongo_client = pymongo.MongoClient(
                 "mongodb://%s:%s@%s/" % (mongo_user, mongo_password, mongo_URL)
             )
-            self.setup(mongo_client)
+            db = mongo_client["gateway"]
+            self.setup(db)
 
-    def setup(self, mongo_client):
-        self.db = mongo_client["gateway"]
+    def setup(self, db):
+        self.db = db
         self.log_collection = self.db["logs"]
         self.key_collection = self.db["apikeys"]
         self.user_collection = self.db["users"]
 
-    def create_log_entry(self, token_count, model, source, source_type="apikey", prompt=False):
+    def create_log_entry(
+        self, completion_tokens, model, source, source_type="apikey", prompt_tokens=0
+    ):
         """
         Function to create a log entry.
 
@@ -140,41 +159,52 @@ class LoggingHandler:
         - dict: A dictionary representing the log entry with timestamp.
         """
         return {
-            "tokencount": token_count,
+            "completion_tokens": completion_tokens,
+            "prompt_tokens": prompt_tokens,
             "model": model,
             "source": source,
             "sourcetype": source_type,
-            "prompt": prompt,
             "timestamp": datetime.now(),  # Current timestamp in UTC
         }
 
-    def log_usage_for_key(self, token_count, model, key, prompt=False):
+    def log_usage_for_key(
+        self, completion_tokens: int, model: str, key: str, prompt_tokens: int = 0
+    ):
         """
         Function to log usage for a specific key.
 
         Parameters:
-        - token_count (int): The count of tokens used.
+        - completion_tokens (int): The count of completion tokens used.
         - model (str): The model associated with the usage.
         - key (str): The key for which the usage is logged.
-        - prompt (bool): Whether this is for prompt tokens or completion tokens
+        - prompt_tokens (int): the number of prompt tokens used
         """
         log_entry = self.create_log_entry(
-            token_count=token_count, model=model, source=key, prompt=prompt
+            completion_tokens=completion_tokens,
+            model=model,
+            source=key,
+            prompt_tokens=prompt_tokens,
         )
         self.log_collection.insert_one(log_entry)
 
-    def log_usage_for_user(self, token_count, model, user, prompt=False):
+    def log_usage_for_user(
+        self, completion_tokens: int, model: str, user: str, prompt_tokens: int = 0
+    ):
         """
         Function to log usage for a specific user.
 
         Parameters:
-        - token_count (int): The count of tokens used.
+        - completion_tokens (int): The count of completion tokens used.
         - model (str): The model associated with the usage.
         - user (str): The user for which the usage is logged.
-        - prompt (bool): Whether this is for prompt tokens or completion tokens
+        - prompt_tokens (int): the number of prompt tokens used
         """
         log_entry = self.create_log_entry(
-            token_count=token_count, model=model, source=user, sourcetype="user", prompt=prompt
+            completion_tokens=completion_tokens,
+            model=model,
+            source=user,
+            source_type="user",
+            prompt_tokens=prompt_tokens,
         )
         self.log_collection.insert_one(log_entry)
 
@@ -196,7 +226,14 @@ class LoggingHandler:
         logger.debug(userData)
         data = self.get_usage_for_keys(userData["keys"])
         logger.debug(data)
-        total_use = sum([element["usage"] for element in data])
+        total_use = {
+            "completion_tokens": sum(
+                [element["usage"]["completion_tokens"] for element in data], 0
+            ),
+            "prompt_tokens": sum(
+                [element["usage"]["prompt_tokens"] for element in data], 0
+            ),
+        }
         logger.debug({"total_use": total_use, "keys": data})
         return {"total_use": total_use, "keys": data}
 
@@ -205,7 +242,29 @@ class LoggingHandler:
         restrict_to_keys,
         from_time: datetime = datetime.fromtimestamp(0),
         to_time: datetime = None,
-    ):
+    ) -> list:
+        """
+        Get the usage for the given key(s), in the indicated time range (all by default)
+        The resulting list will contain the accumulated usage of the key in the following format:
+        {
+            "key": str,
+            "name": str, # name of the key
+            "usage": {
+                "completion_tokens": int,
+                "prompt_tokens": int
+            },
+            "modeldata": [
+                {
+                    "model": str,
+                    "completion_tokens": int,
+                    "prompt_tokens": int
+                }
+            ]
+        }
+        """
+
+        if type(restrict_to_keys) == type(""):
+            restrict_to_keys = [restrict_to_keys]
         if to_time == None:
             to_time = datetime.now()
         logger.debug(
@@ -231,7 +290,10 @@ class LoggingHandler:
                 {
                     "key": entry["key"],
                     "name": entry["key_name"],
-                    "usage": entry["tokencount"],
+                    "usage": {
+                        "completion_tokens": entry["completion_tokens"],
+                        "prompt_tokens": entry["prompt_tokens"],
+                    },
                     "modeldata": entry["models"],
                 }
             )
@@ -245,7 +307,7 @@ class LoggingHandler:
                     {
                         "key": keydata["key"],
                         "name": keydata["name"],
-                        "usage": 0,
+                        "usage": {"completion_tokens": 0, "prompt_tokens": 0},
                         "modeldata": [],
                     }
                 )
@@ -267,7 +329,10 @@ class LoggingHandler:
             {
                 "key": entry["key"],
                 "name": entry["key_name"],
-                "usage": entry["total_tokens"],
+                "usage": {
+                    "completion_tokens": entry["completion_tokens"],
+                    "prompt_tokens": entry["prompt_tokens"],
+                },
             }
             for entry in result
         ]
@@ -294,15 +359,29 @@ class LoggingHandler:
                 )
             ]
             if len(keys) == 0:
-                return {"total_usage": 0, "data": []}
+                return {
+                    "total_usage": {"completion_tokens": 0, "prompt_tokens": 0},
+                    "data": [],
+                }
             else:
                 base_match["source"] = {"$in": keys}
 
         pipeline = [
             {"$match": base_match},
-            {"$group": {"_id": "sum", "tokencount": {"$sum": "$tokencount"}}},
+            {
+                "$group": {
+                    "_id": "sum",
+                    "completion_tokens": {"$sum": "$completion_tokens"},
+                    "prompt_tokens": {"$sum": "$prompt_tokens"},
+                }
+            },
         ]
-        return self.log_collection.aggregate(pipeline)[0]["tokencount"]
+        result = self.log_collection.aggregate(pipeline)[0]
+
+        return {
+            "completion_tokens": result["completion_tokens"],
+            "prompt_tokens": result["prompt_tokens"],
+        }
 
     def get_usage_by_user(
         self,
@@ -365,7 +444,8 @@ class LoggingHandler:
                 {
                     "$group": {
                         "_id": {"user": "$user", "model": "$model"},
-                        "tokencount": {"$sum": "$tokencount"},
+                        "completion_tokens": {"$sum": "$completion_tokens"},
+                        "prompt_tokens": {"$sum": "$prompt_tokens"},
                     }
                 }
             )
@@ -376,7 +456,8 @@ class LoggingHandler:
                         "models": {
                             "$push": {
                                 "model": "$_id.model",
-                                "tokencount": "$tokencount",
+                                "completion_tokens": "$completion_tokens",
+                                "prompt_tokens": "$prompt-tokens",
                             }
                         },
                     }
@@ -396,7 +477,8 @@ class LoggingHandler:
                 {
                     "$project": {
                         "user": 1,
-                        "tokencount": 1,
+                        "completion_tokens": 1,
+                        "prompt_tokens": 1,
                         "timestamp": 1,
                         "model": 1,
                         "_id": 0,
