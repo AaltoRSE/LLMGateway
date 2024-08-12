@@ -1,5 +1,5 @@
 # Dockerfile
-FROM mambaorg/micromamba:latest
+FROM mambaorg/micromamba:1.5.8
 
 USER root
 

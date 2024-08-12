@@ -53,7 +53,7 @@ from starlette.background import BackgroundTask
 from starlette.concurrency import iterate_in_threadpool
 from starlette.responses import Response
 from starlette.types import Receive, Scope, Send
-from gateway.app.logging.stream_logger import StreamLogger
+from gateway.app.server_logging.stream_logger import StreamLogger
 
 _log = logging.getLogger(__name__)
 

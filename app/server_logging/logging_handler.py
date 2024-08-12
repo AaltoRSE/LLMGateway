@@ -125,52 +125,56 @@ class LoggingHandler:
         self.key_collection = self.db["apikeys"]
         self.user_collection = self.db["users"]
 
-    def create_log_entry(self, tokencount, model, source, sourcetype="apikey"):
+    def create_log_entry(self, token_count, model, source, source_type="apikey", prompt=False):
         """
         Function to create a log entry.
 
         Parameters:
-        - tokencount (int): The count of tokens.
+        - token_count (int): The count of tokens.
         - model (str): The model related to the log entry.
         - source (str): The source that authorized the request that is being logged. This could be a user name or an apikey.
-        - sourcetype (str): Specification of what kind of source authorized the request that is being logged (either 'apikey' or 'user').
+        - source_type (str): Specification of what kind of source authorized the request that is being logged (either 'apikey' or 'user').
+        - prompt (bool): Whether this is for prompt tokens or completion tokens.
 
         Returns:
         - dict: A dictionary representing the log entry with timestamp.
         """
         return {
-            "tokencount": tokencount,
+            "tokencount": token_count,
             "model": model,
             "source": source,
-            "sourcetype": sourcetype,
+            "sourcetype": source_type,
+            "prompt": prompt,
             "timestamp": datetime.now(),  # Current timestamp in UTC
         }
 
-    def log_usage_for_key(self, tokencount, model, key):
+    def log_usage_for_key(self, token_count, model, key, prompt=False):
         """
         Function to log usage for a specific key.
 
         Parameters:
-        - tokencount (int): The count of tokens used.
+        - token_count (int): The count of tokens used.
         - model (str): The model associated with the usage.
         - key (str): The key for which the usage is logged.
+        - prompt (bool): Whether this is for prompt tokens or completion tokens
         """
         log_entry = self.create_log_entry(
-            tokencount=tokencount, model=model, source=key
+            token_count=token_count, model=model, source=key, prompt=prompt
         )
         self.log_collection.insert_one(log_entry)
 
-    def log_usage_for_user(self, tokencount, model, user):
+    def log_usage_for_user(self, token_count, model, user, prompt=False):
         """
         Function to log usage for a specific user.
 
         Parameters:
-        - tokencount (int): The count of tokens used.
+        - token_count (int): The count of tokens used.
         - model (str): The model associated with the usage.
         - user (str): The user for which the usage is logged.
+        - prompt (bool): Whether this is for prompt tokens or completion tokens
         """
         log_entry = self.create_log_entry(
-            tokencount=tokencount, model=model, source=user, sourcetype="user"
+            token_count=token_count, model=model, source=user, sourcetype="user", prompt=prompt
         )
         self.log_collection.insert_one(log_entry)
 
