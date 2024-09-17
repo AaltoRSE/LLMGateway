@@ -67,21 +67,15 @@ class StreamLogger:
     def finish(self):
         if self.iskey:
             self.logger.log_usage_for_key(
-                token_count=self.completion_tokens, model=self.model, key=self.source
-            )
-            self.logger.log_usage_for_key(
-                token_count=self.prompt_tokens,
+                completion_tokens=self.completion_tokens,
                 model=self.model,
                 key=self.source,
-                prompt=True,
+                prompt_tokens=self.prompt_tokens,
             )
         else:
             self.logger.log_usage_for_user(
-                token_count=self.completion_tokens, model=self.model, user=self.source
-            )
-            self.logger.log_usage_for_user(
-                token_count=self.prompt_tokens,
+                completion_tokens=self.completion_tokens,
                 model=self.model,
                 user=self.source,
-                prompt=True,
+                prompt_tokens=self.prompt_tokens,
             )
