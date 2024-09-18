@@ -12,9 +12,12 @@ from .model_handler import ModelHandler
 from logging import Logger
 import os
 
-llm_url = "http://llm.k8s-test.cs.aalto.fi"
+llm_url = "llm.k8s-test.cs.aalto.fi"
 if "LLM_DEFAULT_URL" in os.environ:
     llm_url = os.environ.get("LLM_DEFAULT_URL")
+    if llm_url.startswith("http"):
+        # remove protocol
+        llm_url = llm_url.split("://", maxsplit=1)[1]
 
 
 class BodyHandler:
