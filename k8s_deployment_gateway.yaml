@@ -26,7 +26,7 @@ spec:
             secretName: llm-gatewaysaml-secret
       containers:
         - name: gateway
-          image: harbor.cs.aalto.fi/aaltorse-public/llm_gateway:CORS #Lets start versioning this
+          image: harbor.cs.aalto.fi/aaltorse-public/llm_gateway:CORS-1.1 #Lets start versioning this
           ports:
             - containerPort: 3000
           resources:
