@@ -27,6 +27,8 @@ spec:
       containers:
         - name: gateway
           image: harbor.cs.aalto.fi/aaltorse-public/llm_gateway:CORS-1.2 #Lets start versioning this
+          # Make sure, that the image is always pulled, since we might update for fixes
+          imagePullPolicy: Always 
           ports:
             - containerPort: 3000
           resources:
