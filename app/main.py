@@ -37,6 +37,7 @@ cors_origings = [
     "http://localhost:*",
     "http://localhost",
     "https://localhost",
+    "https://localhost:*",
     "https://ai.aalto.fi",
     "https://ai-testing.aalto.fi",
 ]
