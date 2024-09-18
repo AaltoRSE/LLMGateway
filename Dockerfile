@@ -1,5 +1,5 @@
 # Dockerfile
-FROM mambaorg/micromamba:latest
+FROM mambaorg/micromamba:1.5.9
 
 USER root
 
@@ -31,6 +31,8 @@ USER $USER
 
 # Copy application contents (this includes the frontend files, and only those)
 COPY --chown=aaltorse:aaltorse ./app .
+# Frontend needs to be compiled!
+COPY --chown=aaltorse:aaltorse ./frontend/dist ./dist
 COPY ./entrypoint.sh .
 
 # Entrypoint
