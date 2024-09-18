@@ -34,10 +34,8 @@ app = FastAPI(lifespan=lifespan, debug=True)
 
 # Set CORS Policy
 cors_origings = [
-    "http://localhost:*",
-    "http://localhost",
     "https://localhost",
-    "https://localhost:*",
+    "https://localhost:5173",
     "https://ai.aalto.fi",
     "https://ai-testing.aalto.fi",
 ]
