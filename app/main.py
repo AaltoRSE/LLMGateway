@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request, Security
 
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
-
+from fastapi.middleware.cors import CORSMiddleware
 
 from saml.saml_router import get_authed_user
 from utils.serverlogging import RouterLogging
@@ -31,6 +31,25 @@ uvlogger.info("Starting up the app")
 app = FastAPI(lifespan=lifespan, debug=True)
 
 # Middleware is wrapped "around" existing middleware. i.e. order of execution is done inverse to order of adding.
+
+# Set CORS Policy
+cors_origings = [
+    "http://localhost:*",
+    "http://localhost",
+    "https://localhost",
+    "https://ai.aalto.fi",
+    "https://ai-testing.aalto.fi",
+]
+
+# Add CORS Middleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origings,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.add_middleware(
     AuthenticationMiddleware, backend=SAMLSessionBackend(session_handler)
