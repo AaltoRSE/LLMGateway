@@ -97,4 +97,4 @@ async def getData(request: Request, user: any = Security(get_authed_user)):
 
 
 # This has to be the very last route!!
-app.mount("/", SPAStaticFiles(directory="frontend/dist", html=True), name="FrontEnd")
+app.mount("/", SPAStaticFiles(directory="dist", html=True), name="FrontEnd")
