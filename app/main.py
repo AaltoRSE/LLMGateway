@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request, Security
 
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
-from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.cors import CORSMiddleware
 
 from saml.saml_router import get_authed_user
 from utils.serverlogging import RouterLogging
@@ -39,6 +39,10 @@ cors_origings = [
     "https://ai.aalto.fi",
     "https://ai-testing.aalto.fi",
 ]
+# This covers all feature-branch deployments of aalto ai assistant
+cors_regex = (
+    "https://ashy-ground-060e46403-(.+)\\.westeurope\\.4\\.azurestaticapps\\.net"
+)
 
 # Add CORS Middleware
 
@@ -48,6 +52,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Allow everything from ai.aalto.fi and ai-testing.aalto.fi
+    allow_origin_regex=cors_regex,
 )
 
 app.add_middleware(
