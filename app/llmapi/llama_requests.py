@@ -13,18 +13,18 @@ from pydantic import Field
 
 
 class ChatCompletionRequest(llama_types.CreateChatCompletionRequest):
-    model_field: str = Field(
+    model: str = Field(
         default="llama2-7b", description="The model to use for generating completions."
     )
 
 
 class CompletionRequest(llama_types.CreateCompletionRequest):
-    model_field: str = Field(
+    model: str = Field(
         default="llama2-7b", description="The model to use for generating completions."
     )
 
 
 class EmbeddingRequest(llama_types.CreateEmbeddingRequest):
-    model_field: str = Field(
+    model: str = Field(
         default="llama2-7b", description="The model to use for generating completions."
     )
