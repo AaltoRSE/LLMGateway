@@ -128,18 +128,21 @@ async def chat_completion(
     )
     try:
         if stream:
+            llm_logger.info("Sending streaming request")
             responselogger = StreamLogger(
                 logging_handler=logging_handler, source=api_key, iskey=True, model=model
             )
             # no logging implemented yet...
             r = await stream_client.send(req, stream=True)
+            llm_logger.info("Got response, forwarding")            
             background_tasks.add_task(r.aclose)
             return LoggingStreamResponse(
                 content=event_generator(r.aiter_raw()),
                 streamlogger=responselogger,
             )
         else:            
-            r = await stream_client.send(req)
+            llm_logger.info("Sending non-streaming request")
+            r = await stream_client.send(req)            
             llm_logger.debug(r.content)
             responseData = r.json()
             tokens = responseData["usage"]["completion_tokens"]
