@@ -11,20 +11,18 @@
 import llama_cpp.server.types as llama_types
 from pydantic import Field
 
+model_field: str = Field(
+    default="llama2-7b", description="The model to use for generating completions."
+)
+
 
 class ChatCompletionRequest(llama_types.CreateChatCompletionRequest):
-    model_field: str = Field(
-        default="llama2-7b", description="The model to use for generating completions."
-    )
+    model: str = model_field
 
 
 class CompletionRequest(llama_types.CreateCompletionRequest):
-    model_field: str = Field(
-        default="llama2-7b", description="The model to use for generating completions."
-    )
+    model: str = model_field
 
 
 class EmbeddingRequest(llama_types.CreateEmbeddingRequest):
-    model_field: str = Field(
-        default="llama2-7b", description="The model to use for generating completions."
-    )
+    model: str = model_field
