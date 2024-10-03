@@ -8,7 +8,7 @@ from starlette.authentication import (
 )
 from starlette.requests import HTTPConnection
 from starlette.middleware import Middleware
-from .session import SessionHandler
+from app.security.session import SessionHandler
 from fastapi import HTTPException, status
 import logging
 

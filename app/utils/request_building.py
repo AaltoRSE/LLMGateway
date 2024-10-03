@@ -3,12 +3,12 @@ from fastapi import HTTPException
 from fastapi import status
 import httpx
 
-from llmapi.llama_requests import (
+from app.llmapi.llama_requests import (
     CompletionRequest,
     ChatCompletionRequest,
     EmbeddingRequest,
 )
-from .model_handler import ModelHandler
+from app.utils.model_handler import ModelHandler
 from logging import Logger
 import os
 

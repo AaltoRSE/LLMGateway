@@ -1,4 +1,4 @@
-from .logging_handler import LoggingHandler
+from app.utils.logging_handler import LoggingHandler
 
 # from .requests import ChatCompletionRequest
 import re

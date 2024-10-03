@@ -1,6 +1,6 @@
 from fastapi import Security, HTTPException
 from fastapi.security import APIKeyHeader
-from utils.handlers import key_handler
+from app.utils.handlers import key_handler
 
 import logging
 import re
@@ -10,7 +10,6 @@ import os
 admin_key_header = APIKeyHeader(name="AdminKey")
 api_key_header = APIKeyHeader(name="Authorization")
 
-logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
 uvlogger = logging.getLogger("app")
 
 

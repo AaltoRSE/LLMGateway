@@ -4,7 +4,7 @@ A placeholder hello world app.
 
 import logging
 
-logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
+logging.config.fileConfig("app/logging.conf", disable_existing_loggers=False)
 uvlogger = logging.getLogger("app")
 
 
@@ -15,17 +15,17 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.cors import CORSMiddleware
 
-from saml.saml_router import get_authed_user
-from utils.serverlogging import RouterLogging
-from llmapi.llm_router import lifespan
-from security.auth import SAMLSessionBackend
-from security.session import SessionHandler
-from static_files import SPAStaticFiles
+from app.saml.saml_router import get_authed_user
+from app.utils.serverlogging import RouterLogging
+from app.llmapi.llm_router import lifespan
+from app.security.auth import SAMLSessionBackend
+from app.security.session import SessionHandler
+from app.static_files import SPAStaticFiles
 
 
 debugging = True
 
-from utils.handlers import session_handler
+from app.utils.handlers import session_handler
 
 uvlogger.info("Starting up the app")
 app = FastAPI(lifespan=lifespan, debug=True)
@@ -65,19 +65,19 @@ app.add_middleware(SessionMiddleware, secret_key="some-random-string", max_age=N
 # Add Request logging
 app.add_middleware(RouterLogging, logger=uvlogger, debug=debugging)
 
-from llmapi.llm_router import router as llm_router
+from app.llmapi.llm_router import router as llm_router
 
 app.include_router(llm_router)
 
-from selfservice.self_service_router import router as self_service_router
+from app.selfservice.self_service_router import router as self_service_router
 
 app.include_router(self_service_router)
 
-from admin.admin_router import router as admin_router
+from app.admin.admin_router import router as admin_router
 
 app.include_router(admin_router)
 
-from saml.saml_router import router as saml_router
+from app.saml.saml_router import router as saml_router
 
 app.include_router(saml_router)
 

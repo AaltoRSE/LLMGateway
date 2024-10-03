@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Security, Request, HTTPException, status
-from utils.handlers import model_handler, key_handler, logging_handler
-from .self_service_requests import *
-from security.saml import get_authed_user
+from app.utils.handlers import model_handler, key_handler, logging_handler
+from app.selfservice.self_service_requests import *
+from app.security.saml import get_authed_user
 import logging
 
 router = APIRouter(

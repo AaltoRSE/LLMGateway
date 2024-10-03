@@ -4,15 +4,15 @@ from onelogin.saml2.auth import OneLogin_Saml2_Auth
 
 
 from starlette.responses import RedirectResponse
-from utils.handlers import session_handler
+from app.utils.handlers import session_handler
 
-from security.saml import (
+from app.security.saml import (
     saml_settings,
     prepare_from_fastapi_request,
     get_authed_user,
 )
 
-from security.auth import clean_session, get_request_source
+from app.security.auth import clean_session, get_request_source
 
 import logging
 import os

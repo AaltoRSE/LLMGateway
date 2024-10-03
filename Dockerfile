@@ -30,7 +30,7 @@ RUN groupadd -r $USER && useradd -r -g $USER $USER
 USER $USER
 
 # Copy application contents (this includes the frontend files, and only those)
-COPY --chown=aaltorse:aaltorse ./app .
+COPY --chown=aaltorse:aaltorse ./app ./app
 # Frontend needs to be compiled!
 COPY --chown=aaltorse:aaltorse ./frontend/dist ./dist
 COPY ./entrypoint.sh .

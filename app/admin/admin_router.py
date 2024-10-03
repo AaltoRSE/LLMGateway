@@ -1,7 +1,7 @@
 from .admin_requests import *
 from fastapi import APIRouter, Request, Security, HTTPException, status
-from security.api_keys import get_admin_key, key_handler
-from utils.handlers import model_handler
+from app.security.api_keys import get_admin_key, key_handler
+from app.utils.handlers import model_handler
 import logging
 
 router = APIRouter(
