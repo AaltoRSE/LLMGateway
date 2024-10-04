@@ -62,6 +62,15 @@ class ModelService:
             # Model does not exist
             return None
 
+    def get_model(self, model_id) -> LLMModel:
+        try:
+            models = self.load_models()
+            print(models)
+            return models[model_id]
+        except:
+            # Model does not exist
+            return None
+
     def add_model(self, model: str, owner: str, path: str):
         """
         Function to add a model to the served models

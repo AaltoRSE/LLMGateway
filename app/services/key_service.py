@@ -21,6 +21,14 @@ class KeyService:
         self.mongo_client: pymongo.MongoClient = mongo.mongo_client
         self.db = self.mongo_client["gateway"]
         self.key_collection = self.db["apikeys"]
+
+        self.logger = logger
+
+    def init_keys(self):
+        """
+        Initialize keys from the database, and check that indexing is set up properly.
+        """
+
         keyindices = self.key_collection.index_information()
         # Make sure, that key is an index (avoids duplicates);
         if not "key" in keyindices:
@@ -30,12 +38,7 @@ class KeyService:
         userindices = self.user_collection.index_information()
         if not "username" in userindices:
             self.user_collection.create_index("username", unique=True)
-        self.logger = logger
 
-    def init_keys(self):
-        """
-        Initialize keys from the database
-        """
         activeKeys = {
             x["key"]: json.dumps(UserKey(user=x["user"], key=x["key"]).model_dump())
             for x in self.key_collection.find({"active": True})
@@ -75,7 +78,8 @@ class KeyService:
 
     def check_key(self, key: string):
         """
-        Function to check if a key currently exists
+        Function to check if a key currently exists. This only checks in Redis,
+        not in the persitent storage, as those two should be in sync.
 
         Parameters:
         - key (str): The key to check.

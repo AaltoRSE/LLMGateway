@@ -12,6 +12,8 @@ class LLMModelData(BaseModel):
 class LLMModel(BaseModel):
     path: str
     model: LLMModelData
+    prompt_cost: float = 0.0001
+    completion_cost: float = 0.0001
 
 
 class LLMModelDict(RootModel):

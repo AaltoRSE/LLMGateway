@@ -18,6 +18,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 
 # Install conda environment to /opt/env/ and prepend to PATH
 COPY environment.yml /opt/
+
+# Install copy of llama-cpp-python with streaming option
+WORKDIR /llama_cpp
+RUN git clone https://github.com/tpfau/llama-cpp-python.git && cd llama-cpp-python && git checkout stream_testing && git submodule init && git submodule update
+
 RUN micromamba create -f /opt/environment.yml -p /opt/env/
 ENV PATH="/opt/env/bin:$PATH"
 

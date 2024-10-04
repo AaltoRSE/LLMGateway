@@ -11,21 +11,17 @@ uvlogger = logging.getLogger("app")
 from fastapi import FastAPI, Request, Security
 
 
-from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.cors import CORSMiddleware
 
-from app.saml.saml_router import get_authed_user
 from app.utils.serverlogging import RouterLogging
-from app.llmapi.llm_router import lifespan
-from app.security.auth import SAMLSessionBackend
-from app.security.session import SessionHandler
+from app.routers.llm_router import lifespan
+from app.middleware.authentication_middleware import SessionAuthenticationBackend
+from app.middleware.session_middleware import StorageSessionMiddleware
 from app.static_files import SPAStaticFiles
-
+from app.security.auth import get_authed_user, BackendUser
 
 debugging = True
-
-from app.utils.handlers import session_handler
 
 uvlogger.info("Starting up the app")
 app = FastAPI(lifespan=lifespan, debug=True)
@@ -57,27 +53,29 @@ app.add_middleware(
 )
 
 app.add_middleware(
-    AuthenticationMiddleware, backend=SAMLSessionBackend(session_handler)
+    AuthenticationMiddleware,
+    backend=SessionAuthenticationBackend(),
 )
-
-app.add_middleware(SessionMiddleware, secret_key="some-random-string", max_age=None)
+app.add_middleware(
+    StorageSessionMiddleware, secret_key="some-random-string", max_age=None
+)
 
 # Add Request logging
 app.add_middleware(RouterLogging, logger=uvlogger, debug=debugging)
 
-from app.llmapi.llm_router import router as llm_router
+from app.routers.llm_router import router as llm_router
 
 app.include_router(llm_router)
 
-from app.selfservice.self_service_router import router as self_service_router
+from app.routers.self_service_router import router as self_service_router
 
 app.include_router(self_service_router)
 
-from app.admin.admin_router import router as admin_router
+from app.routers.admin_router import router as admin_router
 
 app.include_router(admin_router)
 
-from app.saml.saml_router import router as saml_router
+from app.routers.auth_router import router as saml_router
 
 app.include_router(saml_router)
 
@@ -94,7 +92,7 @@ async def auth_test(request: Request):
 
 
 @app.get("/data")
-async def getData(request: Request, user: any = Security(get_authed_user)):
+async def getData(request: Request, user: BackendUser = Security(get_authed_user)):
     if user.is_authenticated:
         return user.get_user_data()
     else:

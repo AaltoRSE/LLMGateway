@@ -12,6 +12,7 @@ from app.models.quota import (
     PersistentQuota,
     QuotaElements,
 )
+from app.models.keys import UserKey
 from typing import List
 import app.db.redis as redis_db
 import app.db.mongo as mongo_db
@@ -104,7 +105,7 @@ def get_usage_from_mongo_for_target(
     )
 
 
-class QuotaProvider:
+class QuotaService:
     def __init__(self):
         self.user_db = redis_db.redis_usage_user_client
         self.key_db = redis_db.redis_usage_key_client
@@ -117,6 +118,9 @@ class QuotaProvider:
             user_quota=self.get_user_quota(user),
             key_quota=self.get_key_quota(key),
         )
+
+    def check_quota(self, requester: UserKey):
+        self.get_quota(requester.key, requester.user).check_quota()
 
     def get_key_quota(self, key: str, from_timestamp: datetime = None) -> KeyQuota:
         keyQuotaData = self.key_db.get(key)
@@ -218,7 +222,9 @@ class QuotaProvider:
             dump_function=lambda model: model.model_dump(),
         )
 
-    def update_quota(self, key: str, user: str, request: RequestQuota):
-        self.update_key_quota(key, request)
-        self.update_user_quota(user, request)
-        self.update_persistent_quota(key, user, request)
+    def update_quota(self, source: UserKey, model: str, request: RequestQuota):
+        self.update_key_quota(key=source.key, request=request)
+        self.update_user_quota(user=source.user, request=request)
+        self.update_persistent_quota(
+            key=source.key, user=source.user, model=model, request=request
+        )

@@ -19,7 +19,7 @@ import app.db.mongo as mongo_db
 #
 
 
-class UsageProvider:
+class UsageService:
     def __init__(self):
         self.mongo_client: pymongo.MongoClient = mongo_db.mongo_client
         self.db: Database = self.mongo_client["gateway"]

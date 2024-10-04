@@ -1,7 +1,8 @@
-from fastapi import Security, HTTPException
+from typing import Annotated
+from fastapi import Security, HTTPException, Depends
 from fastapi.security import APIKeyHeader
-from app.utils.handlers import key_handler
-
+from app.models.keys import UserKey
+from app.services.key_service import KeyService
 import logging
 import re
 import os
@@ -13,7 +14,10 @@ api_key_header = APIKeyHeader(name="Authorization")
 uvlogger = logging.getLogger("app")
 
 
-def get_api_key(api_key: str = Security(api_key_header)) -> str:
+def get_api_key(
+    key_service: Annotated[KeyService, Depends(KeyService)],
+    api_key: str = Security(api_key_header),
+) -> UserKey:
     """
     Retrieves and validates the API key from the header.
 
@@ -28,10 +32,11 @@ def get_api_key(api_key: str = Security(api_key_header)) -> str:
         with the detail "Invalid or missing API Key". Additionally, logs information about the header and key.
     """
     api_key = re.sub("^Bearer ", "", api_key)
-    if key_handler.check_key(api_key):
-        return api_key
+    user_key = key_service.check_key(api_key)
+    if not user_key == None:
+        return user_key
     else:
-        uvlogger.warn(f"Attempted usage with invalid key: {api_key}")
+        uvlogger.warning(f"Attempted usage with invalid key: {api_key}")
     raise HTTPException(
         status_code=401,
         detail="Invalid or missing API Key",

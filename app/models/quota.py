@@ -1,5 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel, Field
+from fastapi import HTTPException
 
 
 class PersistentQuota(BaseModel):
@@ -28,6 +29,11 @@ DEFAULT_KEY_QUOTA = QuotaElements(
 DEFAULT_USER_QUOTA = QuotaElements(
     prompt_tokens=3e6, total_tokens=6e6, completion_tokens=3e6, cost=50
 )
+
+
+class RequestTokens(BaseModel):
+    prompt_tokens: int
+    completion_tokens: int
 
 
 class RequestQuota(BaseModel):
@@ -63,12 +69,17 @@ class KeyQuota(ElementQuota):
     quota: QuotaElements = Field(default=DEFAULT_KEY_QUOTA)
 
 
+class OutOfQuotaException(HTTPException):
+    def __init__(self, message: str):
+        super().__init__(status_code=429, detail=message)
+
+
 class Quota(BaseModel):
     user_quota: UserQuota
     key_quota: KeyQuota
 
-    def has_quota_remaining(self):
-        return (
-            self.user_quota.has_quota_remaining()
-            and self.key_quota.has_quota_remaining()
-        )
+    def check_quota(self):
+        if not self.user_quota.has_quota_remaining():
+            raise OutOfQuotaException("User quota exceeded")
+        if not self.key_quota.has_quota_remaining():
+            raise OutOfQuotaException("Key quota exceeded")
