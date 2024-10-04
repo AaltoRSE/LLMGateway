@@ -27,7 +27,7 @@ import logging
 import os
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 router = APIRouter(prefix="/saml", tags=["saml"])
 
@@ -58,7 +58,7 @@ async def login(
     return final_response
 
 
-@router.post("/login_callback")
+@router.post("/acs")
 async def callback(
     request: Request,
     session_service: Annotated[SessionService, Depends(SessionService)],
@@ -114,7 +114,7 @@ async def saml_slo_logout(
     return check_logout_response(request, response, session_service)
 
 
-@router.get("/logout_callback")
+@router.get("/sls")
 async def saml_sls_logout(
     request: Request,
     session_service: Annotated[SessionService, Depends(SessionService)],

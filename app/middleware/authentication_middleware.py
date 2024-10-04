@@ -26,6 +26,7 @@ class SessionAuthenticationBackend(AuthenticationBackend):
 
         try:
             if conn.session == None:
+                logger.debug("No session in connection")
                 return
         except AssertionError:
             return

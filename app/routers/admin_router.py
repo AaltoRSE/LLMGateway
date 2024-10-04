@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, Security, HTTPException, status, Depends
 from app.security.api_keys import get_admin_key
 from app.services.model_service import ModelService
 from app.services.key_service import KeyService
+from app.models.model import LLMModel, LLMModelData
 
 import logging
 
@@ -17,16 +18,22 @@ logger = logging.getLogger("admin")
 # Admin endpoints
 @router.post("/addmodel", status_code=status.HTTP_201_CREATED)
 def addModel(
-    RequestData: AddAvailableModelRequest,
+    modelData: AddAvailableModelRequest,
     model_handler: Annotated[ModelService, Depends(ModelService)],
     admin_key: str = Security(get_admin_key),
 ):
+    model_to_add = LLMModel(
+        path=modelData.target_path,
+        prompt_cost=modelData.prompt_cost,
+        completion_cost=modelData.completion_cost,
+        model=LLMModelData(
+            id=modelData.model,
+            owned_by=modelData.owner,
+            permissions=[],
+        ),
+    )
     try:
-        model_handler.add_model(
-            model=RequestData.model,
-            owner=RequestData.owner,
-            path=RequestData.target_path,
-        )
+        model_handler.add_model(model_to_add)
     except KeyError as e:
         raise HTTPException(status.HTTP_409_CONFLICT)
 

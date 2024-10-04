@@ -4,6 +4,9 @@ from typing import List
 import app.db.mongo
 from app.models.user import User
 from pymongo import MongoClient
+import logging
+
+logger = logging.getLogger("app")
 
 
 class UserService:
@@ -16,6 +19,7 @@ class UserService:
 
     def get_user_by_id(self, user_id: int) -> User:
         user = self.user_collection.find_one({"auth_id": user_id})
+
         if not user:
             return None
         return User(user)
@@ -25,6 +29,7 @@ class UserService:
     ) -> User:
         user = self.get_user_by_id(auth_id)
         if not user:
+
             user = self.create_new_user(
                 User(
                     auth_id=auth_id,

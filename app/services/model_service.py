@@ -71,20 +71,17 @@ class ModelService:
             # Model does not exist
             return None
 
-    def add_model(self, model: str, owner: str, path: str):
+    def add_model(self, model: LLMModel):
         """
         Function to add a model to the served models
         Returns:
         - list: A list of all models available
         """
-        exists = self.model_collection.find_one({"model.id": model})
+        exists = self.model_collection.find_one({"model.id": model.model.id})
         if exists:
             raise KeyError("Model already exists")
         else:
-            model_model = LLMModel(
-                path=path, model=LLMModelData(id=model, owned_by=owner, permissions=[])
-            )
-            self.model_collection.insert_one(model_model.model_dump())
+            self.model_collection.insert_one(model.model_dump())
             # Update the models, setting them.
             self.init_models()
 

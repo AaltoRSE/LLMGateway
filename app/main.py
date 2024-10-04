@@ -3,6 +3,7 @@ A placeholder hello world app.
 """
 
 import logging
+import secrets, string
 
 logging.config.fileConfig("app/logging.conf", disable_existing_loggers=False)
 uvlogger = logging.getLogger("app")
@@ -52,13 +53,20 @@ app.add_middleware(
     allow_origin_regex=cors_regex,
 )
 
+
 app.add_middleware(
     AuthenticationMiddleware,
     backend=SessionAuthenticationBackend(),
 )
-app.add_middleware(
-    StorageSessionMiddleware, secret_key="some-random-string", max_age=None
-)
+
+
+# Generate random session key,
+# sessions will become invalid on reboot, but I think that's ok.
+alphabet = string.ascii_letters + string.digits
+session_key = "".join(secrets.choice(alphabet) for _ in range(35))
+
+app.add_middleware(StorageSessionMiddleware, secret_key=session_key, max_age=600)
+
 
 # Add Request logging
 app.add_middleware(RouterLogging, logger=uvlogger, debug=debugging)

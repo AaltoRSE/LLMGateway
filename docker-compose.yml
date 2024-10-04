@@ -21,6 +21,27 @@ services:
     depends_on:
       - mongo
       - redis
+    volumes:
+      - ./app:/app/app
+      - ./dev_data/saml:/app/app/security/saml_data
+      - ./dev_data/certs:/app/app/security/saml_data/certs
+    command: gunicorn app.main:app --bind 0.0.0.0:3000 -k uvicorn.workers.UvicornWorker --workers 1 --reload
+
+  nginx:
+    image: docker.io/library/nginx:alpine
+    environment:
+      - NGINX_HTTPS_PORT=443
+      - HOSTNAME=localhost
+    ports:
+      - 0.0.0.0:80:80
+      - 0.0.0.0:443:443
+    volumes:
+      - ./dev_data/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./dev_data/nginx/templates:/etc/nginx/templates
+      - ./dev_data/certs/sp.crt:/certificates/certificate.crt
+      - ./dev_data/certs/sp.key:/certificates/private.key
+    depends_on:
+      - backend
   mongo:
     extends:
       file: docker_databases.yml

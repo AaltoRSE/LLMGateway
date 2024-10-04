@@ -38,7 +38,6 @@ USER $USER
 COPY --chown=aaltorse:aaltorse ./app ./app
 # Frontend needs to be compiled!
 COPY --chown=aaltorse:aaltorse ./frontend/dist ./dist
-COPY ./entrypoint.sh .
 
 # Entrypoint
-ENTRYPOINT ["./entrypoint.sh"]
+CMD ["gunicorn", "app.main:app", "--bind 0.0.0.0:3000", "-k", "uvicorn.workers.UvicornWorker", "--workers", "6" ]

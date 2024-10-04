@@ -1,4 +1,4 @@
-name: LLMGateWay-Dev
+name: LLMGateWay
 channels:
   - conda-forge
 dependencies:
@@ -18,3 +18,4 @@ dependencies:
   - pip:
       - pytest-mock-resources[mongo]
       - pytest-mock-resources[redis]
+      - /home/thomas/Work/gitRepos/llama-cpp-python[server]

@@ -1,0 +1,56 @@
+server {
+        listen 80 default_server;
+        server_name ${HOSTNAME};
+        return 301 https://$host$request_uri;
+    }
+
+server {
+        listen ${NGINX_HTTPS_PORT} ssl default_server;
+        server_name ${HOSTNAME};
+        ssl_certificate /certificates/certificate.crt;
+        ssl_certificate_key /certificates/private.key;
+
+        location / {                        
+            proxy_pass       http://gateway-server:3000;
+            proxy_set_header Host                    $host;
+            proxy_set_header X-Real-IP               $remote_addr;
+            proxy_set_header X-Auth-Request-Redirect $request_uri;
+            # or, if you are handling multiple domains:
+            # proxy_set_header X-Auth-Request-Redirect $scheme://$host$request_uri;
+        }
+
+        # If we want to have an initial login page for the service, we can host something here, but we need to make sure, that the 
+        # assets/static files are NOT behind a login, otherwise the login mechanism will get stuck by the number of requests
+        # location @sso_redirect {
+        #    # Redirect to SSO for authentication            
+        #    return 302 /auth/login?redirect_uri=$request_uri;
+        # }    
+          
+        #location /assets/ {
+        # If we want to put the whole thing behind a login, i.e. have a login before the page even loads            
+        #    add_header X-Frame-Options "SAMEORIGIN";        
+        #    add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://login.microsoftonline.com https://aalto-openai-apigw.azure-api.net; frame-src 'self' https://login.microsoftonline.com";
+        #    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+        #    index index.html;
+        #    try_files $uri $uri/ /index.html;
+        #    include  /etc/nginx/mime.types;
+        #    root /www/frontend;
+        #    # or "root /path/to/site;" or "fastcgi_pass ..." etc
+        #}        
+
+        #location / {
+        # If we want to put the whole thing behind a login, i.e. have a login before the page even loads
+        #    auth_request /api/auth/test_auth;
+        #    error_page 401 @sso_redirect;
+        #    error_page 405 =200 $uri;
+        #    add_header X-Frame-Options "SAMEORIGIN";        
+        #    add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://login.microsoftonline.com https://aalto-openai-apigw.azure-api.net; frame-src 'self' https://login.microsoftonline.com";
+        #    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+        #    index index.html;
+        #    try_files $uri $uri/ /index.html;
+        #    include  /etc/nginx/mime.types;
+        #    root /www/frontend;
+        #    # or "root /path/to/site;" or "fastcgi_pass ..." etc
+        #}
+        
+    }

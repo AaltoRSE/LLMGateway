@@ -217,10 +217,12 @@ async def embedding(
 def getModels(model_handler : Annotated[ModelService,Depends(ModelService)],) -> ModelList:
     # At the moment hard-coded. Will update
     models = model_handler.get_models()
+    model_list = [model.model_dump() for model in models]
+    llm_logger.info(model_list)
     if len(models) > 0:
         return {
             "object": "list",
-            "data": models,
+            "data": [model.model_dump() for model in models],
         }
     else:
         # Should never actually happen, since it should always have one...

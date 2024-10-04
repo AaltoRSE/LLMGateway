@@ -7,6 +7,12 @@ class AddAvailableModelRequest(BaseModel):
     model: str = model_field
     target_path: str = Field(description="The target path on the inference server.")
     owner: str = Field(description="Who owns the model")
+    prompt_cost: float = Field(
+        description="The cost of a prompt_token", default=0.01 / 1000
+    )
+    completion_cost: float = Field(
+        description="The cost of a completion token", default=0.01 / 1000
+    )
 
 
 class AddApiKeyRequest(BaseModel):
