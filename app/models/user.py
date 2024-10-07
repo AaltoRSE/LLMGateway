@@ -3,7 +3,8 @@ This module provides schemas for User entities and operations using Pydantic.
 The schemas include base, creation, and update models for users.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import List
 
 
 # Base schema for users
@@ -13,3 +14,4 @@ class User(BaseModel):
     last_name: str
     admin: bool
     seen_guide_version: str
+    keys: List[str] = []

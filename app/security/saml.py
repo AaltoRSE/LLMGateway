@@ -177,7 +177,7 @@ class SAMLAuthenticator(BackendAuthenticator):
                 saml_logger.debug("Redirecting to indicated url")
                 # To avoid 'Open Redirect' attacks, before execute the redirection confirm
                 # the value of the url is a trusted URL.
-                return RedirectResponse(url)
+                return RedirectResponse(url, status_code=303)
             else:
                 saml_logger.debug("Redirecting to default")
                 # Return back to main page
@@ -189,11 +189,11 @@ class SAMLAuthenticator(BackendAuthenticator):
             saml_logger.error(error_reason)
             saml_logger.error(auth._last_response)
             # We will clean/i.e. logout the session anyways.
-            return RedirectResponse(url="/")
+            return RedirectResponse(url="/", status_code=303)
         else:
             # We will clean/i.e. logout the session anyways.
             saml_logger.error(auth.get_last_error_reason())
-            return RedirectResponse(url="/")
+            return RedirectResponse(url="/", status_code=303)
 
 
 async def prepare_from_fastapi_request(request: Request):

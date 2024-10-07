@@ -63,9 +63,10 @@ async def get_usage(
     usage_service: Annotated[UsageService, Depends(UsageService)],
     user: BackendUser = Security(get_authed_user),
 ):
-    usage = usage_service.get_usage_for_user(
-        username=user.username,
+    usage = usage_service.get_usage_per_key_for_user(
+        user=user.username,
         from_time=request.from_time,
         to_time=request.to_time,
+        only_active=True,
     )
     return usage

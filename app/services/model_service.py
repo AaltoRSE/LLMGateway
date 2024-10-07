@@ -12,7 +12,7 @@ class ModelService:
         self.redis_client = redis.redis_model_client
         self.mongo_client = mongo.mongo_client
         self.db = mongo.mongo_client["gateway"]
-        self.model_collection = self.db["model"]
+        self.model_collection = self.db[mongo.MODEL_COLLECTION]
 
     def init_models(self):
         """

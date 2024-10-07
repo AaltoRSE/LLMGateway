@@ -20,8 +20,8 @@ class KeyService:
         self.redis_client: Redis = redis.redis_key_client
         self.mongo_client: pymongo.MongoClient = mongo.mongo_client
         self.db = self.mongo_client["gateway"]
-        self.key_collection = self.db["apikeys"]
-
+        self.key_collection = self.db[mongo.KEY_COLLECTION]
+        self.user_collection = self.db[mongo.USER_COLLECTION]
         self.logger = logger
 
     def init_keys(self):
@@ -33,11 +33,10 @@ class KeyService:
         # Make sure, that key is an index (avoids duplicates);
         if not "key" in keyindices:
             self.key_collection.create_index("key", unique=True)
-        self.user_collection = self.db["users"]
         # Make sure, that username is an index (avoids duplicates when creating keys, which automatically adds a user if necessary);
         userindices = self.user_collection.index_information()
         if not "username" in userindices:
-            self.user_collection.create_index("username", unique=True)
+            self.user_collection.create_index(mongo.ID_FIELD, unique=True)
 
         activeKeys = {
             x["key"]: json.dumps(UserKey(user=x["user"], key=x["key"]).model_dump())
@@ -106,7 +105,7 @@ class KeyService:
 
         """
         updated_user = self.user_collection.find_one_and_update(
-            {"username": user, "keys": {"$elemMatch": {"$eq": key}}},
+            {mongo.ID_FIELD: user, "keys": {"$elemMatch": {"$eq": key}}},
             {"$pull": {"keys": key}},
         )
         if not updated_user == None:
@@ -125,7 +124,7 @@ class KeyService:
         """
         if not user == None:
             updated_user = self.user_collection.find_one_and_update(
-                {"keys": {"$elemMatch": {"$eq": key}}, "username": user},
+                {"keys": {"$elemMatch": {"$eq": key}}, mongo.ID_FIELD: user},
                 {"$pull": {"keys": key}},
             )
         else:
@@ -153,7 +152,7 @@ class KeyService:
         - active (bool): whether to activate or deactivate the key
         """
         user_has_key = self.user_collection.find_one(
-            {"username": user, "keys": {"$elemMatch": {"$eq": key}}}
+            {mongo.ID_FIELD: user, "keys": {"$elemMatch": {"$eq": key}}}
         )
         if not user_has_key == None:
             # the requesting user has access to this key
@@ -192,7 +191,7 @@ class KeyService:
                 self.build_new_key_object(user, api_key, name).model_dump()
             )
             self.user_collection.update_one(
-                {"username": user}, {"$addToSet": {"keys": api_key}}, upsert=True
+                {mongo.ID_FIELD: user}, {"$addToSet": {"keys": api_key}}, upsert=True
             )
             self._add_key_to_redis(api_key, user)
             key_created = True
@@ -211,7 +210,7 @@ class KeyService:
         """
         api_key = ""
         api_key = self.generate_api_key()
-        userinfo = self.user_collection.find_one({"username": user})
+        userinfo = self.user_collection.find_one({mongo.ID_FIELD: user})
         if userinfo == None or len(userinfo["keys"]) < 10:
             while not self.add_key(user=user, name=name, api_key=api_key):
                 api_key = self.generate_api_key()
@@ -234,7 +233,7 @@ class KeyService:
             self.logger.info("Trying to obtain keys")
             keys = [x for x in self.key_collection.find({})]
         else:
-            userinfo = self.user_collection.find({"username": user})
+            userinfo = self.user_collection.find({mongo.ID_FIELD: user})
             userkeys = userinfo[0]["keys"]
             keys = self.key_collection.find({"key": {"$in": userkeys}})
 

@@ -1,13 +1,14 @@
 from datetime import datetime
 from pydantic import BaseModel, Field
 from fastapi import HTTPException
+from typing import List
 
 
 class PersistentQuota(BaseModel):
     model: str
     prompt_tokens: int
     completion_tokens: int
-    cost: int  # in Euros
+    cost: float  # in Euros
     user: str
     key: str
     timestamp: datetime
@@ -17,7 +18,7 @@ class QuotaElements(BaseModel):
     prompt_tokens: int
     total_tokens: int
     completion_tokens: int
-    cost: int  # in Euros
+    cost: float  # in Euros
 
 
 DEFAULT_USAGE = QuotaElements(
@@ -83,3 +84,29 @@ class Quota(BaseModel):
             raise OutOfQuotaException("User quota exceeded")
         if not self.key_quota.has_quota_remaining():
             raise OutOfQuotaException("Key quota exceeded")
+
+
+class UsageInfo(BaseModel):
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    cost: float = 0
+
+
+class ModelUsage(BaseModel):
+    model: str
+    usage: UsageInfo
+
+
+class KeyUsage(BaseModel):
+    key: str
+    usage: UsageInfo
+
+
+class KeyPerModelUsage(UsageInfo):
+    key: str
+    name: str
+    usage: List[ModelUsage] = []
+
+
+class UsagePerKeyForUser(UsageInfo):
+    keys: List[KeyPerModelUsage] = []

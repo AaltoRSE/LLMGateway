@@ -1,16 +1,20 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 
-type ModelUsage = {
+export type ModelUsage = {
   model: String
-  tokencount: Number
+  prompt_tokens: Number
+  completion_tokens: Number
+  cost: Number
 }
 
 type KeyData = {
   key: String
   name: String
-  usage: number
-  modeldata: ModelUsage[]
+  prompt_tokens: Number
+  completion_tokens: Number
+  cost: Number
+  usage: ModelUsage[]
 }
 type KeyInformation = {
   total_use: number

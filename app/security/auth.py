@@ -17,7 +17,7 @@ from app.services.session_service import SessionService
 from typing import Tuple, Union, Callable, Dict, List
 
 logger = logging.getLogger(__name__)
-frontend_url = os.getenv("FRONTEND_URL", "/auth/test_auth")
+frontend_url = os.getenv("FRONTEND_URL", "/")
 
 is_proxied = os.getenv("REQUEST_PROXIED", False) == "True"
 

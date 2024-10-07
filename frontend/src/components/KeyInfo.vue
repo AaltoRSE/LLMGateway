@@ -9,7 +9,7 @@
     >
       <Column header="Name" field="name"></Column>
       <Column header="Key" field="key"></Column>
-      <Column header="Usage" field="usage"></Column>
+      <Column header="Cost" field="cost"></Column>
       <Column header="Delete" field="key">
         <template #body="slotProps">
           <Button @click="deleteKey(slotProps.data.key)">Delete</Button>

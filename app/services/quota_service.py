@@ -1,5 +1,10 @@
 import redis
 import pymongo
+import json
+import logging
+
+logger = logging.getLogger("app")
+
 from datetime import datetime
 from pymongo.database import Database
 from pymongo.collection import Collection
@@ -11,6 +16,7 @@ from app.models.quota import (
     RequestQuota,
     PersistentQuota,
     QuotaElements,
+    DEFAULT_USAGE,
 )
 from app.models.keys import UserKey
 from typing import List
@@ -33,32 +39,31 @@ def update_key_atomic(
     retrieval_function: callable,
     dump_function: callable,
 ):
-    with client as pipe:
-        while True:
-            try:
-                pipe.watch(key)  # Watch the key for changes
+    while True:
+        try:
+            client.watch(key)  # Watch the key for changes
 
-                # Read the current model from Redis
-                model_dump = pipe.get(key)
+            # Read the current model from Redis
+            model_dump = client.get(key)
 
-                model = retrieval_function(model_dump)
+            model = retrieval_function(model_dump)
 
-                # Modify the model
-                modified_model = update_function(model)
+            # Modify the model
+            update_function(model)
 
-                # Start the transaction
-                pipe.multi()
+            # Start the transaction
+            p = client.pipeline()
 
-                # Write the updated model back to Redis
-                pipe.set(key, dump_function(modified_model))
+            # Write the updated model back to Redis
+            p.set(key, dump_function(model))
 
-                # Execute the transaction
-                pipe.execute()
-                break  # Break the loop if successful
+            # Execute the transaction
+            p.execute()
+            break  # Break the loop if successful
 
-            except redis.WatchError:
-                # If the key was changed by another process, retry
-                continue
+        except redis.WatchError:
+            # If the key was changed by another process, retry
+            continue
 
 
 def get_usage_from_mongo_for_target(
@@ -96,7 +101,11 @@ def get_usage_from_mongo_for_target(
         },
     ]
     user_data = usage_collection.aggregate(pipeline)
-    entry = user_data.next()
+    entry = [entry for element in user_data]
+    if len(entry) == 0:
+        return DEFAULT_USAGE
+    else:
+        entry = entry[0]
     return QuotaElements(
         prompt_tokens=entry["prompt_tokens"],
         total_tokens=entry["prompt_tokens"] + entry["completion_tokens"],
@@ -111,7 +120,7 @@ class QuotaService:
         self.key_db = redis_db.redis_usage_key_client
         self.mongo_client: pymongo.MongoClient = mongo_db.mongo_client
         self.db: Database = self.mongo_client["gateway"]
-        self.usage_collection: Collection = self.db["usage"]
+        self.usage_collection: Collection = self.db[mongo_db.QUOTA_COLLECTION]
 
     def get_quota(self, key, user) -> Quota:
         return Quota(
@@ -139,7 +148,7 @@ class QuotaService:
             # Check, if there is quota data in the persitent database
             keyQuota = KeyQuota()
         else:
-            keyQuota = KeyQuota(dump)
+            keyQuota = KeyQuota.model_validate(json.loads(dump))
         return keyQuota
 
     def update_persistent_quota(
@@ -201,7 +210,7 @@ class QuotaService:
         if dump is None:
             userQuota = UserQuota()
         else:
-            userQuota = UserQuota(dump)
+            userQuota = UserQuota.model_validate(json.loads(dump))
         return userQuota
 
     def update_key_quota(self, key: str, request: RequestQuota):
@@ -210,7 +219,7 @@ class QuotaService:
             key=key,
             retrieval_function=lambda data: self.process_key_dump(data),
             update_function=lambda model: model.add_request(request),
-            dump_function=lambda model: model.model_dump(),
+            dump_function=lambda model: json.dumps(model.model_dump()),
         )
 
     def update_user_quota(self, user: str, request: RequestQuota):
@@ -219,7 +228,7 @@ class QuotaService:
             key=user,
             retrieval_function=lambda data: self.process_user_dump(data),
             update_function=lambda model: model.add_request(request),
-            dump_function=lambda model: model.model_dump(),
+            dump_function=lambda model: json.dumps(model.model_dump()),
         )
 
     def update_quota(self, source: UserKey, model: str, request: RequestQuota):

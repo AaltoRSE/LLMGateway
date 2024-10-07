@@ -15,14 +15,15 @@ class UserService:
     def __init__(self) -> None:
         self.mongo_client: MongoClient = app.db.mongo.mongo_client
         self.db = self.mongo_client["gateway"]
-        self.user_collection = self.db["users"]
+        self.user_collection = self.db[app.db.mongo.USER_COLLECTION]
+        self.key_collection = self.db[app.db.mongo.KEY_COLLECTION]
 
     def get_user_by_id(self, user_id: int) -> User:
         user = self.user_collection.find_one({"auth_id": user_id})
 
         if not user:
             return None
-        return User(user)
+        return User.model_validate(user)
 
     def get_or_create_user_from_auth_data(
         self, auth_id: str, first_name: str, last_name: str
@@ -42,8 +43,24 @@ class UserService:
         return user
 
     def get_all_users(self) -> List[User]:
-        users = [User(user) for user in self.user_collection.find({})]
+        users = [User.model_validate(user) for user in self.user_collection.find({})]
         return users
+
+    def reset_user(self, username: User):
+        user = self.user_collection.find_one({"auth_id": username})
+        logger.info(f"Resetting user {username}")
+        logger.info(user)
+        user["seen_guide_version"] = ""
+        user["keys"] = [
+            entry["key"]
+            for entry in self.key_collection.find({"user": username}, {"key": 1})
+        ]
+        logger.info(user)
+        result = self.user_collection.find_one_and_update(
+            {"auth_id": username}, {"$set": user}, upsert=False, projection={"_id": 0}
+        )
+        logger.info(result)
+        return result
 
     def create_new_user(self, user: User):
         new_user = self.user_collection.insert_one(

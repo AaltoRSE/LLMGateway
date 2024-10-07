@@ -84,6 +84,7 @@ async def callback(
                 if "redirect_url" in request.session
                 else frontend_url
             ),
+            status_code=303,
         )
     response = check_auth_response(request, session, response)
     logger.info(response)
@@ -137,7 +138,10 @@ async def test_authentication(
     """
     Test authentication endpoint
     """
-    return {"user": user.get_user_data()}
+    if user.is_authenticated:
+        return {"authed": True, "user": request.user.username}
+    else:
+        return {"authed": False, "reason": "No Token provided"}
 
 
 @router.get("/test_admin")
