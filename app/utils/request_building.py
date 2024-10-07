@@ -71,6 +71,7 @@ class BodyHandler:
             if not "include_usage" in body_dict["stream_options"]:
                 body_dict["stream_options"]["include_usage"] = True
             body = json.dumps(body_dict)
+            headers["Content-Length"] = str(len(body.encode("utf-8")))
         # extract the body for forwarding.
         req = stream_client.build_request(
             method,

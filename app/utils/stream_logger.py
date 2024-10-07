@@ -22,7 +22,11 @@ def getTokensForChunk(streamChunk: str):
             pass
         else:
             parsed_json = json.loads(tokens)
-            logger.info(parsed_json)
+            if parsed_json["usage"]:
+                prompt_tokens = prompt_tokens + parsed_json["usage"]["prompt_tokens"]
+                completion_tokens = (
+                    completion_tokens + parsed_json["usage"]["completion_tokens"]
+                )
             # dataChoices = parsed_json["choices"]
             # completion_tokens = completion_tokens + len(dataChoices)
 
@@ -60,5 +64,5 @@ class StreamLogger:
             self.quota_service.update_quota(
                 self.source, self.model.model.id, request_quota
             )
-            return False
-        return True
+            return True
+        return False

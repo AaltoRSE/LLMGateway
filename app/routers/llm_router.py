@@ -49,8 +49,12 @@ router = APIRouter(
     tags=["LLM Endpoints"],
 )
 
+if os.environ.get("DEV_MODE","0") == "1":
+    stream_client = httpx.AsyncClient(base_url=os.environ.get("LLM_BASE_URL"), verify=False)
+else:
+    stream_client = httpx.AsyncClient(base_url=os.environ.get("LLM_BASE_URL"))
 llm_logger.info(f"Request URL used is {os.environ.get("LLM_BASE_URL")}")
-stream_client = httpx.AsyncClient(base_url=os.environ.get("LLM_BASE_URL"))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -100,6 +104,7 @@ async def completion(
                 include_usage=stream_usage
             )
         else:
+            llm_logger.info(req)
             r = await stream_client.send(req)
             llm_logger.debug(r.content)
             responseData = r.json()
@@ -138,9 +143,11 @@ async def chat_completion(
         requestData,
         request,
         stream_client,
-        not stream_usage # if it has been true, we don't need to add it.
+        stream and not stream_usage # if it has been true, we don't need to add it.
     )
     try:
+        llm_logger.info(req)
+        llm_logger.info(req.content)    
         if stream:
             responselogger = StreamLogger(quota_service = quota_service,source = api_key, model = model)
             # no logging implemented yet...
@@ -153,7 +160,7 @@ async def chat_completion(
             )
         else:            
             r = await stream_client.send(req)
-            llm_logger.debug(r.content)
+            llm_logger.info(r.content)
             responseData = r.json()
             completion_tokens = responseData["usage"]["completion_tokens"]
             prompt_tokens = responseData["usage"]["prompt_tokens"]

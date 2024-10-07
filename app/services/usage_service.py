@@ -173,14 +173,14 @@ class UsageService:
             {
                 "$lookup": {
                     "from": "apikeys",
-                    "localField": "key",
+                    "localField": "_id.key",
                     "foreignField": "key",
                     "as": "apikey_info",
                 }
             },
             {
                 "$group": {
-                    "_id": "$_id.key",
+                    "_id": {"key": "$_id.key", "name": {"$first": "$apikey_info.name"}},
                     "models": {
                         "$push": {
                             "model": "$_id.model",
@@ -194,18 +194,17 @@ class UsageService:
                     "total_prompt_tokens": {"$sum": "$total_prompt_tokens"},
                     "total_completion_tokens": {"$sum": "$total_completion_tokens"},
                     "total_cost": {"$sum": "$total_cost"},
-                    "name": {"$first": "$apikey_info.name"},
                 }
             },
             {
                 "$project": {
                     "_id": 0,
-                    "key": "$_id",
+                    "key": "$_id.key",
                     "prompt_tokens": "$total_prompt_tokens",
                     "completion_tokens": "$total_completion_tokens",
                     "cost": "$total_cost",
                     "usage": "$models",
-                    "name": "$name",
+                    "name": "$_id.name",
                 }
             },
             {
@@ -221,6 +220,7 @@ class UsageService:
                             "completion_tokens": "$completion_tokens",
                             "cost": "$cost",
                             "usage": "$usage",
+                            "name": "$name",
                         }
                     },
                 }
@@ -244,7 +244,7 @@ class UsageService:
             checked_keys = []
         else:
             usage_data = UsagePerKeyForUser.model_validate(results[0])
-            checked_keys = [key["key"] for key in usage_data.keys]
+            checked_keys = [key.key for key in usage_data.keys]
         # Get all keys, and their names from the user and key collections
         key_query = {"user": user}
         if only_active:

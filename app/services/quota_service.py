@@ -100,17 +100,17 @@ def get_usage_from_mongo_for_target(
             }
         },
     ]
-    user_data = usage_collection.aggregate(pipeline)
-    entry = [entry for element in user_data]
-    if len(entry) == 0:
+    user_data = list(usage_collection.aggregate(pipeline))
+
+    if len(user_data) == 0:
         return DEFAULT_USAGE
     else:
-        entry = entry[0]
+        user_data = user_data[0]
     return QuotaElements(
-        prompt_tokens=entry["prompt_tokens"],
-        total_tokens=entry["prompt_tokens"] + entry["completion_tokens"],
-        completion_tokens=entry["completion_tokens"],
-        cost=entry["cost"],
+        prompt_tokens=user_data["prompt_tokens"],
+        total_tokens=user_data["prompt_tokens"] + user_data["completion_tokens"],
+        completion_tokens=user_data["completion_tokens"],
+        cost=user_data["cost"],
     )
 
 

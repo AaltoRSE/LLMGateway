@@ -12,9 +12,9 @@
       }"
     >
       <Column header="Model" field="model"></Column>
-      <Column header="Prompt tokens" field="prompt_tokens"></Column>
-      <Column header="Completion tokens" field="completion_tokens"></Column>
-      <Column header="Cost" field="cost"></Column>
+      <Column header="Prompt tokens" field="usage.prompt_tokens"></Column>
+      <Column header="Completion tokens" field="usage.completion_tokens"></Column>
+      <Column header="Cost" field="usage.cost"></Column>
     </DataTable>
   </div>
 </template>
@@ -58,9 +58,11 @@ export default {
           return [
             {
               model: 'Total',
-              prompt_tokens: currentData.prompt_tokens,
-              completion_tokens: currentData.completion_tokens,
-              cost: currentData.cost
+              usage: {
+                prompt_tokens: currentData.prompt_tokens,
+                completion_tokens: currentData.completion_tokens,
+                cost: currentData.cost
+              }
             }
           ]
         else return []

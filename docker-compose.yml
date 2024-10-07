@@ -8,13 +8,14 @@ services:
       - ADMIN_KEY=321
       - MONGO_SESSION_COLLECTION=sessions
       # Indicate where you have a LLM Running.
-      - LLM_BASE_URL=http://192.168.0.4:8000
+      - LLM_BASE_URL=https://nginx-server:8001
       - MONGOUSER=test
       - MONGOPASSWORD=test
       - MONGOHOST=mongo
       - REDISHOST=redis
       - REDISPORT=6379
       - GATEWAY_DEBUG=1
+      - DEV_MODE=1
     container_name: gateway-server
     ports:
       - 127.0.0.1:3000:3000
@@ -32,6 +33,7 @@ services:
     environment:
       - NGINX_HTTPS_PORT=443
       - HOSTNAME=localhost
+      - LLM_HOST=http://192.168.0.19:8080
     ports:
       - 0.0.0.0:80:80
       - 0.0.0.0:443:443
@@ -42,6 +44,7 @@ services:
       - ./dev_data/certs/sp.key:/certificates/private.key
     depends_on:
       - backend
+    container_name: nginx-server
   mongo:
     extends:
       file: docker_databases.yml
