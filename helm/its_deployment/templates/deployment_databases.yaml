@@ -1,0 +1,119 @@
+---
+# redis database
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-redis
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: llm-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: server
+      app.kubernetes.io/name: llm-redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: server
+        app.kubernetes.io/name: llm-redis
+    spec:
+      containers:
+        - name: llm-redis-db
+          image: redis:7.2.3
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: 1
+---
+# mongo database
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-mongo
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: llm-mongo
+    app.kubernetes.io/component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: llm-mongo
+      app.kubernetes.io/component: server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: llm-mongo
+        app.kubernetes.io/component: server
+    spec:
+      containers:
+        - name: llm-mongo-db
+          image: mongo:7.0.4
+          ports:
+            - containerPort: 27017
+          resources:
+            requests:
+              cpu: 1
+          env:
+            - {
+                name: MONGO_INITDB_ROOT_USERNAME,
+                valueFrom: { secretKeyRef: { name: mongo, key: user } },
+              }
+            - {
+                name: MONGO_INITDB_ROOT_PASSWORD,
+                valueFrom: { secretKeyRef: { name: mongo, key: password } },
+              }
+          volumeMounts:
+            - mountPath: /data/db
+              name: llm-mongo
+      volumes:
+        - name: llm-mongo
+          persistentVolumeClaim:
+            claimName: llm-mongo
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llm-gateway-to-redis
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: llm-redis
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: llm-gateway
+    ports:
+    - protocol: TCP
+      port: 6379
+
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llm-gateway-to-mongo
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: llm-mongo
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: llm-gateway
+    ports:
+    - protocol: TCP
+      port: 27017

@@ -1,0 +1,54 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-redis-svc
+  labels:
+    app.kubernetes.io/name: llm-redis-svc
+    app.kubernetes.io/component: server
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: llm-redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-mongo-svc
+  labels:
+    app.kubernetes.io/name: llm-mongo-svc
+    app.kubernetes.io/component: server
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: llm-mongo
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-gateway-svc
+  labels:
+    app.kubernetes.io/name: llm-gateway-svc
+    app.kubernetes.io/component: server
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app.kubernetes.io/name: llm-gateway
+    app.kubernetes.io/component: server
+  ports:
+    - protocol: TCP
+      # Can we also use 443 here, or how does forwardng work for this?
+      port: 80
+      targetPort: 3000
+---
+

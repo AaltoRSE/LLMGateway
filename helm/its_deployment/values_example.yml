@@ -1,0 +1,18 @@
+namespace: llm
+ai_model_url: ai-model.k8s.aalto.fi
+gateway_url: ai-gateway.k8s.aalto.fi
+gateway_key: Supersecretkey
+inference_key: AnotherSuperSecretKey
+mongo_user: llm_user
+mongo_password: secret_llm_user_password
+image_url: harbor.cs.aalto.fi/aaltorse-public/llm_gateway_its
+image_tag: latest
+
+# Create base 64 encoded certificates as follows:
+# openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout saml.key -out saml.crt -subj "/C=FI/ST=Uusimaa/L=Espoo/O=Aalto University/OU=IT/CN=llm.k8s-test.cs.aalto.fi"
+# The output of the next line goes into the saml_certificate field
+# cat saml.crt | base64 
+# The output of the next line goes into the saml_private_key field
+# cat saml.key | base64
+saml_certificate: <Your base64 certificate here>
+saml_private_key: <Your base64 private key here>
