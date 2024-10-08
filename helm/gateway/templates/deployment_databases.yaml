@@ -75,45 +75,45 @@ spec:
           persistentVolumeClaim:
             claimName: llm-mongo
 
-#---
-#apiVersion: networking.k8s.io/v1
-#kind: NetworkPolicy
-#metadata:
-#  name: allow-llm-gateway-to-redis
-#  namespace: {{ .Values.namespace }}
-#spec:
-#  podSelector:
-#    matchLabels:
-#      app.kubernetes.io/name: llm-redis
-#  policyTypes:
-#  - Ingress
-#  ingress:
-#  - from:
-#    - podSelector:
-#        matchLabels:
-#          app.kubernetes.io/name: llm-gateway
-#    ports:
-#    - protocol: TCP
-#      port: 6379
-#
-#
-#---
-#apiVersion: networking.k8s.io/v1
-#kind: NetworkPolicy
-#metadata:
-#  name: allow-llm-gateway-to-mongo
-#  namespace: {{ .Values.namespace }}
-#spec:
-#  podSelector:
-#    matchLabels:
-#      app.kubernetes.io/name: llm-mongo
-#  policyTypes:
-#  - Ingress
-#  ingress:
-#  - from:
-#    - podSelector:
-#        matchLabels:
-#          app.kubernetes.io/name: llm-gateway
-#    ports:
-#    - protocol: TCP
-#      port: 27017
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llm-gateway-to-redis
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: llm-redis
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: llm-gateway
+    ports:
+    - protocol: TCP
+      port: 6379
+
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llm-gateway-to-mongo
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: llm-mongo
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: llm-gateway
+    ports:
+    - protocol: TCP
+      port: 27017
