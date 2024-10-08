@@ -46,7 +46,7 @@ spec:
                 valueFrom: { secretKeyRef: { name: mongo, key: password } },
               }
             - { name: MONGOHOST, value: "llm-mongo-svc" }
-            - { name: LLM_BASE_URL, value: {{ .Values.ai_model_url }} }
+            - { name: LLM_BASE_URL, value: "https://{{ .Values.ai_model_url }}" }
             # Redis
             - { name: REDISHOST, value: "llm-redis-svc" }
             - { name: REDISPORT, value: "6379" }
