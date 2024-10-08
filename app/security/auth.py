@@ -26,7 +26,7 @@ def get_request_source(request: HTTPConnection):
     # We asume, that we can either be only reached via proxy ( first option ), or are directly accessed from clients.
     if is_proxied:
         # This assumes that our proxy has set this header
-        return request.headers["X-Real-IP"]
+        return request.headers["x-forwarded-for"]
     else:
         return request.client.host
 
