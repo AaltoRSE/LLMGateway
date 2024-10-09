@@ -49,6 +49,6 @@ spec:
     - protocol: TCP
       # Can we also use 443 here, or how does forwardng work for this?
       port: 80
-      targetPort: 8000
+      targetPort: 3000
 ---
 

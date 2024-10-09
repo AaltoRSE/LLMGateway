@@ -40,4 +40,4 @@ COPY --chown=aaltorse:aaltorse ./app ./app
 COPY --chown=aaltorse:aaltorse ./frontend/dist ./dist
 
 # Entrypoint
-CMD ["gunicorn", "app.main:app", "--bind 0.0.0.0:3000", "-k", "uvicorn.workers.UvicornWorker", "--workers", "6" ]
+CMD ["gunicorn", "app.main:app", "--bind", "0.0.0.0:3000", "-k", "uvicorn.workers.UvicornWorker", "--workers", "6" ]
