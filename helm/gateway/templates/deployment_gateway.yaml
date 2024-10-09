@@ -63,6 +63,6 @@ spec:
                   { secretKeyRef: { name: llm-gateway, key: inference_key } },
               }
           volumeMounts:
-            - mountPath: /app/app/saml/saml_data/certs
+            - mountPath: /app/app/security/saml/saml_data/certs
               name: certificate-volume
               readOnly: true
