@@ -26,7 +26,7 @@ spec:
             secretName: llm-gatewaysaml-secret
       containers:
         - name: gateway
-          image: "{{ .Values.image_url }} : {{ .Values.image_tag }}" #Lets start versioning this
+          image: "{{ .Values.image_url }}:{{ .Values.image_tag }}" #Lets start versioning this
           # Make sure, that the image is always pulled, since we might update for fixes
           imagePullPolicy: Always 
           ports:
