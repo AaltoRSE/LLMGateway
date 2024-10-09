@@ -11,4 +11,6 @@ spec:
     requests:
       # Need to have a look how big this will become.
       storage: 4Gi
+  storageClassName: moodle-nfs-csi
+  volumeMode: Filesystem
 #---
