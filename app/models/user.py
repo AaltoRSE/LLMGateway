@@ -12,6 +12,7 @@ class User(BaseModel):
     auth_id: str
     first_name: str
     last_name: str
-    admin: bool
-    seen_guide_version: str
+    admin: bool = False
+    seen_guide_version: str = ""
     keys: List[str] = []
+    email: str = ""

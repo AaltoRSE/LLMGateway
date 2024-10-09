@@ -5,7 +5,7 @@ from pydantic import BaseModel, RootModel, Field
 class LLMModelData(BaseModel):
     id: str
     owned_by: str
-    permissions: List[str]
+    permissions: List[str] = []
     object: str = Field(default="model")
 
 

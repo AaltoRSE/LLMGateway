@@ -32,7 +32,7 @@ def get_api_key(
         with the detail "Invalid or missing API Key". Additionally, logs information about the header and key.
     """
     api_key = re.sub("^Bearer ", "", api_key)
-    user_key = key_service.check_key(api_key)
+    user_key = key_service.get_user_key_if_active(api_key)
     if not user_key == None:
         return user_key
     else:

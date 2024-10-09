@@ -19,4 +19,5 @@ dependencies:
   - pip:
       - pytest-mock-resources[mongo]
       - pytest-mock-resources[redis]
+      - mongomock
       - /llama_cpp/llama-cpp-python[server]

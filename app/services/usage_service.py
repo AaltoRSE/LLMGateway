@@ -8,7 +8,7 @@ from pymongo.collection import Collection
 from app.models.quota import QuotaElements, UsagePerKeyForUser, KeyPerModelUsage
 from app.services.quota_service import get_usage_from_mongo_for_target
 from typing import List
-import app.db.mongo as mongo_db
+import app.db.mongo
 
 # This class handle interaction with the usage databases.
 # There are three databases one per-key and one per user usage as in memory redis databases
@@ -21,11 +21,11 @@ import app.db.mongo as mongo_db
 
 class UsageService:
     def __init__(self):
-        self.mongo_client: pymongo.MongoClient = mongo_db.mongo_client
-        self.db: Database = self.mongo_client["gateway"]
-        self.usage_collection: Collection = self.db[mongo_db.QUOTA_COLLECTION]
-        self.user_collection: Collection = self.db[mongo_db.USER_COLLECTION]
-        self.key_collection: Collection = self.db[mongo_db.KEY_COLLECTION]
+        self.mongo_client: pymongo.MongoClient = app.db.mongo.mongo_client
+        self.db: Database = self.mongo_client[app.db.mongo.DB_NAME]
+        self.usage_collection: Collection = self.db[app.db.mongo.QUOTA_COLLECTION]
+        self.user_collection: Collection = self.db[app.db.mongo.USER_COLLECTION]
+        self.key_collection: Collection = self.db[app.db.mongo.KEY_COLLECTION]
 
     def get_usage_per_model(
         self,
@@ -145,23 +145,9 @@ class UsageService:
         pipeline = [
             {"$match": query},
         ]
-        if only_active:
-            pipeline.extend(
-                [
-                    {
-                        "$lookup": {
-                            "from": "apikeys",
-                            "localField": "key",
-                            "foreignField": "key",
-                            "as": "apikey_info",
-                        }
-                    },
-                    {"$unwind": "$apikey_info"},
-                    {"$match": {"apikey_info.active": True}},
-                ]
-            )
 
-        group_pipeline = [
+        # Group to the level of keys.
+        group_to_keys_pipeline = [
             {
                 "$group": {
                     "_id": {"key": "$key", "model": "$model"},
@@ -171,16 +157,8 @@ class UsageService:
                 }
             },
             {
-                "$lookup": {
-                    "from": "apikeys",
-                    "localField": "_id.key",
-                    "foreignField": "key",
-                    "as": "apikey_info",
-                }
-            },
-            {
                 "$group": {
-                    "_id": {"key": "$_id.key", "name": {"$first": "$apikey_info.name"}},
+                    "_id": {"key": "$_id.key"},
                     "models": {
                         "$push": {
                             "model": "$_id.model",
@@ -204,9 +182,27 @@ class UsageService:
                     "completion_tokens": "$total_completion_tokens",
                     "cost": "$total_cost",
                     "usage": "$models",
-                    "name": "$_id.name",
                 }
             },
+            # At this point, we have like max 10 keys, because they are grouped.
+            # So we have a minimal number of lookups
+            {
+                "$lookup": {
+                    "from": app.db.mongo.KEY_COLLECTION,
+                    "localField": "key",
+                    "foreignField": "key",
+                    "as": "apikey_info",
+                }
+            },
+        ]
+
+        pipeline.extend(group_to_keys_pipeline)
+        # Restrict to active if necessary this should be only max 10 lookups
+        if only_active:
+            pipeline.append({"$match": {"apikey_info.active": True}})
+
+        # Group to the level of the user.
+        group_to_user = [
             {
                 "$group": {
                     "_id": None,
@@ -220,7 +216,7 @@ class UsageService:
                             "completion_tokens": "$completion_tokens",
                             "cost": "$cost",
                             "usage": "$usage",
-                            "name": "$name",
+                            "name": {"$first": "$apikey_info.name"},
                         }
                     },
                 }
@@ -235,10 +231,10 @@ class UsageService:
                 }
             },
         ]
-
-        pipeline.extend(group_pipeline)
+        pipeline.extend(group_to_user)
         results = list(self.usage_collection.aggregate(pipeline))
         logger.info(results)
+
         if len(results) == 0:
             usage_data = UsagePerKeyForUser()
             checked_keys = []

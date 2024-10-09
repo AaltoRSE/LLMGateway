@@ -102,7 +102,9 @@ class SAMLAuthenticator(BackendAuthenticator):
                         # TODO: Better handling of this
                         session_data["first_name"] = session_data["auth_name"]
                         session_data["last_name"] = "?"
-
+                    session_data["email"] = session_data["samlUserdata"][
+                        "urn:oid:0.9.2342.19200300.100.1.3"
+                    ][0]
                 except KeyError as e:
                     saml_logger.error("Necessary Attributes not found")
                     saml_logger.error(e)

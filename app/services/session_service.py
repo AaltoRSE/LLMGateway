@@ -30,6 +30,7 @@ class SessionService:
                 - first_name (str): The user's first name.
                 - last_name (str): The user's last name.
                 - groups (list): A list of the user's roles.
+                - email (str): The user's email address.
 
             sourceIP (str): The IP address of the user.
             session_key (str, optional): The session key. If None, a new key is generated. Defaults to None.
@@ -48,6 +49,7 @@ class SessionService:
             session_data["auth_name"],
             session_data["first_name"],
             session_data["last_name"],
+            session_data["email"],
         )
         data = {
             "User": user.auth_id,

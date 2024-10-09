@@ -1,4 +1,3 @@
-from app.utils.logging_handler import LoggingHandler
 from app.services.quota_service import QuotaService
 from app.models.keys import UserKey
 from app.models.model import LLMModel

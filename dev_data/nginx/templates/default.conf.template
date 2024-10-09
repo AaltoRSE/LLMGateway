@@ -65,9 +65,7 @@ server {
             proxy_pass       ${LLM_HOST};
             proxy_set_header Host                    $host;
             proxy_set_header X-Real-IP               $remote_addr;
-            proxy_set_header X-Auth-Request-Redirect $request_uri;
-            # or, if you are handling multiple domains:
-            # proxy_set_header X-Auth-Request-Redirect $scheme://$host$request_uri;
+            proxy_set_header X-Auth-Request-Redirect $request_uri;          
         }
 
         # If we want to have an initial login page for the service, we can host something here, but we need to make sure, that the 
