@@ -1,13 +1,15 @@
 import redis
-from redis import Redis
 import pymongo
+from pymongo.errors import DuplicateKeyError
 import secrets
 import string
-import os
-import urllib
 import json
+from fastapi import HTTPException
 import logging
-import app.db.redis as redis
+from typing import Union
+
+
+import app.db.redis
 import app.db.mongo
 
 from app.models.keys import UserKey, APIKey
@@ -17,7 +19,7 @@ logger = logging.getLogger("app")
 
 class KeyService:
     def __init__(self):
-        self.redis_client: Redis = redis.redis_key_client
+        self.redis_client: redis.Redis = app.db.redis.redis_key_client
         self.mongo_client: pymongo.MongoClient = app.db.mongo.mongo_client
         self.db = self.mongo_client[app.db.mongo.DB_NAME]
         self.key_collection = self.db[app.db.mongo.KEY_COLLECTION]
@@ -71,7 +73,7 @@ class KeyService:
         """
         return APIKey(user=user, key=key, name=name, active=True)
 
-    def get_user_key_if_active(self, key: string):
+    def get_user_key_if_active(self, key: string) -> Union[UserKey, None]:
         """
         Function to check if a key currently exists. This only checks in Redis,
         not in the persitent storage, as those two should be in sync.
@@ -128,7 +130,7 @@ class KeyService:
                 {"$pull": {"keys": key}},
             )
         # Since all keys have to be associated with a user...
-        if not updated_user == None:
+        if updated_user == None:
             self.logger.warning("Deleted a key without association to a user")
         # User updated / or not. We will inactivate the key now.
         self.key_collection.update_one({"key": key}, {"$set": {"active": False}})
@@ -166,9 +168,39 @@ class KeyService:
         """
         self.redis_client.set(key, json.dumps(UserKey(user=user, key=key).model_dump()))
 
-    def add_key(self, user: string, name: string, api_key: str):
+    def _add_key(self, user: string, name: string, api_key: str):
         """
         Adds a key for a specific user if the key doesn't exist yet.
+        The oindicated user has to exist prior to a call to this function.
+        Args:
+        - user: Username of the user to whom the API key will be associated.
+        - name: Name or label for the API key.
+        - api_key: The key itself
+
+        Returns:
+        - bool: true, if the key was added false if not.
+        """
+
+        userinfo = self.user_collection.find_one({app.db.mongo.ID_FIELD: user})
+        if userinfo == None:
+            raise HTTPException(status_code=400, detail="User does not exist")
+        if len(userinfo["keys"]) >= 10:
+            raise HTTPException(
+                status_code=400,
+                detail="User has reached the maximum number of keys",
+            )
+        try:
+            # This should error, if the key already exists.
+            self._add_key_to_mongo(user, name, api_key)
+            self._add_key_to_redis(api_key, user)
+            return True
+        except DuplicateKeyError as e:
+
+            return False
+
+    def _add_key_to_mongo(self, user: string, name: string, api_key: str):
+        """
+        Adds a key to the mongo db.
 
         Args:
         - user: Username of the user to whom the API key will be associated.
@@ -178,25 +210,20 @@ class KeyService:
         Returns:
         - bool: true, if the key was added false if not.
         """
-        key_created = False
-        found = self.key_collection.find_one({"key": api_key})
-        if found == None:
-            self.key_collection.insert_one(
-                self.build_new_key_object(user, api_key, name).model_dump()
-            )
-            self.user_collection.update_one(
-                {app.db.mongo.ID_FIELD: user},
-                {"$addToSet": {"keys": api_key}},
-                upsert=True,
-            )
-            self._add_key_to_redis(api_key, user)
-            key_created = True
-        return key_created
+        # This should error, if the key already exists.
+        self.key_collection.insert_one(
+            self.build_new_key_object(user, api_key, name).model_dump()
+        )
+        self.user_collection.update_one(
+            {app.db.mongo.ID_FIELD: user},
+            {"$addToSet": {"keys": api_key}},
+            upsert=False,
+        )
 
     def create_key(self, user: string, name: string):
         """
         Generates a unique API key and associates it with a specified user.
-
+        The User MUST exist prior to calling this function.
         Args:
         - user: Username of the user to whom the API key will be associated.
         - name: Name or label for the API key.
@@ -204,15 +231,10 @@ class KeyService:
         Returns:
         - api_key: The generated unique API key associated with the user.
         """
-        api_key = ""
         api_key = self.generate_api_key()
-        userinfo = self.user_collection.find_one({app.db.mongo.ID_FIELD: user})
-        if userinfo == None or len(userinfo["keys"]) < 10:
-            while not self.add_key(user=user, name=name, api_key=api_key):
-                api_key = self.generate_api_key()
-            return api_key
-        else:
-            return None
+        while not self._add_key(user=user, name=name, api_key=api_key):
+            api_key = self.generate_api_key()
+        return api_key
 
     def list_keys(self, user=None):
         """
