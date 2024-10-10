@@ -63,7 +63,7 @@ def test_add_model(redis, monkeypatch):
     assert model_collection.count_documents({}) == 2
 
 
-def test_model_path_and_get(redis, monkeypatch):
+def test_get_model_path(redis, monkeypatch):
     monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
     monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
     handler = ModelService()
@@ -103,6 +103,30 @@ def test_model_path_and_get(redis, monkeypatch):
     assert handler.get_model_path("test3") == "test3"
     models = handler.get_models()
     assert len(models) == 3
+
+
+def test_get_model(redis, monkeypatch):
+    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
+    monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
+    handler = ModelService()
+    handler.init_models()
+    currentModels = handler.get_models()
+    db = app.db.mongo.mongo_client["gateway"]
+    model_collection = db["model"]
+    assert len(currentModels) == 0
+    assert model_collection.count_documents({}) == 0
+    model1 = LLMModel(path="test2", model=LLMModelData(id="test", owned_by="test3"))
+    handler.add_model(model1)
+    assert model_collection.count_documents({}) == 1
+    model2 = LLMModel(path="test2", model=LLMModelData(id="test2", owned_by="test4"))
+    handler.add_model(model2)
+    model1_retrieved = handler.get_model(model1.model.id)
+    assert model1_retrieved.model.owned_by == "test3"
+    assert model1_retrieved.path == model1.path
+
+    model2_retrieved = handler.get_model(model2.model.id)
+    assert model2_retrieved.model.owned_by == "test4"
+    assert model2_retrieved.path == model2.path
 
 
 def test_remove_model(redis, monkeypatch):

@@ -59,7 +59,9 @@ class UserService:
         user["seen_guide_version"] = ""
         user["keys"] = [
             entry["key"]
-            for entry in self.key_collection.find({"user": username}, {"key": 1})
+            for entry in self.key_collection.find(
+                {"user": username, "active": True}, {"key": 1}
+            )
         ]
         logger.info(user)
         result = self.user_collection.find_one_and_update(
