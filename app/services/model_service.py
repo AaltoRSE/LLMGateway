@@ -3,6 +3,7 @@ import logging
 from app.models.model import LLMModel, LLMModelDict, LLMModelData
 import app.db.redis as redis
 import app.db.mongo as mongo
+from fastapi import HTTPException
 
 modelLogger = logging.getLogger(__name__)
 
@@ -18,26 +19,24 @@ class ModelService:
         """
         Initialize models from the database, should be called at startup of the server.
         """
-        models = LLMModelDict(
-            {
-                entry["model"]["id"]: LLMModel.model_validate(entry)
-                for entry in self.model_collection.find({}, {"model": 1, "path": 1})
-            }
-        )
+        models = {
+            entry["model"]["id"]: json.dumps(entry)
+            for entry in self.model_collection.find({}, {"_id": 0})
+        }
+
         if len(models) > 0:
-            # Since this is a root model and the root is a dictionary, it gets "dumped" into a dictionary.
-            # Thus, we need to further "dump" it into a string for storage in redis
-            self.redis_client.set("models", (json.dumps(models.model_dump())))
+            # We will simply set all models to the redis
+            self.redis_client.mset(models)
         else:
             self.redis_client.delete("models")
 
     def load_models(self) -> LLMModelDict:
-        try:
-            return LLMModelDict.model_validate(
-                json.loads(self.redis_client.get("models"))
-            )
-        except:
-            return LLMModelDict({})
+        return LLMModelDict(
+            {
+                entry["model"]["id"]: LLMModel.model_validate(entry)
+                for entry in self.model_collection.find({}, {"_id": 0})
+            }
+        )
 
     def get_models(self):
         """
@@ -49,27 +48,19 @@ class ModelService:
         return [models[model].model for model in models]
 
     def get_model_path(self, model_id):
-        print(model_id)
-        try:
-            models = self.load_models()
-            print(models)
-            requested_model = models[model_id]
-            if requested_model:
-                return requested_model.path
-            else:
-                return None
-        except:
-            # Model does not exist
-            return None
+        model_data = self.redis_client.get(model_id)
+        if model_data:
+            requested_model = json.loads(model_data)
+            return requested_model["path"]
+        else:
+            raise HTTPException(status_code=404, detail="Model not found")
 
     def get_model(self, model_id) -> LLMModel:
-        try:
-            models = self.load_models()
-            print(models)
-            return models[model_id]
-        except:
-            # Model does not exist
-            return None
+        model_data = self.redis_client.get(model_id)
+        if model_data:
+            return LLMModel.model_validate(json.loads(model_data))
+        else:
+            raise HTTPException(status_code=404, detail="Model not found")
 
     def add_model(self, model: LLMModel):
         """
@@ -79,10 +70,12 @@ class ModelService:
         """
         exists = self.model_collection.find_one({"model.id": model.model.id})
         if exists:
-            raise KeyError("Model already exists")
+            raise HTTPException(status_code=409, detail="Model already exists")
         else:
             self.model_collection.insert_one(model.model_dump())
             # Update the models, setting them.
+            # This is the "simple" even though slightly more expensive approach. However, this request
+            # will only be run very rarely....
             self.init_models()
 
     def remove_model(self, model: str):

@@ -2,11 +2,37 @@ from pytest_mock_resources import create_redis_fixture
 import mongomock
 import app.db.mongo
 import app.db.redis
-import app
 from app.services.model_service import ModelService
 from app.models.model import LLMModel, LLMModelData
+from fastapi import HTTPException
 
 redis = create_redis_fixture()
+
+
+def create_test_model():
+    return LLMModel(path="test", model=LLMModelData(id="test", owned_by="test3"))
+
+
+def test_init_models(redis, monkeypatch):
+    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
+    monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
+    handler = ModelService()
+    testmodel = create_test_model()
+    db = app.db.mongo.mongo_client[app.db.mongo.DB_NAME]
+    model_collection = db[app.db.mongo.MODEL_COLLECTION]
+    model_collection.insert_one(testmodel.model_dump())
+    try:
+        handler.get_model_path(testmodel.model.id)
+        assert False, "Model should not have been found without init"
+    except HTTPException as e:
+        assert e.status_code == 404
+        assert e.detail == "Model not found"
+    models = handler.get_models()
+    # We have one in the db.
+    assert len(models) == 1
+    handler.init_models()
+    path = handler.get_model_path(testmodel.model.id)
+    assert path == testmodel.path
 
 
 # Testing whether keys are checked correctly
@@ -16,21 +42,21 @@ def test_add_model(redis, monkeypatch):
     handler = ModelService()
     handler.init_models()
     currentModels = handler.get_models()
-    db = app.db.mongo.mongo_client["gateway"]
-    model_collection = db["model"]
+    db = app.db.mongo.mongo_client[app.db.mongo.DB_NAME]
+    model_collection = db[app.db.mongo.MODEL_COLLECTION]
     assert len(currentModels) == 0
     assert model_collection.count_documents({}) == 0
     model = LLMModel(path="test", model=LLMModelData(id="test", owned_by="test3"))
     handler.add_model(model)
     # Adding model works
     assert model_collection.count_documents({}) == 1
-    failed = False
     try:
         model = LLMModel(path="test2", model=LLMModelData(id="test", owned_by="test3"))
         handler.add_model(model)
-    except KeyError as e:
-        failed = True
-    assert failed
+        assert False, "Model should be rejected because the ID already exists"
+    except HTTPException as e:
+        assert e.status_code == 409
+        assert e.detail == "Model already exists"
     model = LLMModel(path="test2", model=LLMModelData(id="test2", owned_by="test3"))
     handler.add_model(model)
     # Adding second model works
