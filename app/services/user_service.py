@@ -4,7 +4,9 @@ from typing import List
 import app.db.mongo as mongo
 from app.models.user import User
 from pymongo import MongoClient
+from pymongo import ReturnDocument as Document
 import logging
+from fastapi import HTTPException
 
 logger = logging.getLogger("app")
 
@@ -52,20 +54,35 @@ class UserService:
         users = [User.model_validate(user) for user in self.user_collection.find({})]
         return users
 
-    def reset_user(self, username: User):
-        user = self.user_collection.find_one({"auth_id": username})
-        logger.info(f"Resetting user {username}")
+    def update_agreement_version(self, username: User, version: str):
+        result = self.user_collection.find_one_and_update(
+            {mongo.ID_FIELD: username},
+            {"$set": {"seen_guide_version": version}},
+            upsert=False,
+        )
+        if not result:
+            raise HTTPException(status_code=400, detail="User not found")
+
+    def reset_user(self, user: User):
+        db_user = self.user_collection.find_one({mongo.ID_FIELD: user.auth_id})
+        if not db_user:
+            raise HTTPException(status_code=400, detail="User not found")
+        logger.info(f"Resetting user {user.auth_id}")
         logger.info(user)
-        user["seen_guide_version"] = ""
-        user["keys"] = [
+        db_user["seen_guide_version"] = ""
+        db_user["keys"] = [
             entry["key"]
             for entry in self.key_collection.find(
-                {"user": username, "active": True}, {"key": 1}
+                {"user": user.auth_id, "active": True}, {"key": 1}
             )
         ]
-        logger.info(user)
+        logger.info(db_user)
         result = self.user_collection.find_one_and_update(
-            {"auth_id": username}, {"$set": user}, upsert=False, projection={"_id": 0}
+            {mongo.ID_FIELD: db_user["auth_id"]},
+            {"$set": db_user},
+            upsert=False,
+            projection={"_id": 0},
+            return_document=Document.AFTER,
         )
         logger.info(result)
         return result

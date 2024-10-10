@@ -53,14 +53,14 @@ class ModelService:
             requested_model = json.loads(model_data)
             return requested_model["path"]
         else:
-            raise HTTPException(status_code=404, detail="Model not found")
+            raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
 
     def get_model(self, model_id) -> LLMModel:
         model_data = self.redis_client.get(model_id)
         if model_data:
             return LLMModel.model_validate(json.loads(model_data))
         else:
-            raise HTTPException(status_code=404, detail="Model not found")
+            raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
 
     def add_model(self, model: LLMModel):
         """
@@ -70,7 +70,9 @@ class ModelService:
         """
         exists = self.model_collection.find_one({"model.id": model.model.id})
         if exists:
-            raise HTTPException(status_code=409, detail="Model already exists")
+            raise HTTPException(
+                status_code=409, detail=f"Model {model.model.id} already exists"
+            )
         else:
             self.model_collection.insert_one(model.model_dump())
             # Update the models, setting them.
@@ -89,4 +91,4 @@ class ModelService:
             # update redis
             self.init_models()
         else:
-            raise KeyError("Model does not exist")
+            raise HTTPException(status_code=404, detail=f"Model {model} does not exist")
