@@ -12,7 +12,6 @@ from app.models.quota import (
     Quota,
     UserQuota,
     KeyQuota,
-    ElementQuota,
     RequestQuota,
     PersistentQuota,
     QuotaElements,
@@ -232,8 +231,8 @@ class QuotaService:
         )
 
     def update_quota(self, source: UserKey, model: str, request: RequestQuota):
-        self.update_key_quota(key=source.key, request=request)
-        self.update_user_quota(user=source.user, request=request)
         self.update_persistent_quota(
             key=source.key, user=source.user, model=model, request=request
         )
+        self.update_key_quota(key=source.key, request=request)
+        self.update_user_quota(user=source.user, request=request)

@@ -5,7 +5,13 @@ import pymongo
 from datetime import datetime
 from pymongo.database import Database
 from pymongo.collection import Collection
-from app.models.quota import QuotaElements, UsagePerKeyForUser, KeyPerModelUsage
+from app.models.quota import (
+    QuotaElements,
+    UsagePerKeyForUser,
+    KeyPerModelUsage,
+    ModelUsage,
+    UsageInfo,
+)
 from app.services.quota_service import get_usage_from_mongo_for_target
 from typing import List
 import app.db.mongo
@@ -33,7 +39,7 @@ class UsageService:
         target: str = None,
         from_time: datetime = None,
         to_time: datetime = None,
-    ) -> List[QuotaElements]:
+    ) -> List[ModelUsage]:
         query = {}
         timestamp_query = {}
         if to_time is not None:
@@ -62,17 +68,20 @@ class UsageService:
                 "$project": {
                     "_id": 0,
                     "model": "$_id",
-                    "cost": 1,
-                    "prompt_tokens": 1,
-                    "completion_tokens": 1,
-                    "total_tokens": {"$add": ["$prompt_tokens", "$completion_tokens"]},
+                    "usage": {
+                        "cost": "$cost",
+                        "prompt_tokens": "$prompt_tokens",
+                        "completion_tokens": "$completion_tokens",
+                    },
                 }
             },
         ]
-        data = [
-            QuotaElements(model_usage)
-            for model_usage in self.usage_collection.aggregate(pipeline)
+
+        model_data = [
+            model_usage for model_usage in self.usage_collection.aggregate(pipeline)
         ]
+        data = [ModelUsage.model_validate(model_usage) for model_usage in model_data]
+        print(data)
         return data
 
     def get_usage_for_user_per_model(
