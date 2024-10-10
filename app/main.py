@@ -22,6 +22,21 @@ from app.middleware.session_middleware import StorageSessionMiddleware
 from app.static_files import SPAStaticFiles
 from app.security.auth import get_authed_user, BackendUser
 from app.services.key_service import KeyService
+from app.services.model_service import ModelService
+from app.services.user_service import UserService
+
+# Initiaize services
+
+# Initialize keys for use in the app
+key_service = KeyService()
+key_service.init_keys()
+# Initialize Models for use in the app
+model_service = ModelService()
+model_service.init_models()
+# Initialize Users for use in the app
+user_service = UserService()
+user_service.init_user_db()
+
 
 debugging = True
 
@@ -60,9 +75,6 @@ app.add_middleware(
     backend=SessionAuthenticationBackend(),
 )
 
-# Initialize keys for use in the app
-key_service = KeyService()
-key_service.init_keys()
 
 # Generate random session key,
 # sessions will become invalid on reboot, but I think that's ok.

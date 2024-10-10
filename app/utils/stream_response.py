@@ -1,10 +1,17 @@
-from starlette.responses import StreamingResponse
-import anyio
+from starlette.responses import StreamingResponse, ContentStream
+
 from starlette.types import Send
 from app.utils.stream_logger import StreamLogger
+from typing import AsyncIterator
+
 import logging
 
 logger = logging.getLogger("app")
+
+
+async def event_generator(iterator: AsyncIterator[bytes]) -> ContentStream:
+    async for chunk in iterator:
+        yield chunk
 
 
 class LoggingStreamResponse(StreamingResponse):
