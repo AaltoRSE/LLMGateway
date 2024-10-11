@@ -7,6 +7,9 @@ import string
 from app.services.user_service import UserService
 from app.models.session import HTTPSession
 import app.db.redis as redis_db
+import logging
+
+logger = logging.getLogger("app")
 
 
 class SessionService:
@@ -79,10 +82,12 @@ class SessionService:
             dict: The session data, or None if the session does not exist.
         """
         serialized_data = self.redis_client.get(session_key)
+        logger.info(f"Session data: {serialized_data}")
         if serialized_data is None:
             return None
         # Deserialize the JSON string back to a dictionary
         data = json.loads(serialized_data)
+
         # TODO: Do we refresh the session here, or should this be handled elsewhere?
         return HTTPSession(
             key=session_key,

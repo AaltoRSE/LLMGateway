@@ -45,7 +45,9 @@ class StorageSessionMiddleware(SessionMiddleware):
                         logger.info("Invalid session data")
                         scope["session"] = {}
                 initial_session_was_empty = False
-            except BadSignature:
+            except BadSignature as e:
+                logger.info("Invalid session data")
+                logger.info(e)
                 scope["session"] = {}
         else:
             scope["session"] = {}
