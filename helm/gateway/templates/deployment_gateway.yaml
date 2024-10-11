@@ -62,6 +62,12 @@ spec:
                 valueFrom:
                   { secretKeyRef: { name: llm-gateway, key: inference_key } },
               }
+            # This is the session key
+            - {
+                name: SESSION_KEY,
+                valueFrom:
+                  { secretKeyRef: { name: llm-gateway, key: session_key } },
+              }
           volumeMounts:
             - mountPath: /app/app/security/saml_data/certs
               name: certificate-volume

@@ -3,7 +3,7 @@ A placeholder hello world app.
 """
 
 import logging
-import secrets, string
+import os
 
 logging.config.fileConfig("app/logging.conf", disable_existing_loggers=False)
 uvlogger = logging.getLogger("app")
@@ -75,11 +75,8 @@ app.add_middleware(
     backend=SessionAuthenticationBackend(),
 )
 
-
-# Generate random session key,
-# sessions will become invalid on reboot, but I think that's ok.
-alphabet = string.ascii_letters + string.digits
-session_key = "".join(secrets.choice(alphabet) for _ in range(35))
+# Need a fixed session key to work with potentially multiple instances.
+session_key = os.environ.get("SESSION_KEY")
 
 app.add_middleware(StorageSessionMiddleware, secret_key=session_key, max_age=600)
 
