@@ -20,7 +20,7 @@ from app.routers.llm_router import lifespan
 from app.middleware.authentication_middleware import SessionAuthenticationBackend
 from app.middleware.session_middleware import StorageSessionMiddleware
 from app.static_files import SPAStaticFiles
-from app.security.auth import get_authed_user, BackendUser
+from app.security.auth import get_user, BackendUser
 from app.services.key_service import KeyService
 from app.services.model_service import ModelService
 from app.services.user_service import UserService
@@ -101,19 +101,27 @@ from app.routers.auth_router import router as saml_router
 app.include_router(saml_router)
 
 
+@app.get("/auth/test")
 @app.post("/auth/test")
-async def auth_test(request: Request):
+async def auth_test(
+    request: Request,
+):
     # Obtain the auth manually here, because we want to provide
     # Information about the authentication status, and using security would make this fail with Unauthorized
     # Responses...
     if request.user.is_authenticated:
-        return {"authed": True, "user": request.user.username}
+        return {
+            "authed": True,
+            "user": request.user.username,
+            "agreement_ok": request.user.agreement_ok,
+            "admin": request.user.is_admin(),
+        }
     else:
-        return {"authed": False, "reason": "No Token provided"}
+        return {"authed": False, "reason": "No user authenticated"}
 
 
 @app.get("/data")
-async def getData(request: Request, user: BackendUser = Security(get_authed_user)):
+async def getData(request: Request, user: BackendUser = Security(get_user)):
     if user.is_authenticated:
         return user.get_user_data()
     else:

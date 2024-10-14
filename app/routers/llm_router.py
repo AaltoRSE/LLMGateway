@@ -8,7 +8,7 @@ from fastapi import (
     HTTPException,
     status,
     FastAPI,
-    Depends
+    Depends,
 )
 from typing import Annotated
 import logging
@@ -30,7 +30,6 @@ from app.requests.llama_requests import (
 )
 
 
-
 from app.security.api_keys import get_api_key
 from app.utils.request_building import BodyHandler
 from app.utils.stream_response import LoggingStreamResponse, event_generator
@@ -50,8 +49,10 @@ router = APIRouter(
     tags=["LLM Endpoints"],
 )
 
-if os.environ.get("DEV_MODE","0") == "1":
-    stream_client = httpx.AsyncClient(base_url=os.environ.get("LLM_BASE_URL"), verify=False)
+if os.environ.get("DEV_MODE", "0") == "1":
+    stream_client = httpx.AsyncClient(
+        base_url=os.environ.get("LLM_BASE_URL"), verify=False
+    )
 else:
     stream_client = httpx.AsyncClient(base_url=os.environ.get("LLM_BASE_URL"))
 llm_logger.info(f"Request URL used is {os.environ.get("LLM_BASE_URL")}")
@@ -64,7 +65,8 @@ async def lifespan(app: FastAPI):
     yield
     await stream_client.aclose()
 
-def requests_stream_usage(request : CompletionRequest | ChatCompletionRequest):
+
+def requests_stream_usage(request: CompletionRequest | ChatCompletionRequest):
     """
     This function is used to log the usage of the stream.
     """
@@ -78,10 +80,10 @@ async def completion(
     requestData: CompletionRequest,
     request: Request,
     background_tasks: BackgroundTasks,
-    quota_service : Annotated[QuotaService,Depends(QuotaService)],
-    body_handler : Annotated[BodyHandler,Depends(BodyHandler)],
+    quota_service: Annotated[QuotaService, Depends(QuotaService)],
+    body_handler: Annotated[BodyHandler, Depends(BodyHandler)],
     api_key: UserKey = Security(get_api_key),
-) -> Completion:       
+) -> Completion:
     # Check the quota, needs the api key before it can be done.
     quota_service.check_quota(api_key)
     stream = requestData.stream
@@ -90,19 +92,21 @@ async def completion(
         requestData,
         request,
         stream_client,
-        not stream_usage # if it has been true, we don't need to add it.
+        not stream_usage,  # if it has been true, we don't need to add it.
     )
-    
+
     try:
         if stream:
-            responselogger = StreamLogger(quota_service = quota_service,source = api_key, model = model)
+            responselogger = StreamLogger(
+                quota_service=quota_service, source=api_key, model=model
+            )
             # no logging implemented yet...
             r = await stream_client.send(req, stream=True)
             background_tasks.add_task(r.aclose)
             return LoggingStreamResponse(
                 content=event_generator(r.aiter_raw()),
                 streamlogger=responselogger,
-                include_usage=stream_usage
+                include_usage=stream_usage,
             )
         else:
             llm_logger.info(req)
@@ -111,10 +115,12 @@ async def completion(
             responseData = r.json()
             completion_tokens = responseData["usage"]["completion_tokens"]
             prompt_tokens = responseData["usage"]["prompt_tokens"]
-            new_request = RequestQuota(prompt_tokens=prompt_tokens, 
-                                     completion_tokens=completion_tokens,
-                                     prompt_cost=model.prompt_cost,
-                                     completion_cost=model.completion_cost)
+            new_request = RequestQuota(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                prompt_cost=model.prompt_cost,
+                completion_cost=model.completion_cost,
+            )
             background_tasks.add_task(
                 quota_service.update_quota, api_key, model.model.id, new_request
             )
@@ -133,42 +139,46 @@ async def chat_completion(
     requestData: ChatCompletionRequest,
     request: Request,
     background_tasks: BackgroundTasks,
-    quota_service : Annotated[QuotaService,Depends(QuotaService)],
-    body_handler : Annotated[BodyHandler,Depends(BodyHandler)],
+    quota_service: Annotated[QuotaService, Depends(QuotaService)],
+    body_handler: Annotated[BodyHandler, Depends(BodyHandler)],
     api_key: UserKey = Security(get_api_key),
 ) -> ChatCompletion:
-    quota_service.check_quota(api_key)    
+    quota_service.check_quota(api_key)
     stream = requestData.stream
     stream_usage = requests_stream_usage(requestData)
     req, model = await body_handler.build_request(
         requestData,
         request,
         stream_client,
-        stream and not stream_usage # if it has been true, we don't need to add it.
+        stream and not stream_usage,  # if it has been true, we don't need to add it.
     )
     try:
         llm_logger.info(req)
-        llm_logger.info(req.content)    
+        llm_logger.info(req.content)
         if stream:
-            responselogger = StreamLogger(quota_service = quota_service,source = api_key, model = model)
+            responselogger = StreamLogger(
+                quota_service=quota_service, source=api_key, model=model
+            )
             # no logging implemented yet...
             r = await stream_client.send(req, stream=True)
             background_tasks.add_task(r.aclose)
             return LoggingStreamResponse(
                 content=event_generator(r.aiter_raw()),
                 streamlogger=responselogger,
-                include_usage=stream_usage
+                include_usage=stream_usage,
             )
-        else:            
+        else:
             r = await stream_client.send(req)
             llm_logger.info(r.content)
             responseData = r.json()
             completion_tokens = responseData["usage"]["completion_tokens"]
             prompt_tokens = responseData["usage"]["prompt_tokens"]
-            new_request = RequestQuota(prompt_tokens=prompt_tokens, 
-                                     completion_tokens=completion_tokens,
-                                     prompt_cost=model.prompt_cost,
-                                     completion_cost=model.completion_cost)
+            new_request = RequestQuota(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                prompt_cost=model.prompt_cost,
+                completion_cost=model.completion_cost,
+            )
             background_tasks.add_task(
                 quota_service.update_quota, api_key, model.model.id, new_request
             )
@@ -185,18 +195,18 @@ async def chat_completion(
 @router.post("/embeddings")
 async def embedding(
     requestData: EmbeddingRequest,
-       request: Request,
+    request: Request,
     background_tasks: BackgroundTasks,
-    quota_service : Annotated[QuotaService,Depends(QuotaService)],
-    body_handler : Annotated[BodyHandler,Depends(BodyHandler)],
+    quota_service: Annotated[QuotaService, Depends(QuotaService)],
+    body_handler: Annotated[BodyHandler, Depends(BodyHandler)],
     api_key: UserKey = Security(get_api_key),
 ) -> CreateEmbeddingResponse:
-    quota_service.check_quota(api_key)                
+    quota_service.check_quota(api_key)
     req, model = await body_handler.build_request(
         requestData,
         request,
         stream_client,
-        False  # In here, we don't even have the field to add it.
+        False,  # In here, we don't even have the field to add it.
     )
     try:
         llm_logger.debug(req.content)
@@ -204,13 +214,15 @@ async def embedding(
         responseData = r.json()
         completion_tokens = responseData["usage"]["completion_tokens"]
         prompt_tokens = responseData["usage"]["prompt_tokens"]
-        new_request = RequestQuota(prompt_tokens=prompt_tokens, 
-                                     completion_tokens=completion_tokens,
-                                     prompt_cost=model.prompt_cost,
-                                     completion_cost=model.completion_cost)
+        new_request = RequestQuota(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            prompt_cost=model.prompt_cost,
+            completion_cost=model.completion_cost,
+        )
         background_tasks.add_task(
-                quota_service.update_quota, api_key, model.model.id, new_request
-            )
+            quota_service.update_quota, api_key, model.model.id, new_request
+        )
         return responseData
     except HTTPException as e:
         llm_logger.exception(e)
@@ -222,9 +234,11 @@ async def embedding(
 
 @router.get("/models/")
 @router.get("/models")
-def getModels(model_handler : Annotated[ModelService,Depends(ModelService)],) -> ModelList:
+def getModels(
+    model_handler: Annotated[ModelService, Depends(ModelService)],
+) -> ModelList:
     # At the moment hard-coded. Will update
-    models = model_handler.get_models()
+    models = model_handler.get_api_models()
     model_list = [model.model_dump() for model in models]
     llm_logger.info(model_list)
     if len(models) > 0:

@@ -9,8 +9,13 @@ from fastapi import HTTPException
 redis = create_redis_fixture()
 
 
-def create_test_model():
-    return LLMModel(path="test", model=LLMModelData(id="test", owned_by="test3"))
+def create_test_model(path="test", id="test", owned_by="test3"):
+    return LLMModel(
+        path=path,
+        name="Test Model",
+        description="A Model for testing purposes",
+        model=LLMModelData(id=id, owned_by=owned_by),
+    )
 
 
 def test_init_models(redis, monkeypatch):
@@ -26,8 +31,8 @@ def test_init_models(redis, monkeypatch):
         assert False, "Model should not have been found without init"
     except HTTPException as e:
         assert e.status_code == 404
-        assert e.detail == "Model not found"
-    models = handler.get_models()
+        assert e.detail == f"Model {testmodel.model.id} not found"
+    models = handler.get_api_models()
     # We have one in the db.
     assert len(models) == 1
     handler.init_models()
@@ -41,23 +46,23 @@ def test_add_model(redis, monkeypatch):
     monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
     handler = ModelService()
     handler.init_models()
-    currentModels = handler.get_models()
+    currentModels = handler.get_api_models()
     db = app.db.mongo.mongo_client[app.db.mongo.DB_NAME]
     model_collection = db[app.db.mongo.MODEL_COLLECTION]
     assert len(currentModels) == 0
     assert model_collection.count_documents({}) == 0
-    model = LLMModel(path="test", model=LLMModelData(id="test", owned_by="test3"))
+    model = create_test_model(path="test", id="test")
     handler.add_model(model)
     # Adding model works
     assert model_collection.count_documents({}) == 1
     try:
-        model = LLMModel(path="test2", model=LLMModelData(id="test", owned_by="test3"))
+        model = create_test_model(path="test2", id="test")
         handler.add_model(model)
         assert False, "Model should be rejected because the ID already exists"
     except HTTPException as e:
         assert e.status_code == 409
-        assert e.detail == "Model already exists"
-    model = LLMModel(path="test2", model=LLMModelData(id="test2", owned_by="test3"))
+        assert e.detail == f"Model {model.model.id} already exists"
+    model = create_test_model(path="test2", id="test2")
     handler.add_model(model)
     # Adding second model works
     assert model_collection.count_documents({}) == 2
@@ -68,17 +73,17 @@ def test_get_model_path(redis, monkeypatch):
     monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
     handler = ModelService()
     handler.init_models()
-    currentModels = handler.get_models()
+    currentModels = handler.get_api_models()
     db = app.db.mongo.mongo_client["gateway"]
     model_collection = db["model"]
     assert len(currentModels) == 0
     assert model_collection.count_documents({}) == 0
-    model = LLMModel(path="test2", model=LLMModelData(id="test", owned_by="test3"))
+    model = create_test_model(path="test2")
     handler.add_model(model)
     assert model_collection.count_documents({}) == 1
-    model = LLMModel(path="test2", model=LLMModelData(id="test2", owned_by="test4"))
+    model = create_test_model(path="test2", id="test2", owned_by="test4")
     handler.add_model(model)
-    models = handler.get_models()
+    models = handler.get_api_models()
     assert len(models) == 2
     found1 = False
     found2 = False
@@ -95,13 +100,13 @@ def test_get_model_path(redis, monkeypatch):
             assert model.object == "model"
 
     assert found1 and found2
-    model = LLMModel(path="test3", model=LLMModelData(id="test3", owned_by="test3"))
+    model = create_test_model(path="test3", id="test3")
     handler.add_model(model)
     assert model_collection.count_documents({}) == 3
     assert handler.get_model_path("test") == "test2"
     assert handler.get_model_path("test2") == "test2"
     assert handler.get_model_path("test3") == "test3"
-    models = handler.get_models()
+    models = handler.get_api_models()
     assert len(models) == 3
 
 
@@ -110,15 +115,15 @@ def test_get_model(redis, monkeypatch):
     monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
     handler = ModelService()
     handler.init_models()
-    currentModels = handler.get_models()
+    currentModels = handler.get_api_models()
     db = app.db.mongo.mongo_client["gateway"]
     model_collection = db["model"]
     assert len(currentModels) == 0
     assert model_collection.count_documents({}) == 0
-    model1 = LLMModel(path="test2", model=LLMModelData(id="test", owned_by="test3"))
+    model1 = create_test_model(path="test2")
     handler.add_model(model1)
     assert model_collection.count_documents({}) == 1
-    model2 = LLMModel(path="test2", model=LLMModelData(id="test2", owned_by="test4"))
+    model2 = create_test_model(path="test2", id="test2", owned_by="test4")
     handler.add_model(model2)
     model1_retrieved = handler.get_model(model1.model.id)
     assert model1_retrieved.model.owned_by == "test3"
@@ -134,17 +139,17 @@ def test_remove_model(redis, monkeypatch):
     monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
     handler = ModelService()
     handler.init_models()
-    currentModels = handler.get_models()
+    currentModels = handler.get_api_models()
     db = app.db.mongo.mongo_client["gateway"]
     model_collection = db["model"]
     assert len(currentModels) == 0
     assert model_collection.count_documents({}) == 0
-    model = LLMModel(path="test2", model=LLMModelData(id="test", owned_by="test3"))
+    model = create_test_model(path="test2")
     handler.add_model(model)
-    model = LLMModel(path="test2", model=LLMModelData(id="test2", owned_by="test4"))
+    model = create_test_model(path="test2", id="test2", owned_by="test4")
     handler.add_model(model)
     handler.remove_model(model="test2")
-    assert len(handler.get_models()) == 1
+    assert len(handler.get_api_models()) == 1
     assert model_collection.count_documents({}) == 1
     assert model_collection.count_documents({"model.id": "test2"}) == 0
     assert model_collection.count_documents({"model.id": "test"}) == 1

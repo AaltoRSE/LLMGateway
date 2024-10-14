@@ -83,9 +83,9 @@ def test_reset_user(redis, monkeypatch):
     key2 = key_service.create_key(created_user.auth_id, "Key2")
     # deactivate one key
     key_service.delete_key_for_user(key1, created_user.auth_id)
-    user_service.update_agreement_version(created_user.auth_id, "1.0")
+    user_service.update_agreement_version(created_user, "2.0")
     user = user_service.get_user_by_id(created_user.auth_id)
-    assert user.seen_guide_version == "1.0"
+    assert user.seen_guide_version == "2.0"
     # reset
     reset_user = user_service.reset_user(created_user)
     user = user_service.get_user_by_id(created_user.auth_id)

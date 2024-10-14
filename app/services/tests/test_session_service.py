@@ -18,6 +18,7 @@ def createTestSessionData(user: str, groups: list = ["test"]):
         "last_name": "test",
         "auth_groups": groups,
         "email": "",
+        "agreement_ok": True,
     }
 
 

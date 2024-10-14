@@ -13,3 +13,7 @@ class DeleteKeyRequest(BaseModel):
 class ObtainUsageRequest(BaseModel):
     from_time: date = Field(description="The oldest time to check", default=None)
     to_time: date = Field(description="The latest time to check", default=None)
+
+
+class AcceptAgreement(BaseModel):
+    version: str = Field(description="Version that has been accepted.")

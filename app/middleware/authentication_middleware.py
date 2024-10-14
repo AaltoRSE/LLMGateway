@@ -64,5 +64,6 @@ class SessionAuthenticationBackend(AuthenticationBackend):
             userdata=session.data,
             roles=session.roles,
             isadmin=session.admin,
+            agreement_ok=session.agreement_ok,
         )
         return AuthCredentials(["authenticated"]), currentUser

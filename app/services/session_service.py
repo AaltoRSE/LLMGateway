@@ -8,6 +8,7 @@ from app.services.user_service import UserService
 from app.models.session import HTTPSession
 import app.db.redis as redis_db
 import logging
+import os
 
 logger = logging.getLogger("app")
 
@@ -54,22 +55,19 @@ class SessionService:
             session_data["last_name"],
             session_data["email"],
         )
-        data = {
-            "User": user.auth_id,
-            "IP": source_ip,
-            "Data": session_data,
-            "Roles": session_data["auth_groups"],
-            "Admin": user.admin,
-        }
-        self.redis_client.setex(session_key, self.expire_time, json.dumps(data))
-        return HTTPSession(
+        session = HTTPSession(
             key=session_key,
-            ip=data["IP"],
-            data=data["Data"],
-            user=data["User"],
-            roles=data["Roles"],
-            admin=data["Admin"],
+            ip=source_ip,
+            data=session_data,
+            user=user.auth_id,
+            roles=session_data["auth_groups"],
+            admin=user.admin,
+            agreement_ok=self.check_agreement_version(user.seen_guide_version),
         )
+        self.redis_client.setex(
+            session_key, self.expire_time, json.dumps(session.model_dump())
+        )
+        return session
 
     def get_session(self, session_key: str) -> HTTPSession:
         """
@@ -86,17 +84,10 @@ class SessionService:
         if serialized_data is None:
             return None
         # Deserialize the JSON string back to a dictionary
-        data = json.loads(serialized_data)
+        session = HTTPSession.model_validate(json.loads(serialized_data))
 
         # TODO: Do we refresh the session here, or should this be handled elsewhere?
-        return HTTPSession(
-            key=session_key,
-            ip=data["IP"],
-            data=data["Data"],
-            user=data["User"],
-            roles=data["Roles"],
-            admin=data["Admin"],
-        )
+        return session
 
     def generate_session_key(self, length: int = 128):
         """
@@ -120,3 +111,16 @@ class SessionService:
             session_key (str): The session key.
         """
         self.redis_client.delete(session_key)
+
+    def check_agreement_version(self, agreement_version: str):
+        return agreement_version == os.environ.get("AGREEMENT_VERSION", "1.0")
+
+    def update_session_agreement(self, session: HTTPSession, agreement_version: str):
+        session.agreement_ok = self.check_agreement_version(agreement_version)
+        serialized_data = self.redis_client.get(session.key)
+        if serialized_data is None:
+            raise ValueError("Session does not exist")
+        session.data["agreement_ok"] = session.agreement_ok
+        self.redis_client.setex(
+            session.key, self.expire_time, json.dumps(session.model_dump())
+        )

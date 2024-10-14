@@ -10,7 +10,7 @@ from typing import Annotated
 
 
 from app.security.auth import (
-    get_authed_user,
+    get_user,
     get_admin_user,
     get_request_source,
     check_auth_response,
@@ -105,7 +105,7 @@ async def metadata():
 async def saml_slo_logout(
     request: Request,
     session_service: Annotated[SessionService, Depends(SessionService)],
-    user: BackendUser = Security(get_authed_user),
+    user: BackendUser = Security(get_user),
 ):
     """
     Logout endpoint
@@ -119,7 +119,7 @@ async def saml_slo_logout(
 async def saml_sls_logout(
     request: Request,
     session_service: Annotated[SessionService, Depends(SessionService)],
-    user: BackendUser = Security(get_authed_user),
+    user: BackendUser = Security(get_user),
 ):
     """
     Logout callback. If this is successfull, the users session is removed.
@@ -132,9 +132,7 @@ async def saml_sls_logout(
 
 @router.get("/test_auth")
 @router.post("/test_auth")
-async def test_authentication(
-    request: Request, user: BackendUser = Security(get_authed_user)
-):
+async def test_authentication(request: Request, user: BackendUser = Security(get_user)):
     """
     Test authentication endpoint
     """

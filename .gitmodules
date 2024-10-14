@@ -1,0 +1,3 @@
+[submodule "frontend"]
+	path = frontend
+	url = git@version.aalto.fi:AaltoRSE/llm-gateway-frontend.git

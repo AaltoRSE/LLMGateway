@@ -1,15 +1,21 @@
 from fastapi import APIRouter, Security, Request, HTTPException, status, Depends
 from typing import Annotated
 from app.services.usage_service import UsageService
+from app.services.model_service import ModelService
 from app.services.key_service import KeyService
+from app.services.user_service import UserService
+from app.services.session_service import SessionService
 from app.requests.self_service_requests import *
-from app.security.auth import get_authed_user, BackendUser
+from app.security.auth import get_user, BackendUser
+from app.middleware.session_middleware import get_session
+from app.models.session import HTTPSession
+from app.responses.self_service import *
 import logging
 
 router = APIRouter(
     prefix="/selfservice",
     tags=["selfservice"],
-    dependencies=[Security(get_authed_user)],
+    dependencies=[Security(get_user)],
 )
 
 
@@ -17,7 +23,7 @@ router = APIRouter(
 async def create_key(
     createRequest: CreateKeyRequest,
     key_handler: Annotated[KeyService, Depends(KeyService)],
-    user: BackendUser = Security(get_authed_user),
+    user: BackendUser = Security(get_user),
 ):
     if not user == None:
         new_key = key_handler.create_key(user=user.username, name=createRequest.name)
@@ -36,7 +42,7 @@ async def create_key(
 async def delete_key(
     deleteRequest: DeleteKeyRequest,
     key_handler: Annotated[KeyService, Depends(KeyService)],
-    user: BackendUser = Security(get_authed_user),
+    user: BackendUser = Security(get_user),
 ):
     if not user == None:
         key_handler.delete_key_for_user(user=user.username, key=deleteRequest.key)
@@ -51,7 +57,7 @@ async def delete_key(
 async def get_keys(
     request: Request,
     key_handler: Annotated[KeyService, Depends(KeyService)],
-    user: BackendUser = Security(get_authed_user),
+    user: BackendUser = Security(get_user),
 ):
     keys = key_handler.list_keys(user=user.username)
     return keys
@@ -61,7 +67,7 @@ async def get_keys(
 async def get_usage(
     request: ObtainUsageRequest,
     usage_service: Annotated[UsageService, Depends(UsageService)],
-    user: BackendUser = Security(get_authed_user),
+    user: BackendUser = Security(get_user),
 ):
     usage = usage_service.get_usage_per_key_for_user(
         user=user.username,
@@ -70,3 +76,35 @@ async def get_usage(
         only_active=True,
     )
     return usage
+
+
+@router.get("/models")
+async def get_models(
+    request: Request,
+    model_service: Annotated[ModelService, Depends(ModelService)],
+    user: BackendUser = Security(get_user),
+) -> ModelListResponse:
+    models = model_service.get_models()
+
+    return [
+        ModelDescription(
+            prompt_cost=model.prompt_cost,
+            completion_cost=model.completion_cost,
+            name=model.name,
+            description=model.description,
+            model_id=model.model.id,
+        )
+        for model in models
+    ]
+
+
+@router.post("/accept_agreement")
+async def accept_agreement(
+    agreement: AcceptAgreement,
+    user_service: Annotated[UserService, Depends(UserService)],
+    session_service: Annotated[SessionService, Depends(SessionService)],
+    session: HTTPSession = Depends(get_session),
+    user: BackendUser = Security(get_user),
+):
+    user_service.update_agreement_version(user.username, agreement.version)
+    session_service.update_session_agreement(session, agreement.version)

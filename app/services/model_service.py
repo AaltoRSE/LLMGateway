@@ -4,6 +4,7 @@ from app.models.model import LLMModel, LLMModelDict, LLMModelData
 import app.db.redis as redis
 import app.db.mongo as mongo
 from fastapi import HTTPException
+from typing import List
 
 modelLogger = logging.getLogger(__name__)
 
@@ -30,22 +31,20 @@ class ModelService:
         else:
             self.redis_client.delete("models")
 
-    def load_models(self) -> LLMModelDict:
-        return LLMModelDict(
-            {
-                entry["model"]["id"]: LLMModel.model_validate(entry)
-                for entry in self.model_collection.find({}, {"_id": 0})
-            }
-        )
+    def get_models(self) -> List[LLMModel]:
+        return [
+            LLMModel.model_validate(entry)
+            for entry in self.model_collection.find({}, {"_id": 0})
+        ]
 
-    def get_models(self):
+    def get_api_models(self):
         """
         Function to get all models currently served
         Returns:
         - list: A list of all models available
         """
-        models = self.load_models()
-        return [models[model].model for model in models]
+        models = self.get_models()
+        return [model.model for model in models]
 
     def get_model_path(self, model_id):
         model_data = self.redis_client.get(model_id)

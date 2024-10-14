@@ -3,6 +3,7 @@ from starlette.types import Receive, Scope, Send
 from starlette.datastructures import MutableHeaders
 from starlette.requests import HTTPConnection
 from starlette.types import Message, Receive, Scope, Send
+from fastapi import Request
 import logging
 
 import json
@@ -12,6 +13,14 @@ from app.services.session_service import SessionService
 from app.models.session import HTTPSession, SESSION_DATA_FIELD
 
 logger = logging.getLogger(__name__)
+
+
+def get_session(request: Request) -> HTTPSession:
+    session = request.scope["session"]
+    if SESSION_DATA_FIELD in session:
+        return session[SESSION_DATA_FIELD]
+    else:
+        return None
 
 
 class StorageSessionMiddleware(SessionMiddleware):

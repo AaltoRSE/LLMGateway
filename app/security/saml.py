@@ -108,6 +108,7 @@ class SAMLAuthenticator(BackendAuthenticator):
                 except KeyError as e:
                     saml_logger.error("Necessary Attributes not found")
                     saml_logger.error(e)
+                    saml_logger.error(session_data["samlUserdata"])
                     raise HTTPException(
                         403, "User does not have the necessary attributes"
                     )

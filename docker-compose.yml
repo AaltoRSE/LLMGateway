@@ -3,6 +3,9 @@ services:
   backend:
     build:
       dockerfile: Dockerfile
+      args:
+        LOGOUT_URL: https://localhost/saml/logout
+        LOGIN_URL: https://localhost/saml/login
     environment:
       - INFERENCE_KEY=123
       - ADMIN_KEY=321
@@ -15,6 +18,8 @@ services:
       - REDISHOST=redis
       - REDISPORT=6379
       - GATEWAY_DEBUG=1
+      - FRONTEND_URL=https://localhost
+      - POPUPLOGIN=1
       - DEV_MODE=1
     container_name: gateway-server
     ports:

@@ -7,6 +7,7 @@ from pymongo import MongoClient
 from pymongo import ReturnDocument as Document
 import logging
 from fastapi import HTTPException
+import os
 
 logger = logging.getLogger("app")
 
@@ -54,7 +55,7 @@ class UserService:
         users = [User.model_validate(user) for user in self.user_collection.find({})]
         return users
 
-    def update_agreement_version(self, username: User, version: str):
+    def update_agreement_version(self, username: str, version: str):
         result = self.user_collection.find_one_and_update(
             {mongo.ID_FIELD: username},
             {"$set": {"seen_guide_version": version}},

@@ -55,9 +55,17 @@ class AaltoBackendAuthentication:
 
 
 class BackendUser(SimpleUser):
-    def __init__(self, username: str, userdata: dict, roles: List[str], isadmin: bool):
+    def __init__(
+        self,
+        username: str,
+        userdata: dict,
+        roles: List[str],
+        isadmin: bool,
+        agreement_ok: bool,
+    ):
         super().__init__(username)
         self.admin = isadmin
+        self.agreement_ok = agreement_ok
         self.data = userdata
         self.role = roles
 
@@ -151,7 +159,7 @@ class BackendAuthenticator:
         return HTTPException(status_code=404, detail="Not implemented")
 
 
-def get_authed_user(conn: HTTPConnection) -> BackendUser:
+def get_user(conn: HTTPConnection) -> BackendUser:
     """
     Get the authenticated user from the given HTTPConnection.
 
@@ -168,10 +176,11 @@ def get_authed_user(conn: HTTPConnection) -> BackendUser:
     logger.debug(conn.session)
     if conn.user == None or not conn.user.is_authenticated:
         credentials_exception = HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="No user authenticated",
         )
         raise credentials_exception
+
     return conn.user
 
 
@@ -194,8 +203,8 @@ def get_admin_user(conn: HTTPConnection) -> BackendUser:
             detail="No user authenticated",
         )
         raise credentials_exception
-
-    if not conn.user.is_admin():
+    user: BackendUser = conn.user
+    if not user.is_admin():
         credentials_exception = HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User not an admin",
