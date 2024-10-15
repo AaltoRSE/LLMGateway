@@ -226,7 +226,9 @@ def check_auth_response(
         check_auth_session(request, session)
         frontend_url = os.getenv("FRONTEND_URL")
         # redirect_url = request.session["redirect_url"]
-        request.session.pop("redirect_url")
+        if "redirect_url" in request.session:
+            # If we have a popup, which is the only way response is None here, we ignore any redirect url given.
+            request.session.pop("redirect_url")
         logger.info(request.session)
         logger.info("Session created.")
         # TODO: This needs to be improved to make sure, that there are proper error messages displayed, if the postMessage cannot be called.

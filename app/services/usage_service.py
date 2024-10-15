@@ -272,3 +272,45 @@ class UsageService:
                 )
             )
         return usage_data
+
+    def get_usage_per_time(self, query: dict, from_time: datetime, to_time: datetime):
+        query["timestamp"] = {"$gte": from_time, "$lte": to_time}
+        pipeline = self._get_usage_aggregation_pipeline_per_hour(query)
+        results = list(self.usage_collection.aggregate(pipeline))
+        return results
+
+    def _get_usage_aggregation_pipeline_per_hour(self, query):
+
+        pipeline = [
+            query,
+            {
+                "$addFields": {
+                    "hour": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%dT%H:00:00",
+                            "date": "$timestamp",
+                        }
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$hour",
+                    "total_prompt_tokens": {"$sum": "$prompt_tokens"},
+                    "total_completion_tokens": {"$sum": "$completion_tokens"},
+                    "total_cost": {"$sum": "$cost"},
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "timestamp": {
+                        "$toLong": {"$dateFromString": {"dateString": "$_id"}}
+                    },
+                    "total_prompt_tokens": 1,
+                    "total_completion_tokens": 1,
+                    "total_cost": 1,
+                }
+            },
+        ]
+        return pipeline

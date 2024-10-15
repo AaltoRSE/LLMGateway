@@ -1,5 +1,6 @@
-from starlette.responses import StreamingResponse, ContentStream
-
+from sse_starlette.sse import EventSourceResponse, ensure_bytes, SendTimeoutError
+import anyio
+from starlette.responses import ContentStream
 from starlette.types import Send
 from app.utils.stream_logger import StreamLogger
 from typing import AsyncIterator
@@ -14,7 +15,7 @@ async def event_generator(iterator: AsyncIterator[bytes]) -> ContentStream:
         yield chunk
 
 
-class LoggingStreamResponse(StreamingResponse):
+class LoggingStreamResponse(EventSourceResponse):
     def __init__(self, streamlogger: StreamLogger, include_usage: bool, **kwargs):
         super().__init__(**kwargs)
         self.streamlogger = streamlogger
@@ -28,20 +29,45 @@ class LoggingStreamResponse(StreamingResponse):
                 "headers": self.raw_headers,
             }
         )
-        logger.info(self.include_usage)
-        async for chunk in self.body_iterator:
-            if not isinstance(chunk, (bytes, memoryview)):
-                usage_chunk = self.streamlogger.handle_chunk(chunk)
-                chunk = chunk.encode(self.charset)
-            else:
-                usage_chunk = self.streamlogger.handle_chunk(chunk.decode())
-            # Only pass on the usage if it was requested.
-            logger.info(usage_chunk)
-            logger.info(chunk)
-
+        async for data in self.body_iterator:
+            chunk = ensure_bytes(data, self.sep)
+            logger.debug("chunk: %s", chunk)
+            usage_chunk = self.streamlogger.handle_chunk(chunk.decode())
             if not usage_chunk or self.include_usage:
-                await send(
-                    {"type": "http.response.body", "body": chunk, "more_body": True}
-                )
+                with anyio.move_on_after(self.send_timeout) as timeout:
+                    await send(
+                        {"type": "http.response.body", "body": chunk, "more_body": True}
+                    )
+                if timeout.cancel_called:
+                    if hasattr(self.body_iterator, "aclose"):
+                        await self.body_iterator.aclose()
+                    raise SendTimeoutError()
 
-        await send({"type": "http.response.body", "body": b"", "more_body": False})
+        async with self._send_lock:
+            self.active = False
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
+
+        # await send(
+        #     {
+        #         "type": "http.response.start",
+        #         "status": self.status_code,
+        #         "headers": self.raw_headers,
+        #     }
+        # )
+        # logger.info(self.include_usage)
+        # async for chunk in self.body_iterator:
+        #     if not isinstance(chunk, (bytes, memoryview)):
+        #         usage_chunk = self.streamlogger.handle_chunk(chunk)
+        #         chunk = chunk.encode(self.charset)
+        #     else:
+        #         usage_chunk = self.streamlogger.handle_chunk(chunk.decode())
+        #     # Only pass on the usage if it was requested.
+        #     logger.info(usage_chunk)
+        #     logger.info(chunk)
+
+        #     if not usage_chunk or self.include_usage:
+        #         await send(
+        #             {"type": "http.response.body", "body": chunk, "more_body": True}
+        #         )
+
+        # await send({"type": "http.response.body", "body": b"", "more_body": False})

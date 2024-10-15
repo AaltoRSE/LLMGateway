@@ -2,13 +2,15 @@ FROM node:21.5.0 AS frontend-builder
 
 ARG LOGIN_URL=https://ai-gateway.k8s.aalto.fi/saml/login
 ARG LOGOUT_URL=https://ai-gateway.k8s.aalto.fi/saml/logout
+ARG BUILD=build
 ENV VITE_LOGIN_URL=${LOGIN_URL}
 ENV VITE_LOGOUT_URL=${LOGOUT_URL}
 
 WORKDIR /frontend
+COPY frontend/package*.json ./
+RUN npm install
 COPY frontend/ ./
-
-RUN npm install && npm run build
+RUN npm run ${BUILD}
 
 
 FROM mambaorg/micromamba:1.5.9 AS environment-builder

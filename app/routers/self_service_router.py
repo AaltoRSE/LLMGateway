@@ -92,7 +92,7 @@ async def get_models(
             completion_cost=model.completion_cost,
             name=model.name,
             description=model.description,
-            model_id=model.model.id,
+            id=model.model.id,
         )
         for model in models
     ]

@@ -6,6 +6,7 @@ services:
       args:
         LOGOUT_URL: https://localhost/saml/logout
         LOGIN_URL: https://localhost/saml/login
+        BUILD: devbuild
     environment:
       - INFERENCE_KEY=123
       - ADMIN_KEY=321
@@ -21,6 +22,7 @@ services:
       - FRONTEND_URL=https://localhost
       - POPUPLOGIN=1
       - DEV_MODE=1
+
     container_name: gateway-server
     ports:
       - 127.0.0.1:3000:3000
