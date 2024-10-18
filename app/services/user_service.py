@@ -79,7 +79,7 @@ class UserService:
         ]
         logger.info(db_user)
         result = self.user_collection.find_one_and_update(
-            {mongo.ID_FIELD: db_user["auth_id"]},
+            {mongo.ID_FIELD: db_user[mongo.ID_FIELD]},
             {"$set": db_user},
             upsert=False,
             projection={"_id": 0},
@@ -98,5 +98,12 @@ class UserService:
             # TODO: Proper handling here.
             return None
 
-    def delete_user(self, user_id: int):
-        self.user_collection.delete_one({"auth_id": user_id})
+    def delete_user(self, user_id: str):
+        self.user_collection.delete_one({mongo.ID_FIELD: user_id})
+
+    def set_admin_status(self, user_id: str, admin: bool):
+        res = self.user_collection.update_one(
+            {mongo.ID_FIELD: user_id}, {"$set": {"admin": admin}}
+        )
+        if res.matched_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")

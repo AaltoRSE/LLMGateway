@@ -2,7 +2,7 @@ import logging
 
 logger = logging.getLogger("app")
 import pymongo
-from datetime import datetime
+from datetime import datetime, timedelta
 from pymongo.database import Database
 from pymongo.collection import Collection
 from app.models.quota import (
@@ -10,7 +10,9 @@ from app.models.quota import (
     UsagePerKeyForUser,
     KeyPerModelUsage,
     ModelUsage,
-    UsageInfo,
+    PerHourUsage,
+    PerUserUsage,
+    PerModelUsage,
 )
 from app.services.quota_service import get_usage_from_mongo_for_target
 from typing import List
@@ -33,7 +35,7 @@ class UsageService:
         self.user_collection: Collection = self.db[app.db.mongo.USER_COLLECTION]
         self.key_collection: Collection = self.db[app.db.mongo.KEY_COLLECTION]
 
-    def get_usage_per_model(
+    def _get_usage_per_model(
         self,
         field: str = None,
         target: str = None,
@@ -87,12 +89,12 @@ class UsageService:
     def get_usage_for_user_per_model(
         self, user: str, from_time: datetime, to_time: datetime
     ):
-        return self.get_usage_per_model("user", user, from_time, to_time)
+        return self._get_usage_per_model("user", user, from_time, to_time)
 
     def get_usage_for_key_per_model(
         self, key: str, from_time: datetime, to_time: datetime
     ):
-        return self.get_usage_per_model("key", key, from_time, to_time)
+        return self._get_usage_per_model("key", key, from_time, to_time)
 
     def get_usage_for_model(
         self,
@@ -273,16 +275,22 @@ class UsageService:
             )
         return usage_data
 
-    def get_usage_per_time(self, query: dict, from_time: datetime, to_time: datetime):
+    def get_usage_per_time(
+        self, query: dict, from_time: datetime = None, to_time: datetime = None
+    ):
+        if not from_time:
+            from_time = datetime.fromtimestamp(0)
+        if not to_time:
+            to_time = datetime.now()
         query["timestamp"] = {"$gte": from_time, "$lte": to_time}
         pipeline = self._get_usage_aggregation_pipeline_per_hour(query)
         results = list(self.usage_collection.aggregate(pipeline))
-        return results
+        return [PerHourUsage.model_validate(entry) for entry in results]
 
     def _get_usage_aggregation_pipeline_per_hour(self, query):
 
         pipeline = [
-            query,
+            {"$match": query},
             {
                 "$addFields": {
                     "hour": {
@@ -296,20 +304,127 @@ class UsageService:
             {
                 "$group": {
                     "_id": "$hour",
+                    "prompt_tokens": {"$sum": "$prompt_tokens"},
+                    "completion_tokens": {"$sum": "$completion_tokens"},
+                    "cost": {"$sum": "$cost"},
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "timestamp": "$_id",
+                    "prompt_tokens": 1,
+                    "completion_tokens": 1,
+                    "cost": 1,
+                }
+            },
+        ]
+        return pipeline
+
+    def get_usage_per_user(self):
+        one_week_ago = datetime.now() - timedelta(weeks=1)
+        # Aggregation pipeline
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$user",
+                    "total_cost": {"$sum": "$cost"},
+                    "last_week_cost": {
+                        "$sum": {
+                            "$cond": [
+                                {"$gte": ["$timestamp", one_week_ago]},
+                                "$cost",
+                                0,
+                            ]
+                        }
+                    },
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "user": "$_id",
+                    "total_cost": 1,
+                    "last_week_cost": 1,
+                }
+            },
+        ]
+
+        # Execute the aggregation
+
+        result = list(self.usage_collection.aggregate(pipeline))
+        return {
+            "last_week": {user["user"]: user["last_week_cost"] for user in result},
+            "total": {user["user"]: user["total_cost"] for user in result},
+        }
+
+    def get_usage_over_time_for_user(self, user: str) -> List[PerHourUsage]:
+        query = {"user": user}
+        return sorted(self.get_usage_per_time(query), key=lambda x: x.timestamp)
+
+    def get_usage_over_time_for_model(self, model: str) -> List[PerHourUsage]:
+        query = {"model": model}
+        return sorted(self.get_usage_per_time(query), key=lambda x: x.timestamp)
+
+    def get_usage_per_model_per_hour(self) -> List[PerModelUsage]:
+        pipeline = self._per_element_per_hour_usage_pipeline("model")
+        result = [
+            PerModelUsage.model_validate(entry)
+            for entry in (self.usage_collection.aggregate(pipeline))
+        ]
+        return result
+
+    def get_usage_per_user_per_hour(self) -> List[PerUserUsage]:
+        pipeline = self._per_element_per_hour_usage_pipeline("user")
+        result = [
+            PerUserUsage.model_validate(entry)
+            for entry in (self.usage_collection.aggregate(pipeline))
+        ]
+        return result
+
+    def _per_element_per_hour_usage_pipeline(self, target_element):
+        pipeline = [
+            {
+                "$addFields": {
+                    "hour": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%dT%H:00:00",
+                            "date": "$timestamp",
+                        }
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        f"{target_element}": f"${target_element}",
+                        "timestamp": "$hour",
+                    },
                     "total_prompt_tokens": {"$sum": "$prompt_tokens"},
                     "total_completion_tokens": {"$sum": "$completion_tokens"},
                     "total_cost": {"$sum": "$cost"},
                 }
             },
             {
+                "$group": {
+                    "_id": f"$_id.{target_element}",
+                    "usage": {
+                        "$push": {
+                            "timestamp": "$_id.timestamp",
+                            "prompt_tokens": "$total_prompt_tokens",
+                            "completion_tokens": "$total_completion_tokens",
+                            "cost": "$total_cost",
+                        }
+                    },
+                    "total_cost": {"$sum": "$total_cost"},
+                }
+            },
+            {
                 "$project": {
                     "_id": 0,
-                    "timestamp": {
-                        "$toLong": {"$dateFromString": {"dateString": "$_id"}}
-                    },
-                    "total_prompt_tokens": 1,
-                    "total_completion_tokens": 1,
-                    "total_cost": 1,
+                    f"{target_element}": "$_id",
+                    "usage": 1,
+                    "cost": "$total_cost",
                 }
             },
         ]

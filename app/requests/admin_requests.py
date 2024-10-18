@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from app.requests.general_requests import UserRequest
 
 model_field = Field(description="The id of the model")
 model_name = Field(
@@ -41,3 +42,7 @@ class LoginRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     key: str = Field(description="The key to add.")
+
+
+class SetAdminRequest(UserRequest):
+    admin: bool = Field(description="Whether the user should be an admin or not")

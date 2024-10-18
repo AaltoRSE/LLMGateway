@@ -110,3 +110,23 @@ class KeyPerModelUsage(UsageInfo):
 
 class UsagePerKeyForUser(UsageInfo):
     keys: List[KeyPerModelUsage] = []
+
+
+class PerHourUsage(BaseModel):
+    timestamp: datetime
+    prompt_tokens: int
+    completion_tokens: int
+    cost: float
+
+
+class PerModelUsage(BaseModel):
+
+    model: str
+    cost: float
+    usage: List[PerHourUsage]
+
+
+class PerUserUsage(BaseModel):
+    user: str
+    cost: float
+    usage: List[PerHourUsage]

@@ -14,9 +14,30 @@ from app.models.quota import (
 )
 import app.db.mongo
 import app.db.redis
-
+from datetime import datetime
+import pytest
 
 redis = create_redis_fixture()
+
+
+def create_test_entry(
+    collection, key="testkey", user="testUser", model="testModel", timestamp=None
+):
+    if not timestamp:
+        timestamp = datetime.fromtimestamp(0)
+    else:
+        timestamp = datetime.fromtimestamp(timestamp)
+    collection.insert_one(
+        {
+            "user": user,
+            "model": model,
+            "prompt_tokens": 10,
+            "completion_tokens": 11,
+            "cost": 1.1,
+            "key": key,
+            "timestamp": timestamp,
+        }
+    )
 
 
 # Testing whether keys are checked correctly
@@ -99,7 +120,7 @@ def test_get_usage_per_model(redis, monkeypatch):
     quota_service.update_quota(user_key2, model1, quota)
     quota_service.update_quota(user_key, model2, quota)
     quota_service.update_quota(user_key2, model2, quota)
-    usage = usage_service.get_usage_per_model()
+    usage = usage_service._get_usage_per_model()
     assert len(usage) == 2
     model1_data: ModelUsage = usage[0]
     model2_data: ModelUsage = usage[1]
@@ -172,3 +193,55 @@ def test_mongo_db_retrieval(redis, monkeypatch):
     assert key1_quota.usage.completion_tokens == 33
     assert key2_quota.usage.prompt_tokens == 20
     assert key2_quota.usage.completion_tokens == 22
+
+
+def test_per_hour_usages(monkeypatch):
+    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
+    usage_service = UsageService()
+    create_test_entry(usage_service.usage_collection, timestamp=4000)
+    create_test_entry(usage_service.usage_collection, timestamp=8000)
+    create_test_entry(usage_service.usage_collection, timestamp=12000)
+    create_test_entry(usage_service.usage_collection, timestamp=4000)
+    create_test_entry(usage_service.usage_collection, user="NewUser", timestamp=4000)
+    create_test_entry(usage_service.usage_collection, model="NewModel", timestamp=8000)
+    model_usage = usage_service.get_usage_per_model_per_hour()
+    assert len(model_usage) == 2
+    new_model_usage = model_usage[0]
+    test_model_usage = model_usage[1]
+    if not new_model_usage.model == "NewModel":
+        new_model_usage = model_usage[1]
+        test_model_usage = model_usage[0]
+    assert len(new_model_usage.usage) == 1
+    assert len(test_model_usage.usage) == 3
+    assert new_model_usage.cost == pytest.approx(1.1, rel=1e-4)
+    assert test_model_usage.cost == pytest.approx(5.5, rel=1e-4)
+
+    user_usage = usage_service.get_usage_per_user_per_hour()
+    assert len(user_usage) == 2
+    new_user_usage = user_usage[0]
+    test_user_usage = user_usage[1]
+    if not new_user_usage.user == "NewUser":
+        new_user_usage = user_usage[1]
+        test_user_usage = user_usage[0]
+    assert len(new_user_usage.usage) == 1
+    assert len(test_user_usage.usage) == 3
+    assert new_user_usage.cost == pytest.approx(1.1, rel=1e-4)
+    assert test_user_usage.cost == pytest.approx(5.5, rel=1e-4)
+
+    new_model_usage2 = usage_service.get_usage_over_time_for_model("NewModel")
+    assert len(new_model_usage2) == 1
+    assert new_model_usage2[0].cost == pytest.approx(1.1, rel=1e-4)
+    test_model_usage2 = usage_service.get_usage_over_time_for_model("testModel")
+    assert len(test_model_usage2) == 3
+    assert test_model_usage2[0].cost == pytest.approx(3.3, rel=1e-4)
+    assert test_model_usage2[1].cost == pytest.approx(1.1, rel=1e-4)
+    assert test_model_usage2[2].cost == pytest.approx(1.1, rel=1e-4)
+
+    new_user_usage2 = usage_service.get_usage_over_time_for_user("NewUser")
+    assert len(new_user_usage2) == 1
+    assert new_user_usage2[0].cost == pytest.approx(1.1, rel=1e-4)
+    test_user_usage2 = usage_service.get_usage_over_time_for_user("testUser")
+    assert len(test_user_usage2) == 3
+    assert test_user_usage2[0].cost == pytest.approx(2.2, rel=1e-4)
+    assert test_user_usage2[1].cost == pytest.approx(2.2, rel=1e-4)
+    assert test_user_usage2[2].cost == pytest.approx(1.1, rel=1e-4)

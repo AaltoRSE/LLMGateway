@@ -7,12 +7,15 @@ from pydantic import BaseModel, Field
 from typing import List
 
 
-# Base schema for users
-class User(BaseModel):
+class UserData(BaseModel):
     auth_id: str
     first_name: str
     last_name: str
     admin: bool = False
     seen_guide_version: str = ""
-    keys: List[str] = []
     email: str = ""
+
+
+# Base schema for users
+class User(UserData):
+    keys: List[str] = []
