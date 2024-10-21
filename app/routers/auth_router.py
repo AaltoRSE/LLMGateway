@@ -59,7 +59,7 @@ async def login(
 
 
 @router.post("/acs")
-async def callback(
+async def login_callback(
     request: Request,
     session_service: Annotated[SessionService, Depends(SessionService)],
     user_service: Annotated[UserService, Depends(UserService)],

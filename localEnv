@@ -6,5 +6,5 @@ export REDISPORT=6379
 export INFERENCE_KEY=123
 export ADMIN_KEY=321
 export MONGO_SESSION_COLLECTION=sessions
-export LLM_BASE_URL=http://host.docker.internal:8080
+export LLM_DEFAULT_URL=http://host.docker.internal:8080
 export DEBUG=1

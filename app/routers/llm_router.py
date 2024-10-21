@@ -49,19 +49,19 @@ router = APIRouter(
     tags=["LLM Endpoints"],
 )
 
+llm_url = os.environ.get("LLM_DEFAULT_URL")
+
 if os.environ.get("DEV_MODE", "0") == "1":
-    stream_client = httpx.AsyncClient(
-        base_url=os.environ.get("LLM_BASE_URL"), verify=False
-    )
+    stream_client = httpx.AsyncClient(base_url=llm_url, verify=False)
 else:
-    stream_client = httpx.AsyncClient(base_url=os.environ.get("LLM_BASE_URL"))
-llm_logger.info(f"Request URL used is {os.environ.get("LLM_BASE_URL")}")
+    stream_client = httpx.AsyncClient(base_url=llm_url)
+llm_logger.info(f"Request URL used is {llm_url}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     llm_logger.debug("Lifespan called")
-    stream_client = httpx.AsyncClient(base_url=os.environ.get("LLM_BASE_URL"))
+    stream_client = httpx.AsyncClient(base_url=llm_url)
     yield
     await stream_client.aclose()
 
