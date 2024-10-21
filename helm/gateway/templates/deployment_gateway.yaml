@@ -42,6 +42,10 @@ spec:
                 valueFrom: { secretKeyRef: { name: mongo, key: user } },
               }
             - {
+                name: POPUPLOGIN,
+                value: "1",
+              }
+            - {
                 name: MONGOPASSWORD,
                 valueFrom: { secretKeyRef: { name: mongo, key: password } },
               }
