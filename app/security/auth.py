@@ -21,6 +21,19 @@ frontend_url = os.getenv("FRONTEND_URL", "/")
 
 is_proxied = os.getenv("REQUEST_PROXIED", False) == "True"
 
+close_logout_popup = f"""
+        <script>
+            try {{
+                window.opener.postMessage("Auth Changed", "{frontend_url}");
+                window.close();
+            }} catch (error) {{
+                if (error instanceof DOMException ) {{
+                    document.body.innerHTML = "<h1>Invalid caller! Make sure this login is only accessed from {frontend_url}.</h1><p>Please contact support.</p>";
+                }}
+                console.error("postMessage failed:", error);
+            }}
+        </script>"""
+
 
 def get_request_source(request: HTTPConnection):
     # We asume, that we can either be only reached via proxy ( first option ), or are directly accessed from clients.
@@ -232,20 +245,7 @@ def check_auth_response(
         logger.info(request.session)
         logger.info("Session created.")
         # TODO: This needs to be improved to make sure, that there are proper error messages displayed, if the postMessage cannot be called.
-        return HTMLResponse(
-            f"""
-        <script>
-            try {{
-                window.opener.postMessage("Logged In", "{frontend_url}");
-                window.close();
-            }} catch (error) {{
-                if (error instanceof DOMException ) {{
-                    document.body.innerHTML = "<h1>Invalid caller! Make sure this login is only accessed from {frontend_url}.</h1><p>Please contact support.</p>";
-                }}
-                console.error("postMessage failed:", error);
-            }}
-        </script>"""
-        )
+        return HTMLResponse(close_logout_popup)
     else:
         if not session == None:
             request.session["key"] = session.key
@@ -272,7 +272,7 @@ def check_logout_response(
     if response == None:
         # We will clean up the session.
         clean_session(request, session_service)
-        return RedirectResponse(url="/")
+        return HTMLResponse(close_logout_popup)
     else:
         return response
 
