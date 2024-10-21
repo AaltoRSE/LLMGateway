@@ -35,7 +35,7 @@ def add_model(
         description=modelData.description,
         model=LLMModelData(
             id=modelData.id,
-            owned_by=modelData.owner,
+            owned_by=admin_user.username,
             permissions=[],
         ),
     )
