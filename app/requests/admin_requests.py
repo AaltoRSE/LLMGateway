@@ -11,7 +11,6 @@ model_description = Field(description="A more extensive description of the model
 class AddAvailableModelRequest(BaseModel):
     id: str = model_field
     target_path: str = Field(description="The target path on the inference server.")
-    owner: str = Field(description="Who owns the model")
     name: str = model_name
     description: str = model_description
     prompt_cost: float = Field(
