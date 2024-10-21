@@ -9,7 +9,7 @@
             "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
         },        
         "singleLogoutService": {            
-            "url": "https://ai-gateway.k8s.cs.aalto.fi/saml/sls",
+            "url": "https://ai-gateway.k8s.aalto.fi/saml/sls",
             "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
         },
         "NameIDFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified",
