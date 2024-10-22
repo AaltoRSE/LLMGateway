@@ -117,7 +117,7 @@ def get_user_usage(
 
 
 @router.post("/get_usage_for_user", status_code=status.HTTP_200_OK)
-def get_user_usage(
+def get_usage_for_user(
     request: UserRequest,
     usage_service: Annotated[UsageService, Depends(UsageService)],
     admin_key: BackendUser = Security(get_admin_user),
@@ -125,9 +125,11 @@ def get_user_usage(
     return usage_service.get_usage_over_time_for_user(request.username)
 
 
-@router.post("/get_usage_for_models", status_code=status.HTTP_200_OK)
-def get_user_usage(
-    usage_service: Annotated[UsageService, Depends(UsageService)],
+@router.get("/models", status_code=status.HTTP_200_OK)
+def get_details_for_model(
+    model_service: Annotated[ModelService, Depends(ModelService)],
     admin_key: BackendUser = Security(get_admin_user),
-) -> List[PerHourUsage]:
-    return usage_service.get_usage_over_time_for_user(request.username)
+) -> List[LLMModel]:
+    models = model_service.get_models()
+    logger.info(models)
+    return models

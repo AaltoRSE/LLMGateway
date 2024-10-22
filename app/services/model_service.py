@@ -6,7 +6,7 @@ import app.db.mongo as mongo
 from fastapi import HTTPException
 from typing import List
 
-modelLogger = logging.getLogger(__name__)
+modelLogger = logging.getLogger("app")
 
 
 class ModelService:
@@ -32,12 +32,14 @@ class ModelService:
             self.redis_client.delete("models")
 
     def get_models(self) -> List[LLMModel]:
-        return [
+        models = [
             LLMModel.model_validate(entry)
             for entry in self.model_collection.find({}, {"_id": 0})
         ]
+        modelLogger.info(models)
+        return models
 
-    def get_api_models(self):
+    def get_api_models(self) -> List[LLMModel]:
         """
         Function to get all models currently served
         Returns:
