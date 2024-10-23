@@ -68,7 +68,7 @@ class RequestService:
         content = await request.body()
         body = content.decode()
         # And update if necessary
-        if not stream_usage_requested:
+        if streaming and not stream_usage_requested:
             body_dict = json.loads(body)
             if not "stream_options" in body_dict:
                 body_dict["stream_options"] = {}
