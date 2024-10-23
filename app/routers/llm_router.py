@@ -140,7 +140,7 @@ async def chat_completion(
     )
 
     try:
-        llm_logger.info(llm_request.request)
+        llm_logger.info(llm_request)
         if llm_request.streaming:
             responselogger = StreamLogger(
                 quota_service=quota_service, source=api_key, model=llm_request.model
