@@ -86,6 +86,8 @@ async def completion(
             )
             # no logging implemented yet...
             r = await stream_client.send(llm_request.request, stream=True)
+            if r.status_code >= 400:
+                raise HTTPException(status_code=r.status_code, detail=r.content)
             background_tasks.add_task(r.aclose)
             return LoggingStreamResponse(
                 content=event_generator(r.aiter_raw()),
@@ -96,6 +98,8 @@ async def completion(
             llm_logger.info(llm_request.request)
             r = await stream_client.send(llm_request.request)
             llm_logger.debug(r.content)
+            if r.status_code >= 400:
+                raise HTTPException(status_code=r.status_code, detail=r.content)
             responseData = r.json()
             completion_tokens = responseData["usage"]["completion_tokens"]
             prompt_tokens = responseData["usage"]["prompt_tokens"]
@@ -143,6 +147,8 @@ async def chat_completion(
             )
             # no logging implemented yet...
             r = await stream_client.send(llm_request.request, stream=True)
+            if r.status_code >= 400:
+                raise HTTPException(status_code=r.status_code, detail=r.content)
             background_tasks.add_task(r.aclose)
             return LoggingStreamResponse(
                 content=event_generator(r.aiter_raw()),
@@ -152,6 +158,8 @@ async def chat_completion(
         else:
             r = await stream_client.send(llm_request.request)
             llm_logger.info(r.content)
+            if r.status_code >= 400:
+                raise HTTPException(status_code=r.status_code, detail=r.content)
             responseData = r.json()
             completion_tokens = responseData["usage"]["completion_tokens"]
             prompt_tokens = responseData["usage"]["prompt_tokens"]
@@ -193,6 +201,8 @@ async def embedding(
     try:
         llm_logger.debug(llm_request.request.content)
         r = await stream_client.send(llm_request.request)
+        if r.status_code >= 400:
+            raise HTTPException(status_code=r.status_code, detail=r.content)
         responseData = r.json()
         completion_tokens = responseData["usage"]["completion_tokens"]
         prompt_tokens = responseData["usage"]["prompt_tokens"]
