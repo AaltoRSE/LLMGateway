@@ -21,7 +21,8 @@ def getTokensForChunk(streamChunk: str):
             pass
         else:
             parsed_json = json.loads(tokens)
-            if parsed_json["usage"]:
+            # choices has to be empty in the usage chunk. This ensures, that this works with kubeai/openwebui
+            if parsed_json["usage"] and len(parsed_json["choices"]) == 0:
                 prompt_tokens = prompt_tokens + parsed_json["usage"]["prompt_tokens"]
                 completion_tokens = (
                     completion_tokens + parsed_json["usage"]["completion_tokens"]

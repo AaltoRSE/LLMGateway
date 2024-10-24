@@ -80,7 +80,7 @@ class SessionService:
             dict: The session data, or None if the session does not exist.
         """
         serialized_data = self.redis_client.get(session_key)
-        logger.info(f"Session data: {serialized_data}")
+        logger.debug(f"Session data: {serialized_data}")
         if serialized_data is None:
             return None
         # Deserialize the JSON string back to a dictionary
