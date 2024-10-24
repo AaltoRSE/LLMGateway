@@ -29,6 +29,8 @@ class LoggingStreamResponse(EventSourceResponse):
                 "headers": self.raw_headers,
             }
         )
+        logger.info("Running stream response")
+        logger.info(self.body_iterator)
         async for data in self.body_iterator:
             chunk = ensure_bytes(data, self.sep)
             logger.debug("chunk: %s", chunk)
@@ -42,7 +44,7 @@ class LoggingStreamResponse(EventSourceResponse):
                     if hasattr(self.body_iterator, "aclose"):
                         await self.body_iterator.aclose()
                     raise SendTimeoutError()
-
+        logger.info("!iterator done")
         async with self._send_lock:
             self.active = False
             await send({"type": "http.response.body", "body": b"", "more_body": False})

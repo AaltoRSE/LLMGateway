@@ -147,9 +147,11 @@ async def chat_completion(
             )
             # no logging implemented yet...
             r = await stream_client.send(llm_request.request, stream=True)
+            llm_logger.info(r.status_code)
             if r.status_code >= 400:
                 raise HTTPException(status_code=r.status_code, detail=r.content)
             background_tasks.add_task(r.aclose)
+            llm_logger.info(r)
             return LoggingStreamResponse(
                 content=event_generator(r.aiter_raw()),
                 streamlogger=responselogger,
