@@ -87,7 +87,7 @@ async def completion(
             # no logging implemented yet...
             r = await stream_client.send(llm_request.request, stream=True)
             if r.status_code >= 400:
-                raise HTTPException(status_code=r.status_code, detail=r.content)
+                raise HTTPException(status_code=r.status_code)
             background_tasks.add_task(r.aclose)
             return LoggingStreamResponse(
                 content=event_generator(r.aiter_raw()),
@@ -99,7 +99,7 @@ async def completion(
             r = await stream_client.send(llm_request.request)
             llm_logger.debug(r.content)
             if r.status_code >= 400:
-                raise HTTPException(status_code=r.status_code, detail=r.content)
+                raise HTTPException(status_code=r.status_code)
             responseData = r.json()
             completion_tokens = responseData["usage"]["completion_tokens"]
             prompt_tokens = responseData["usage"]["prompt_tokens"]
@@ -149,7 +149,8 @@ async def chat_completion(
             r = await stream_client.send(llm_request.request, stream=True)
             llm_logger.info(r.status_code)
             if r.status_code >= 400:
-                raise HTTPException(status_code=r.status_code, detail=r.content)
+
+                raise HTTPException(status_code=r.status_code)
             background_tasks.add_task(r.aclose)
             llm_logger.info(r)
             return LoggingStreamResponse(
@@ -161,7 +162,7 @@ async def chat_completion(
             r = await stream_client.send(llm_request.request)
             llm_logger.info(r.content)
             if r.status_code >= 400:
-                raise HTTPException(status_code=r.status_code, detail=r.content)
+                raise HTTPException(status_code=r.status_code)
             responseData = r.json()
             completion_tokens = responseData["usage"]["completion_tokens"]
             prompt_tokens = responseData["usage"]["prompt_tokens"]
@@ -204,7 +205,7 @@ async def embedding(
         llm_logger.debug(llm_request.request.content)
         r = await stream_client.send(llm_request.request)
         if r.status_code >= 400:
-            raise HTTPException(status_code=r.status_code, detail=r.content)
+            raise HTTPException(status_code=r.status_code)
         responseData = r.json()
         completion_tokens = responseData["usage"]["completion_tokens"]
         prompt_tokens = responseData["usage"]["prompt_tokens"]
