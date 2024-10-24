@@ -35,6 +35,8 @@ class LoggingStreamResponse(EventSourceResponse):
             chunk = ensure_bytes(data, self.sep)
             logger.info("chunk: %s", chunk)
             usage_chunk = self.streamlogger.handle_chunk(chunk.decode())
+            logger.info(usage_chunk)
+            logger.info((self.include_usage))
             if not usage_chunk or self.include_usage:
                 with anyio.move_on_after(self.send_timeout) as timeout:
                     await send(
