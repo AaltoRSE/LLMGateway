@@ -68,6 +68,32 @@ def test_add_model(redis, monkeypatch):
     assert model_collection.count_documents({}) == 2
 
 
+# Testing whether keys are checked correctly
+def test_update_model(redis, monkeypatch):
+    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
+    monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
+    handler = ModelService()
+    handler.init_models()
+    currentModels = handler.get_api_models()
+    db = app.db.mongo.mongo_client[app.db.mongo.DB_NAME]
+    model_collection = db[app.db.mongo.MODEL_COLLECTION]
+    assert len(currentModels) == 0
+    assert model_collection.count_documents({}) == 0
+    model = create_test_model(path="test", id="test")
+    handler.add_model(model)
+    created_model = handler.get_model(model.model.id)
+    # Adding model works
+    assert model_collection.count_documents({}) == 1
+    model.model.owned_by = "Someone"
+    model.path = "this/is/the/new/path"
+    handler.update_model(model)
+    changed_model = handler.get_model(model.model.id)
+    assert created_model.model.owned_by != changed_model.model.owned_by
+    assert created_model.path != changed_model.path
+    assert changed_model.model.owned_by == "Someone"
+    assert changed_model.path == "this/is/the/new/path"
+
+
 def test_get_model_path(redis, monkeypatch):
     monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
     monkeypatch.setattr(app.db.redis, "redis_model_client", redis)

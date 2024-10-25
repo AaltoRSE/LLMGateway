@@ -43,9 +43,9 @@ def unauthed_client() -> TestClient:
     return TestClient(app.main.app)
 
 
-def test_add_remove_and_get_model_admin(admin_client: TestClient):
+def test_add_remove_update_and_get_model_admin(admin_client: TestClient):
     request = admin.AddAvailableModelRequest(
-        id="test", target_path="test", name="test", description="test"
+        id="test", path="test", name="test", description="test"
     )
     response = admin_client.post("/admin/addmodel", json=request.model_dump())
     assert response.status_code == 201
@@ -54,7 +54,7 @@ def test_add_remove_and_get_model_admin(admin_client: TestClient):
     assert len(models) == 1
     assert models[0].name == "test"
     request2 = admin.AddAvailableModelRequest(
-        id="test2", target_path="test2", name="test2", description="test2"
+        id="test2", path="test2", name="test2", description="test2"
     )
     response2 = admin_client.post("/admin/addmodel", json=request2.model_dump())
     assert response2.status_code == 201
@@ -91,6 +91,10 @@ def test_add_remove_and_get_model_admin(admin_client: TestClient):
     models = response3.json()
     assert len(models) == 1
     assert set([model["model"]["id"] for model in models]) == set(["test2"])
+    request2.path = "/new/path"
+    response = admin_client.post("/admin/update_model", json=request2.model_dump())
+    assert response.status_code == 200
+    assert service.get_model_path("test2") == "/new/path"
 
 
 def test_reset_user(admin_client: TestClient):
@@ -191,7 +195,7 @@ def test_set_admin(admin_client: TestClient):
 
 def test_no_access_user(user_client: TestClient):
     request = admin.AddAvailableModelRequest(
-        id="test", target_path="test", name="test", description="test"
+        id="test", path="test", name="test", description="test"
     )
     response = user_client.post("/admin/addmodel", json=request.model_dump())
     assert response.status_code == 403
@@ -209,7 +213,7 @@ def test_no_access_user(user_client: TestClient):
 
 def test_no_access_no_user(unauthed_client: TestClient):
     request = admin.AddAvailableModelRequest(
-        id="test", target_path="test", name="test", description="test"
+        id="test", path="test", name="test", description="test"
     )
     response = unauthed_client.post("/admin/addmodel", json=request.model_dump())
     assert response.status_code == 401

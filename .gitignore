@@ -190,8 +190,7 @@ Vagrantfile
 .vscode/**/*
 
 # SAML certificates and settings (depend on the actual location)
-app/saml/saml_data/certs/*
-app/saml/saml_data/settings.json
+app/security/saml_data/certs/*
 
 # dev databases
 mongodb/**/*

@@ -58,7 +58,7 @@ class ModelService:
         else:
             raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
 
-    def get_model(self, model_id) -> LLMModel:
+    def get_model(self, model_id: str) -> LLMModel:
         model_data = self.redis_client.get(model_id)
         if model_data:
             return LLMModel.model_validate(json.loads(model_data))
@@ -82,6 +82,26 @@ class ModelService:
             # This is the "simple" even though slightly more expensive approach. However, this request
             # will only be run very rarely....
             self.init_models()
+
+    def update_model(self, model: LLMModel):
+        """
+        Function to add a model to the served models
+        Returns:
+        - list: A list of all models available
+        """
+        exists = self.model_collection.find_one({"model.id": model.model.id})
+        if exists:
+            self.model_collection.update_one(
+                {"model.id": model.model.id}, {"$set": model.model_dump()}
+            )
+            # Update the models, setting them.
+            # This is the "simple" even though slightly more expensive approach. However, this request
+            # will only be run very rarely....
+            self.init_models()
+        else:
+            raise HTTPException(
+                status_code=410, detail=f"Model {model.model.id} does not exist"
+            )
 
     def remove_model(self, model: str):
         """

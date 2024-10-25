@@ -28,7 +28,7 @@ def add_model(
     admin_user: BackendUser = Depends(get_admin_user),
 ):
     model_to_add = LLMModel(
-        path=modelData.target_path,
+        path=modelData.path,
         prompt_cost=modelData.prompt_cost,
         completion_cost=modelData.completion_cost,
         name=modelData.name,
@@ -57,6 +57,37 @@ def remove_model(
         raise HTTPException(status.HTTP_410_GONE)
 
 
+@router.get("/models", status_code=status.HTTP_200_OK)
+def get_details_for_model(
+    model_service: Annotated[ModelService, Depends(ModelService)],
+    admin_key: BackendUser = Security(get_admin_user),
+) -> List[LLMModel]:
+    models = model_service.get_models()
+    logger.info(models)
+    return models
+
+
+@router.post("/update_model", status_code=status.HTTP_200_OK)
+def get_details_for_model(
+    modelData: AddAvailableModelRequest,
+    model_service: Annotated[ModelService, Depends(ModelService)],
+    admin_user: BackendUser = Security(get_admin_user),
+):
+    model_to_update = LLMModel(
+        path=modelData.path,
+        prompt_cost=modelData.prompt_cost,
+        completion_cost=modelData.completion_cost,
+        name=modelData.name,
+        description=modelData.description,
+        model=LLMModelData(
+            id=modelData.id,
+            owned_by=admin_user.username,
+            permissions=[],
+        ),
+    )
+    model_service.update_model(model_to_update)
+
+
 # This resets the given ser to the default status.
 # This is mostly for testing purposes....
 @router.post("/reset_user", status_code=status.HTTP_200_OK)
@@ -73,7 +104,7 @@ def reset_user(
         raise HTTPException(404, "User not found")
 
 
-@router.get("/listkeys", status_code=status.HTTP_200_OK)
+@router.get("/listkeys")
 def list_keys(
     RequestData: Request,
     key_handler: Annotated[KeyService, Depends(KeyService)],
@@ -125,13 +156,3 @@ def get_usage_for_user(
     admin_key: BackendUser = Security(get_admin_user),
 ) -> List[PerHourUsage]:
     return usage_service.get_usage_over_time_for_user(request.username)
-
-
-@router.get("/models", status_code=status.HTTP_200_OK)
-def get_details_for_model(
-    model_service: Annotated[ModelService, Depends(ModelService)],
-    admin_key: BackendUser = Security(get_admin_user),
-) -> List[LLMModel]:
-    models = model_service.get_models()
-    logger.info(models)
-    return models

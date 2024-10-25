@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, Extra
+
 from app.requests.general_requests import UserRequest
 
 model_field = Field(description="The id of the model")
@@ -8,9 +9,9 @@ model_name = Field(
 model_description = Field(description="A more extensive description of the model")
 
 
-class AddAvailableModelRequest(BaseModel):
+class AddAvailableModelRequest(BaseModel, extra=Extra.allow):
     id: str = model_field
-    target_path: str = Field(description="The target path on the inference server.")
+    path: str = Field(description="The target path on the inference server.")
     name: str = model_name
     description: str = model_description
     prompt_cost: float = Field(
