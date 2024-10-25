@@ -4,6 +4,7 @@ A placeholder hello world app.
 
 import logging
 import os
+import logging.config
 
 logging.config.fileConfig("app/logging.conf", disable_existing_loggers=False)
 uvlogger = logging.getLogger("app")
@@ -17,13 +18,16 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.utils.serverlogging import RouterLogging
 from app.routers.llm_router import lifespan
-from app.middleware.authentication_middleware import SessionAuthenticationBackend
-from app.middleware.session_middleware import StorageSessionMiddleware
+import app.middleware.authentication_middleware as auth_middleware
+import app.middleware.session_middleware as session_middleware
 from app.static_files import SPAStaticFiles
 from app.security.auth import get_user, BackendUser
 from app.services.key_service import KeyService
 from app.services.model_service import ModelService
 from app.services.user_service import UserService
+
+from app.services.quota_service import QuotaService
+from app.services.usage_service import UsageService
 
 # Initiaize services
 
@@ -36,6 +40,9 @@ model_service.init_models()
 # Initialize Users for use in the app
 user_service = UserService()
 user_service.init_user_db()
+# Initialize Quota DB for use in the app
+quota_service = QuotaService(usage_service=UsageService())
+quota_service.init_quota()
 
 
 debugging = True
@@ -72,13 +79,15 @@ app.add_middleware(
 
 app.add_middleware(
     AuthenticationMiddleware,
-    backend=SessionAuthenticationBackend(),
+    backend=auth_middleware.SessionAuthenticationBackend(),
 )
 
 # Need a fixed session key to work with potentially multiple instances.
 session_key = os.environ.get("SESSION_KEY")
 
-app.add_middleware(StorageSessionMiddleware, secret_key=session_key, max_age=600)
+app.add_middleware(
+    session_middleware.StorageSessionMiddleware, secret_key=session_key, max_age=600
+)
 
 
 # Add Request logging

@@ -1,33 +1,30 @@
 import redis
-import pymongo
 import json
 import logging
+from typing import Annotated
+from fastapi import Depends
 
 logger = logging.getLogger("app")
 
-from datetime import datetime
-from pymongo.database import Database
-from pymongo.collection import Collection
+from datetime import datetime, timedelta
+
 from app.models.quota import (
     Quota,
     UserQuota,
     KeyQuota,
-    RequestQuota,
-    PersistentQuota,
-    QuotaElements,
-    DEFAULT_USAGE,
+    RequestUsage,
+    PersistentUsage,
+    TimedKeyQuota,
+    TimedQuota,
+    TimedUserQuota,
+    UserAndKeyQuota,
 )
-from app.models.keys import UserKey
-from typing import List
+from app.services.usage_service import UsageService
+from app.models.keys import APIKey
 import app.db.redis as redis_db
-import app.db.mongo as mongo_db
 
-# This class handle interaction with the usage databases.
-# There are three databases one per-key and one per user usage as in memory redis databases
-# a third database actually persistantly stores the quota on a per key basis
-# When quota is updated, the current quota per user and key need to be updated
-# atomically in redis. In addition, a new entry in the persistent quota database needs to be made.
-# Quota has three parts:
+# This class handle interaction with the Quota redis clients, and interacts with the UsageService for
+# retrieval and updates to the persistent usage storage.
 #
 
 
@@ -37,6 +34,7 @@ def update_key_atomic(
     update_function: callable,
     retrieval_function: callable,
     dump_function: callable,
+    ttl: int,
 ):
     while True:
         try:
@@ -54,7 +52,7 @@ def update_key_atomic(
             p = client.pipeline()
 
             # Write the updated model back to Redis
-            p.set(key, dump_function(model))
+            p.setex(name=key, time=ttl, value=dump_function(model))
 
             # Execute the transaction
             p.execute()
@@ -65,81 +63,85 @@ def update_key_atomic(
             continue
 
 
-def get_usage_from_mongo_for_target(
-    usage_collection: Collection,
-    target: str,
-    key: str,
-    from_time: datetime,
-    model: str = None,
-    to_time: datetime = None,
-) -> QuotaElements:
-    if to_time is None:
-        to_time = datetime.now()
-    if from_time is None:
-        from_time = datetime.fromtimestamp(0)
-    query = {target: key, "timestamp": {"$gte": from_time, "$lt": to_time}}
-    if model is not None:
-        query["model"] = model
-    pipeline = [
-        {"$match": query},
-        {
-            "$group": {
-                "_id": "sum",
-                "cost": {"$sum": "$cost"},
-                "prompt_tokens": {"$sum": "$prompt_tokens"},
-                "completion_tokens": {"$sum": "$completion_tokens"},
-            }
-        },
-        {
-            "$project": {
-                "_id": 0,
-                "cost": 1,
-                "prompt_tokens": 1,
-                "completion_tokens": 1,
-            }
-        },
-    ]
-    user_data = list(usage_collection.aggregate(pipeline))
-
-    if len(user_data) == 0:
-        return DEFAULT_USAGE
-    else:
-        user_data = user_data[0]
-    return QuotaElements(
-        prompt_tokens=user_data["prompt_tokens"],
-        total_tokens=user_data["prompt_tokens"] + user_data["completion_tokens"],
-        completion_tokens=user_data["completion_tokens"],
-        cost=user_data["cost"],
-    )
-
-
 class QuotaService:
-    def __init__(self):
-        self.user_db = redis_db.redis_usage_user_client
-        self.key_db = redis_db.redis_usage_key_client
-        self.mongo_client: pymongo.MongoClient = mongo_db.mongo_client
-        self.db: Database = self.mongo_client["gateway"]
-        self.usage_collection: Collection = self.db[mongo_db.QUOTA_COLLECTION]
+    def __init__(self, usage_service: Annotated[UsageService, Depends(UsageService)]):
+        self.user_week_db: redis.StrictRedis = redis_db.redis_user_quota_week_client
+        self.key_week_db: redis.StrictRedis = redis_db.redis_key_quota_week_client
+        self.user_day_db: redis.StrictRedis = redis_db.redis_user_quota_day_client
+        self.key_day_db: redis.StrictRedis = redis_db.redis_user_quota_day_client
+        self.usage_service: UsageService = usage_service
 
-    def get_quota(self, key, user) -> Quota:
-        return Quota(
-            user_quota=self.get_user_quota(user),
-            key_quota=self.get_key_quota(key),
+    def init_quota(self):
+        # Cleanup, in case of changes.
+        self.user_week_db.flushdb()
+        self.key_week_db.flushdb()
+        self.user_day_db.flushdb()
+        self.key_day_db.flushdb()
+
+    def get_quota(self, key: APIKey) -> Quota:
+        key_quota = self.get_key_quotas(
+            key=key.key,
+            key_has_quota=key.has_quota,
+            day_quota=key.day_quota,
+            week_quota=key.week_quota,
         )
+        if key.user_key:
+            user_quota = self.get_user_quotas(key.user)
+            return UserAndKeyQuota(user_quota=user_quota, key_quota=key_quota)
+        return key_quota
 
-    def check_quota(self, requester: UserKey):
-        self.get_quota(requester.key, requester.user).check_quota()
+    def check_quota(self, requester: APIKey):
+        self.get_quota(requester).check_quota()
 
-    def get_key_quota(self, key: str, from_timestamp: datetime = None) -> KeyQuota:
-        keyQuotaData = self.key_db.get(key)
+    def get_key_quotas(
+        self, key: str, key_has_quota=False, day_quota=0, week_quota=0
+    ) -> TimedKeyQuota:
+        start_week = self.getStartOfWeekDate()
+        start_day = self.getStartOfDayDate()
+        key_week_quota = self._get_key_quota_from_redis(
+            self.key_week_db, key, from_timestamp=start_week
+        )
+        key_day_quota = self._get_key_quota_from_redis(
+            self.key_day_db, key, from_timestamp=start_day
+        )
+        if key_has_quota:
+            key_week_quota.quota.cost = week_quota
+            key_day_quota.quota = day_quota
+        return TimedKeyQuota(week_quota=key_week_quota, day_quota=key_day_quota)
+
+    def get_user_quotas(self, user: str) -> TimedUserQuota:
+        start_week = self.getStartOfWeekDate()
+        start_day = self.getStartOfDayDate()
+        user_week_quota = self._get_user_quota_from_redis(
+            self.user_week_db, user, from_timestamp=start_week
+        )
+        user_day_quota = self._get_user_quota_from_redis(
+            self.user_day_db, user, from_timestamp=start_day
+        )
+        return TimedUserQuota(week_quota=user_week_quota, day_quota=user_day_quota)
+
+    def _get_key_quota_from_redis(
+        self, redis: redis.StrictRedis, key: str, from_timestamp: datetime = None
+    ) -> KeyQuota:
+        keyQuotaData = redis.get(key)
         if keyQuotaData is None:
-            return self.get_key_quota_from_mongo(key, from_time=from_timestamp)
+            return KeyQuota(
+                usage=self.usage_service.get_key_quota_from_mongo(
+                    key, from_time=from_timestamp
+                )
+            )
         return self.process_key_dump(keyQuotaData)
 
-    def get_user_quota(self, user: str, from_timestamp: datetime = None) -> UserQuota:
-        userQuotaData = self.user_db.get(user)
+    def _get_user_quota_from_redis(
+        self, redis: redis.StrictRedis, user: str, from_timestamp: datetime = None
+    ) -> UserQuota:
+        userQuotaData = redis.get(user)
         if userQuotaData is None:
-            return self.get_user_quota_from_mongo(user, from_time=from_timestamp)
+            return UserQuota(
+                usage=self.usage_service.get_user_quota_from_mongo(
+                    user, from_time=from_timestamp
+                )
+            )
         return self.process_user_dump(userQuotaData)
 
     def process_key_dump(self, dump: str):
@@ -150,61 +152,6 @@ class QuotaService:
             keyQuota = KeyQuota.model_validate(json.loads(dump))
         return keyQuota
 
-    def update_persistent_quota(
-        self, model: str, key: str, user: str, request: RequestQuota
-    ):
-        # Update the persistent quota
-        cost = (
-            request.completion_cost * request.completion_tokens
-            + request.prompt_cost * request.prompt_tokens
-        )
-        quota = PersistentQuota(
-            key=key,
-            user=user,
-            model=model,
-            prompt_tokens=request.prompt_tokens,
-            completion_tokens=request.completion_tokens,
-            cost=cost,
-            timestamp=datetime.now(),
-        )
-        self.usage_collection.insert_one(quota.model_dump())
-
-    def get_user_quota_from_mongo(
-        self,
-        user: str,
-        from_time: datetime,
-        model: str = None,
-        to_time: datetime = None,
-    ) -> UserQuota:
-        return UserQuota(
-            usage=get_usage_from_mongo_for_target(
-                usage_collection=self.usage_collection,
-                target="user",
-                key=user,
-                from_time=from_time,
-                model=model,
-                to_time=to_time,
-            )
-        )
-
-    def get_key_quota_from_mongo(
-        self,
-        key: str,
-        from_time: datetime,
-        model: str = None,
-        to_time: datetime = None,
-    ) -> KeyQuota:
-        return KeyQuota(
-            usage=get_usage_from_mongo_for_target(
-                usage_collection=self.usage_collection,
-                target="key",
-                key=key,
-                from_time=from_time,
-                model=model,
-                to_time=to_time,
-            )
-        )
-
     def process_user_dump(self, dump: str):
         if dump is None:
             userQuota = UserQuota()
@@ -212,27 +159,70 @@ class QuotaService:
             userQuota = UserQuota.model_validate(json.loads(dump))
         return userQuota
 
-    def update_key_quota(self, key: str, request: RequestQuota):
+    def add_key_usage(self, key: str, request: RequestUsage):
+        ttl_day = self.getEndOfDaySeconds()
+        ttl_week = self.getEndOfWeekSeconds()
         update_key_atomic(
-            client=self.key_db,
+            client=self.key_day_db,
             key=key,
             retrieval_function=lambda data: self.process_key_dump(data),
             update_function=lambda model: model.add_request(request),
             dump_function=lambda model: json.dumps(model.model_dump()),
+            ttl=ttl_day,
+        )
+        update_key_atomic(
+            client=self.key_week_db,
+            key=key,
+            retrieval_function=lambda data: self.process_key_dump(data),
+            update_function=lambda model: model.add_request(request),
+            dump_function=lambda model: json.dumps(model.model_dump()),
+            ttl=ttl_week,
         )
 
-    def update_user_quota(self, user: str, request: RequestQuota):
+    def getEndOfDaySeconds(self):
+        now = datetime.now()
+        return 86400 - (now.hour * 3600 + now.minute * 60 + now.second)
+
+    def getEndOfWeekSeconds(self):
+        now = datetime.now()
+        return 604800 - (
+            now.weekday() * 86400 + now.hour * 3600 + now.minute * 60 + now.second
+        )
+
+    def getStartOfWeekDate(self):
+        now = datetime.now()
+        return now - timedelta(
+            days=now.weekday(), hours=now.hour, minutes=now.minute, seconds=now.second
+        )
+
+    def getStartOfDayDate(self):
+        now = datetime.now()
+        return now - timedelta(hours=now.hour, minutes=now.minute, seconds=now.second)
+
+    def add_user_usage(self, user: str, request: RequestUsage):
+        ttl_day = self.getEndOfDaySeconds()
+        ttl_week = self.getEndOfWeekSeconds()
         update_key_atomic(
-            client=self.key_db,
+            client=self.user_day_db,
             key=user,
             retrieval_function=lambda data: self.process_user_dump(data),
             update_function=lambda model: model.add_request(request),
             dump_function=lambda model: json.dumps(model.model_dump()),
+            ttl=ttl_day,
+        )
+        update_key_atomic(
+            client=self.user_day_db,
+            key=user,
+            retrieval_function=lambda data: self.process_user_dump(data),
+            update_function=lambda model: model.add_request(request),
+            dump_function=lambda model: json.dumps(model.model_dump()),
+            ttl=ttl_week,
         )
 
-    def update_quota(self, source: UserKey, model: str, request: RequestQuota):
-        self.update_persistent_quota(
-            key=source.key, user=source.user, model=model, request=request
+    def add_usage(self, source: APIKey, model: str, request: RequestUsage):
+        self.usage_service.add_persistent_usage(
+            key=source, model=model, request=request
         )
-        self.update_key_quota(key=source.key, request=request)
-        self.update_user_quota(user=source.user, request=request)
+        self.add_key_usage(key=source.key, request=request)
+        if source.user_key:
+            self.add_user_usage(user=source.user, request=request)

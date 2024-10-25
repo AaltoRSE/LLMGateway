@@ -38,7 +38,6 @@ class UserService:
     ) -> User:
         user = self.get_user_by_id(auth_id)
         if not user:
-
             user = self.create_new_user(
                 User(
                     auth_id=auth_id,
@@ -49,6 +48,7 @@ class UserService:
                     email=email,
                 )
             )
+        # TODO: Potentially Update th euser data if it is nt what auth provides!
         return user
 
     def get_all_users(self) -> List[User]:
@@ -68,8 +68,6 @@ class UserService:
         db_user = self.user_collection.find_one({mongo.ID_FIELD: user.auth_id})
         if not db_user:
             raise HTTPException(status_code=400, detail="User not found")
-        logger.info(f"Resetting user {user.auth_id}")
-        logger.info(user)
         db_user["seen_guide_version"] = ""
         db_user["keys"] = [
             entry["key"]
@@ -77,7 +75,6 @@ class UserService:
                 {"user": user.auth_id, "active": True}, {"key": 1}
             )
         ]
-        logger.info(db_user)
         result = self.user_collection.find_one_and_update(
             {mongo.ID_FIELD: db_user[mongo.ID_FIELD]},
             {"$set": db_user},
@@ -85,16 +82,15 @@ class UserService:
             projection={"_id": 0},
             return_document=Document.AFTER,
         )
-        logger.info(result)
+        logger.debug(result)
         return result
 
     def create_new_user(self, user: User) -> User:
         try:
             new_user = self.user_collection.insert_one(user.model_dump())
-            print(new_user)
-            return user
+            return new_user
         except Exception as e:
-            print(e)
+            logger.error(e)
             # TODO: Proper handling here.
             return None
 

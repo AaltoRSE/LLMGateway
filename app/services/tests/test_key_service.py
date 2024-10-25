@@ -48,8 +48,8 @@ def test_check_key(redis, monkeypatch):
     handler = KeyService()
     handler.init_keys()
     keys = {
-        "ABC": '{"user" : "a", "key" : "ABC"}',
-        "DEF": '{"user" : "b", "key" : "DEF"}',
+        "ABC": '{"user" : "a", "key" : "ABC", "name" : "TestKey", "active" : true}',
+        "DEF": '{"user" : "b", "key" : "DEF", "name" : "TestKey", "active" : true}',
     }
     redis.mset(keys)
     a_key = handler.get_user_key_if_active("ABC")
@@ -87,7 +87,7 @@ def test_create_key(redis, monkeypatch):
     assert len(user["keys"]) == 0
     key_collection = db[app.db.mongo.KEY_COLLECTION]
     assert key_collection.count_documents({}) == 1
-    assert not handler.get_user_key_if_active(key1) == None
+    assert not handler.get_user_key_if_active(key1.key) == None
 
     # Test a second key creation works.
     key2 = handler.create_key(first_user.auth_id, "NewKey2")
@@ -104,7 +104,7 @@ def test_create_key(redis, monkeypatch):
     assert len(user["keys"]) == 1
 
     # Test duplicate key doesn't work
-    assert not handler._add_key(second_user.auth_id, "NewKey4", key2)
+    assert not handler._add_key(key2)
     assert key_collection.count_documents({}) == 3
     user = user_collection.find_one({"auth_id": second_user.auth_id})
     assert len(user["keys"]) == 1
@@ -124,16 +124,16 @@ def test_delete_key_for_user(redis, monkeypatch):
     key_collection = db[app.db.mongo.KEY_COLLECTION]
     assert user_collection.count_documents({}) == 1
     assert key_collection.count_documents({}) == 1
-    assert not handler.get_user_key_if_active(newKey) == None
-    handler.delete_key_for_user(newKey, test_user.auth_id)
-    assert handler.get_user_key_if_active(newKey) == None
+    assert not handler.get_user_key_if_active(newKey.key) == None
+    handler.delete_key_for_user(newKey.key, test_user.auth_id)
+    assert handler.get_user_key_if_active(newKey.key) == None
     user = user_collection.find_one({})
     assert user[app.db.mongo.ID_FIELD] == test_user.auth_id
     assert len(user["keys"]) == 0
     # The key will be rettained, only removed from the user.
     # it needs to be retained for quota purposes
     assert key_collection.count_documents({}) == 1
-    assert handler.get_user_key_if_active(newKey) == None
+    assert handler.get_user_key_if_active(newKey.key) == None
 
 
 def test_delete_key(redis, monkeypatch):
@@ -150,13 +150,13 @@ def test_delete_key(redis, monkeypatch):
     key_collection = db[app.db.mongo.KEY_COLLECTION]
     assert user_collection.count_documents({}) == 1
     assert key_collection.count_documents({}) == 1
-    assert not handler.get_user_key_if_active(newKey) == None
-    handler.delete_key(newKey)
+    assert not handler.get_user_key_if_active(newKey.key) == None
+    handler.delete_key(newKey.key)
     user = user_collection.find_one({})
     assert user[app.db.mongo.ID_FIELD] == test_user.auth_id
     assert len(user["keys"]) == 0
     assert key_collection.count_documents({}) == 1
-    assert handler.get_user_key_if_active(newKey) == None
+    assert handler.get_user_key_if_active(newKey.key) == None
 
 
 def test_set_key_activity(redis, monkeypatch):
@@ -173,18 +173,18 @@ def test_set_key_activity(redis, monkeypatch):
     user_collection = db[app.db.mongo.USER_COLLECTION]
     key_collection = db[app.db.mongo.KEY_COLLECTION]
     # Make sure key is valid at start
-    assert not handler.get_user_key_if_active(newKey) == None
+    assert not handler.get_user_key_if_active(newKey.key) == None
     # deactivate key
-    handler.set_key_activity(newKey, test_user.auth_id, False)
-    key_data = key_collection.find_one({"key": newKey})
+    handler.set_key_activity(newKey, False)
+    key_data = key_collection.find_one({"key": newKey.key})
     assert key_data["active"] == False
     # Ensure key still exists
     user = user_collection.find_one({app.db.mongo.ID_FIELD: test_user.auth_id})
     assert len(user["keys"]) == 1
     # and key is inactive
-    assert handler.get_user_key_if_active(newKey) == None
+    assert handler.get_user_key_if_active(newKey.key) == None
     # reactivate and test that the key is now active again
-    handler.set_key_activity(newKey, test_user.auth_id, True)
-    key_data = key_collection.find_one({"key": newKey})
+    handler.set_key_activity(newKey, True)
+    key_data = key_collection.find_one({"key": newKey.key})
     assert key_data["active"] == True
-    assert not handler.get_user_key_if_active(newKey) == None
+    assert not handler.get_user_key_if_active(newKey.key) == None

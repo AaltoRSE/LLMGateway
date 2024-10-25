@@ -1,7 +1,7 @@
 from typing import Annotated
 from fastapi import Security, HTTPException, Depends
 from fastapi.security import APIKeyHeader
-from app.models.keys import UserKey
+from app.models.keys import APIKey
 from app.services.key_service import KeyService
 import logging
 import re
@@ -17,7 +17,7 @@ uvlogger = logging.getLogger("app")
 def get_api_key(
     key_service: Annotated[KeyService, Depends(KeyService)],
     api_key: str = Security(api_key_header),
-) -> UserKey:
+) -> APIKey:
     """
     Retrieves and validates the API key from the header.
 

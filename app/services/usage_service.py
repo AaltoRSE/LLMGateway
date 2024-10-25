@@ -6,25 +6,75 @@ from datetime import datetime, timedelta
 from pymongo.database import Database
 from pymongo.collection import Collection
 from app.models.quota import (
-    QuotaElements,
+    UsageElements,
     UsagePerKeyForUser,
     KeyPerModelUsage,
     ModelUsage,
     PerHourUsage,
     PerUserUsage,
     PerModelUsage,
+    UsageElements,
+    DEFAULT_USAGE,
+    RequestUsage,
+    PersistentUsage,
 )
-from app.services.quota_service import get_usage_from_mongo_for_target
+from app.models.keys import APIKey
 from typing import List
 import app.db.mongo
 
-# This class handle interaction with the usage databases.
-# There are three databases one per-key and one per user usage as in memory redis databases
-# a third database actually persistantly stores the quota on a per key basis
-# When quota is updated, the current quota per user and key need to be updated
-# atomically in redis. In addition, a new entry in the persistent quota database needs to be made.
-# Quota has three parts:
-#
+
+def get_usage_from_mongo_for_target(
+    usage_collection: Collection,
+    target: str,
+    key: str,
+    from_time: datetime,
+    model: str = None,
+    to_time: datetime = None,
+) -> UsageElements:
+    if to_time is None:
+        to_time = datetime.now()
+    if from_time is None:
+        from_time = datetime.fromtimestamp(0)
+    query = {target: key, "timestamp": {"$gte": from_time, "$lt": to_time}}
+    if model is not None:
+        query["model"] = model
+    pipeline = [
+        {"$match": query},
+        {
+            "$group": {
+                "_id": "sum",
+                "cost": {"$sum": "$cost"},
+                "prompt_tokens": {"$sum": "$prompt_tokens"},
+                "completion_tokens": {"$sum": "$completion_tokens"},
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "cost": 1,
+                "prompt_tokens": 1,
+                "completion_tokens": 1,
+            }
+        },
+    ]
+    user_data = list(usage_collection.aggregate(pipeline))
+
+    if len(user_data) == 0:
+        return DEFAULT_USAGE
+    else:
+        user_data = user_data[0]
+    return UsageElements(
+        prompt_tokens=user_data["prompt_tokens"],
+        total_tokens=user_data["prompt_tokens"] + user_data["completion_tokens"],
+        completion_tokens=user_data["completion_tokens"],
+        cost=user_data["cost"],
+    )
+
+
+# This class handles the interaction with the persistent usage database.
+# It is both responsible for adding and retireving information from the database.
+# No other class should directly interact with the usage database, and all
+# requests to and from it should go through this class.
 
 
 class UsageService:
@@ -34,6 +84,57 @@ class UsageService:
         self.usage_collection: Collection = self.db[app.db.mongo.QUOTA_COLLECTION]
         self.user_collection: Collection = self.db[app.db.mongo.USER_COLLECTION]
         self.key_collection: Collection = self.db[app.db.mongo.KEY_COLLECTION]
+
+    def add_persistent_usage(self, model: str, key: APIKey, request: RequestUsage):
+        # Update the persistent quota
+        cost = (
+            request.completion_cost * request.completion_tokens
+            + request.prompt_cost * request.prompt_tokens
+        )
+
+        quota = PersistentUsage(
+            key=key.key,
+            model=model,
+            prompt_tokens=request.prompt_tokens,
+            completion_tokens=request.completion_tokens,
+            cost=cost,
+            timestamp=datetime.now(),
+        )
+        if key.user_key:
+            quota.user = key.user
+        self.usage_collection.insert_one(quota.model_dump())
+
+    def get_user_quota_from_mongo(
+        self,
+        user: str,
+        from_time: datetime,
+        model: str = None,
+        to_time: datetime = None,
+    ) -> UsageElements:
+        return get_usage_from_mongo_for_target(
+            usage_collection=self.usage_collection,
+            target="user",
+            key=user,
+            from_time=from_time,
+            model=model,
+            to_time=to_time,
+        )
+
+    def get_key_quota_from_mongo(
+        self,
+        key: str,
+        from_time: datetime,
+        model: str = None,
+        to_time: datetime = None,
+    ) -> UsageElements:
+        return get_usage_from_mongo_for_target(
+            usage_collection=self.usage_collection,
+            target="key",
+            key=key,
+            from_time=from_time,
+            model=model,
+            to_time=to_time,
+        )
 
     def _get_usage_per_model(
         self,

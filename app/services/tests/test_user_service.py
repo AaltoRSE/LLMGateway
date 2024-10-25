@@ -66,7 +66,6 @@ def test_no_duplicate_user(monkeypatch):
 
 def test_reset_user(redis, monkeypatch):
     monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
-    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
     monkeypatch.setattr(app.db.redis, "redis_key_client", redis)
     key_service = KeyService()
     key_service.init_keys()
@@ -82,14 +81,15 @@ def test_reset_user(redis, monkeypatch):
     key1 = key_service.create_key(created_user.auth_id, "Key1")
     key2 = key_service.create_key(created_user.auth_id, "Key2")
     # deactivate one key
-    key_service.delete_key_for_user(key1, created_user.auth_id)
+    key_service.delete_key_for_user(key1.key, created_user.auth_id)
     user_service.update_agreement_version(created_user.auth_id, "2.0")
     user = user_service.get_user_by_id(created_user.auth_id)
     assert user.seen_guide_version == "2.0"
     # reset
     reset_user = user_service.reset_user(created_user)
     user = user_service.get_user_by_id(created_user.auth_id)
+    print(user)
     assert user.seen_guide_version == ""
     assert len(user.keys) == 1
-    assert key2 in user.keys
-    assert key1 not in user.keys
+    assert key2.key in user.keys
+    assert key1.key not in user.keys

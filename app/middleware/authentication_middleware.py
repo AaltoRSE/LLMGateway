@@ -23,7 +23,7 @@ class SessionAuthenticationBackend(AuthenticationBackend):
 
     async def authenticate(self, conn: HTTPConnection):
         # We need to set up our connection...
-
+        print("priginal Auth called")
         try:
             if conn.session == None:
                 logger.debug("No session in connection")

@@ -65,8 +65,9 @@ def reset_user(
     user_service: Annotated[UserService, Depends(UserService)],
     admin_user: BackendUser = Depends(get_admin_user),
 ):
-    user = user_service.reset_user(RequestData.username)
+    user = user_service.get_user_by_id(RequestData.username)
     if user:
+        user_service.reset_user(user)
         return user
     else:
         raise HTTPException(404, "User not found")
@@ -88,10 +89,11 @@ def list_users(
     user_service: Annotated[UserService, Depends(UserService)],
     admin_key: BackendUser = Security(get_admin_user),
 ) -> List[UserData]:
-    return [
+    users = [
         UserData.model_validate(user.model_dump(exclude="keys"))
         for user in user_service.get_all_users()
     ]
+    return users
 
 
 @router.post("/set_admin", status_code=status.HTTP_200_OK)

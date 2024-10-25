@@ -33,8 +33,8 @@ from app.requests.llama_requests import (
 from app.security.api_keys import get_api_key
 from app.utils.stream_response import LoggingStreamResponse, event_generator
 from app.utils.stream_logger import StreamLogger
-from app.models.keys import UserKey
-from app.models.quota import RequestQuota
+from app.models.keys import APIKey
+from app.models.quota import RequestUsage
 from app.services.model_service import ModelService
 from app.services.quota_service import QuotaService
 from app.services.request_service import RequestService
@@ -71,7 +71,7 @@ async def completion(
     background_tasks: BackgroundTasks,
     quota_service: Annotated[QuotaService, Depends(QuotaService)],
     request_handler: Annotated[RequestService, Depends(RequestService)],
-    api_key: UserKey = Security(get_api_key),
+    api_key: APIKey = Security(get_api_key),
 ) -> Completion:
     # Check the quota, needs the api key before it can be done.
     quota_service.check_quota(api_key)
@@ -103,14 +103,14 @@ async def completion(
             responseData = r.json()
             completion_tokens = responseData["usage"]["completion_tokens"]
             prompt_tokens = responseData["usage"]["prompt_tokens"]
-            new_request = RequestQuota(
+            new_request = RequestUsage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 prompt_cost=llm_request.model.prompt_cost,
                 completion_cost=llm_request.model.completion_cost,
             )
             background_tasks.add_task(
-                quota_service.update_quota,
+                quota_service.add_usage,
                 api_key,
                 llm_request.model.model.id,
                 new_request,
@@ -132,7 +132,7 @@ async def chat_completion(
     background_tasks: BackgroundTasks,
     quota_service: Annotated[QuotaService, Depends(QuotaService)],
     request_handler: Annotated[RequestService, Depends(RequestService)],
-    api_key: UserKey = Security(get_api_key),
+    api_key: APIKey = Security(get_api_key),
 ) -> ChatCompletion:
     quota_service.check_quota(api_key)
     llm_request = await request_handler.generate_client_and_request(
@@ -166,14 +166,14 @@ async def chat_completion(
             responseData = r.json()
             completion_tokens = responseData["usage"]["completion_tokens"]
             prompt_tokens = responseData["usage"]["prompt_tokens"]
-            new_request = RequestQuota(
+            new_request = RequestUsage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 prompt_cost=llm_request.model.prompt_cost,
                 completion_cost=llm_request.model.completion_cost,
             )
             background_tasks.add_task(
-                quota_service.update_quota,
+                quota_service.add_usage,
                 api_key,
                 llm_request.model.model.id,
                 new_request,
@@ -195,7 +195,7 @@ async def embedding(
     background_tasks: BackgroundTasks,
     quota_service: Annotated[QuotaService, Depends(QuotaService)],
     request_handler: Annotated[RequestService, Depends(RequestService)],
-    api_key: UserKey = Security(get_api_key),
+    api_key: APIKey = Security(get_api_key),
 ) -> CreateEmbeddingResponse:
     quota_service.check_quota(api_key)
     llm_request = await request_handler.generate_client_and_request(
@@ -209,14 +209,14 @@ async def embedding(
         responseData = r.json()
         completion_tokens = responseData["usage"]["completion_tokens"]
         prompt_tokens = responseData["usage"]["prompt_tokens"]
-        new_request = RequestQuota(
+        new_request = RequestUsage(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             prompt_cost=llm_request.model.prompt_cost,
             completion_cost=llm_request.model.completion_cost,
         )
         background_tasks.add_task(
-            quota_service.update_quota, api_key, llm_request.model.model.id, new_request
+            quota_service.add_usage, api_key, llm_request.model.model.id, new_request
         )
         return responseData
     except HTTPException as e:
@@ -248,5 +248,5 @@ def getModels(
 
 @router.post("/test_key")
 @router.get("/test_key")
-def test_key(api_key: UserKey = Security(get_api_key)):
+def test_key(api_key: APIKey = Security(get_api_key)):
     return {"api_key"}

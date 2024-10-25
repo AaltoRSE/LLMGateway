@@ -1,7 +1,7 @@
 from app.services.quota_service import QuotaService
-from app.models.keys import UserKey
+from app.models.keys import APIKey
 from app.models.model import LLMModel
-from app.models.quota import RequestTokens, RequestQuota
+from app.models.quota import RequestTokens, RequestUsage
 import logging
 
 # from .requests import ChatCompletionRequest
@@ -35,8 +35,12 @@ def getTokensForChunk(streamChunk: str):
     )
 
 
+# TODO: Check how this scales performance wise.
+# With a large number of requests for individual entries, this could become a bottleneck.
+# We might want to do the updates as a background task, and just "store" the
+# usage in the Logger, and have a finish" method, that then updates the usage.
 class StreamLogger:
-    def __init__(self, quota_service: QuotaService, source: UserKey, model: LLMModel):
+    def __init__(self, quota_service: QuotaService, source: APIKey, model: LLMModel):
         self.prompt_tokens = 0
         self.completion_tokens = 0
         self.quota_service = quota_service
@@ -55,14 +59,25 @@ class StreamLogger:
         """
         chunk_tokens = getTokensForChunk(chunk)
         if chunk_tokens.prompt_tokens > 0 or chunk_tokens.completion_tokens > 0:
-            request_quota = RequestQuota(
+            self.prompt_tokens = chunk_tokens.prompt_tokens
+            self.completion_tokens = chunk_tokens.completion_tokens
+            request_quota = RequestUsage(
                 prompt_tokens=chunk_tokens.prompt_tokens,
                 completion_tokens=chunk_tokens.completion_tokens,
                 prompt_cost=self.model.prompt_cost,
                 completion_cost=self.model.completion_cost,
             )
-            self.quota_service.update_quota(
+            self.quota_service.add_usage(
                 self.source, self.model.model.id, request_quota
             )
             return True
         return False
+
+    def finish(self):
+        request_quota = RequestUsage(
+            prompt_tokens=self.prompt_tokens,
+            completion_tokens=self.completion_tokens,
+            prompt_cost=self.model.prompt_cost,
+            completion_cost=self.model.completion_cost,
+        )
+        self.quota_service.add_usage(self.source, self.model.model.id, request_quota)

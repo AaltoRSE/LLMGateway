@@ -26,6 +26,8 @@ class ModelService:
         }
 
         if len(models) > 0:
+            # Clear out anything old.
+            self.redis_client.flushdb()
             # We will simply set all models to the redis
             self.redis_client.mset(models)
         else:
@@ -92,4 +94,4 @@ class ModelService:
             # update redis
             self.init_models()
         else:
-            raise HTTPException(status_code=404, detail=f"Model {model} does not exist")
+            raise HTTPException(status_code=410, detail=f"Model {model} does not exist")
