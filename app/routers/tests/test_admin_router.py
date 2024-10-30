@@ -7,7 +7,20 @@ import app.requests.admin_requests as admin
 from app.services.model_service import ModelService
 from app.services.user_service import UserService
 from app.services.key_service import KeyService
+from app.services.usage_service import UsageService
 import app.db.mongo as mongo
+from app.models.quota import (
+    UsageElements,
+    UsagePerKeyForUser,
+    KeyPerModelUsage,
+    ModelUsage,
+    PerHourUsage,
+    PerUserUsage,
+    PerModelUsage,
+    UsageElements,
+    DEFAULT_USAGE,
+    RequestUsage,
+)
 
 
 @pytest.fixture()
@@ -191,6 +204,69 @@ def test_set_admin(admin_client: TestClient):
     )
     # Changing own admin status not allowed
     assert response.status_code == 400
+
+
+def test_get_usage_for_user(admin_client: TestClient):
+    usage_service = UsageService()
+    user_service = UserService()
+    key_service = KeyService()
+    user_service.get_or_create_user_from_auth_data(
+        "test", "test", "test", "thi@test.fi"
+    )
+    key = key_service.create_key("test", "test")
+    key2 = key_service.create_key("Admin", "admin")
+    requestUsage = RequestUsage(
+        prompt_tokens=10, completion_tokens=10, prompt_cost=0.1, completion_cost=0.1
+    )
+    usage_service.add_persistent_usage("model1", key, requestUsage)
+    usage_service.add_persistent_usage("model1", key, requestUsage)
+    usage_service.add_persistent_usage("model2", key, requestUsage)
+    usage_service.add_persistent_usage("model2", key, requestUsage)
+    usage_service.add_persistent_usage("model1", key2, requestUsage)
+    usage_service.add_persistent_usage("model2", key2, requestUsage)
+    user_response = admin_client.post(
+        "/admin/get_usage_for_user", json={"username": "test"}
+    )
+    admin_response = admin_client.post(
+        "/admin/get_usage_for_user", json={"username": "Admin"}
+    )
+    assert user_response.status_code == 200
+    assert admin_response.status_code == 200
+    user_usage = user_response.json()
+    print(user_usage)
+    admin_usage = admin_response.json()
+    print(admin_usage)
+    # This is either one or 2 hours... depending on when the test is run...
+    assert len(user_usage) == 2 or len(user_usage) == 1
+    if len(user_usage) == 2:
+        firstHour = PerHourUsage.model_validate(user_usage[0])
+        secondHour = PerHourUsage.model_validate(user_usage[1])
+        user_usage = PerHourUsage(
+            timestamp=firstHour.timestamp,
+            cost=firstHour.cost + secondHour.cost,
+            prompt_tokens=firstHour.prompt_tokens + secondHour.prompt_tokens,
+            completion_tokens=firstHour.completion_tokens
+            + secondHour.completion_tokens,
+        )
+    else:
+        user_usage = PerHourUsage.model_validate(user_usage[0])
+    assert user_usage.cost == 8
+    assert user_usage.prompt_tokens == 40
+    assert user_usage.completion_tokens == 40
+    assert len(admin_usage) == 2 or len(admin_usage) == 1
+    if len(admin_usage) == 2:
+        firstHour = PerHourUsage.model_validate(admin_usage[0])
+        secondHour = PerHourUsage.model_validate(admin_usage[1])
+        admin_usage = PerHourUsage(
+            timestamp=firstHour.timestamp,
+            cost=firstHour.cost + secondHour.cost,
+            prompt_tokens=firstHour.prompt_tokens + secondHour.prompt_tokens,
+            completion_tokens=firstHour.completion_tokens
+            + secondHour.completion_tokens,
+        )
+    else:
+        admin_usage = PerHourUsage.model_validate(admin_usage[0])
+    assert admin_usage.cost == 4
 
 
 def test_no_access_user(user_client: TestClient):

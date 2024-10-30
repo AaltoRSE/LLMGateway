@@ -40,7 +40,7 @@ services:
     environment:
       - NGINX_HTTPS_PORT=443
       - HOSTNAME=localhost
-      - LLM_HOST=http://192.168.0.19:8080
+      - LLM_HOST=http://llm-host:8080
     ports:
       - 0.0.0.0:80:80
       - 0.0.0.0:443:443
@@ -68,6 +68,11 @@ services:
     extends:
       file: docker_databases.yml
       service: keycloak
+  llm-host:
+    image: llama_local
+    container_name: llm-host
+    volumes:
+      - $LLM_FOLDER:/models:ro
 networks:
   default:
     name: inference-network

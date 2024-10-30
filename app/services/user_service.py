@@ -87,8 +87,8 @@ class UserService:
 
     def create_new_user(self, user: User) -> User:
         try:
-            new_user = self.user_collection.insert_one(user.model_dump())
-            return new_user
+            self.user_collection.insert_one(user.model_dump())
+            return user
         except Exception as e:
             logger.error(e)
             # TODO: Proper handling here.

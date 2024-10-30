@@ -105,6 +105,7 @@ def reset_user(
 
 
 @router.get("/listkeys")
+@router.post("/listkeys")
 def list_keys(
     RequestData: Request,
     key_handler: Annotated[KeyService, Depends(KeyService)],
