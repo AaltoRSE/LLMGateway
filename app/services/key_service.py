@@ -285,7 +285,7 @@ class KeyService:
         """
         if user == None:
             # Return everything
-            self.logger.info("Trying to obtain keys")
+            self.logger.debug("Trying to obtain keys")
             keys = [x for x in self.key_collection.find({})]
         else:
             userinfo = self.user_collection.find({app.db.mongo.ID_FIELD: user})

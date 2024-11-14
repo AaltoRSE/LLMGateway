@@ -44,11 +44,11 @@ async def login(
     """
     Login endpoint
     """
-    logger.info(
+    logger.debug(
         "Obtained redirect url was : " + ("" if redirect_url == None else redirect_url)
     )
     request.session["redirect_url"] = sanitize_redirect(redirect_url)
-    logger.info("Redirect URL has been set to: " + request.session["redirect_url"])
+    logger.debug("Redirect URL has been set to: " + request.session["redirect_url"])
     source_ip = get_request_source(request)
     process_session_data = lambda session_data: session_service.create_session(
         session_data=session_data, source_ip=source_ip, user_service=user_service
@@ -67,14 +67,14 @@ async def login_callback(
     """
     General callback endpoint
     """
-    logger.info("GETTING LOGIN Callback")
-    logger.info(request.session)
+    logger.debug("GETTING LOGIN Callback")
+    logger.debug(request.session)
     source_ip = get_request_source(request)
     process_session_data = lambda session_data: session_service.create_session(
         session_data=session_data, source_ip=source_ip, user_service=user_service
     )
     session = await auth_backend.login_callback(request, process_session_data)
-    logger.info("Trying to build the response")
+    logger.debug("Trying to build the response")
     if os.getenv("POPUPLOGIN") == "1":
         response = None
     else:
@@ -87,8 +87,8 @@ async def login_callback(
             status_code=303,
         )
     response = check_auth_response(request, session, response)
-    logger.info(response)
-    logger.info(request.session)
+    logger.debug(response)
+    logger.debug(request.session)
     # This will redirect to the original page.
     return response
 

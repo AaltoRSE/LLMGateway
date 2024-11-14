@@ -63,7 +63,7 @@ def get_details_for_model(
     admin_key: BackendUser = Security(get_admin_user),
 ) -> List[LLMModel]:
     models = model_service.get_models()
-    logger.info(models)
+    logger.debug(models)
     return models
 
 

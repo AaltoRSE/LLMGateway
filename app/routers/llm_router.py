@@ -54,10 +54,10 @@ stream_client: httpx.AsyncClient | None = httpx.AsyncClient()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    llm_logger.info("Creating stream client")
+    llm_logger.debug("Creating stream client")
     stream_client = httpx.AsyncClient()
     yield
-    llm_logger.info("Closing stream client")
+    llm_logger.debug("Closing stream client")
     # Close the client
     await stream_client.aclose()
     # reset the client
@@ -95,7 +95,7 @@ async def completion(
                 include_usage=llm_request.stream_usage_requested,
             )
         else:
-            llm_logger.info(llm_request.request)
+            llm_logger.debug(llm_request.request)
             r = await stream_client.send(llm_request.request)
             llm_logger.debug(r.content)
             if r.status_code >= 400:
@@ -140,19 +140,19 @@ async def chat_completion(
     )
 
     try:
-        llm_logger.info(llm_request)
+        llm_logger.debug(llm_request)
         if llm_request.streaming:
             responselogger = StreamLogger(
                 quota_service=quota_service, source=api_key, model=llm_request.model
             )
             # no logging implemented yet...
             r = await stream_client.send(llm_request.request, stream=True)
-            llm_logger.info(r.status_code)
+            llm_logger.debug(r.status_code)
             if r.status_code >= 400:
 
                 raise HTTPException(status_code=r.status_code)
             background_tasks.add_task(r.aclose)
-            llm_logger.info(r)
+            llm_logger.debug(r)
             return LoggingStreamResponse(
                 content=event_generator(r.aiter_raw()),
                 streamlogger=responselogger,
@@ -160,7 +160,7 @@ async def chat_completion(
             )
         else:
             r = await stream_client.send(llm_request.request)
-            llm_logger.info(r.content)
+            llm_logger.debug(r.content)
             if r.status_code >= 400:
                 raise HTTPException(status_code=r.status_code)
             responseData = r.json()
@@ -235,7 +235,7 @@ def getModels(
     # At the moment hard-coded. Will update
     models = model_handler.get_api_models()
     model_list = [model.model_dump() for model in models]
-    llm_logger.info(model_list)
+    llm_logger.debug(model_list)
     if len(models) > 0:
         return {
             "object": "list",

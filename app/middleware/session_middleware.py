@@ -42,25 +42,25 @@ class StorageSessionMiddleware(SessionMiddleware):
                 data = self.signer.unsign(data, max_age=self.max_age)
                 scope["session"] = json.loads(b64decode(data))
                 # Load additional data from the session service
-                logger.info(f"Found session data: {scope['session']}")
+                logger.debug(f"Found session data: {scope['session']}")
                 key = scope["session"].get("key")
                 if key:
                     session_data = self.session_service.get_session(key)
                     if session_data:
-                        logger.info("Found session data")
+                        logger.debug("Found session data")
                         scope["session"][SESSION_DATA_FIELD] = session_data
                     else:
                         # Eliminate the whole session!
-                        logger.info("Invalid session data")
+                        logger.debug("Invalid session data")
                         scope["session"] = {}
                 initial_session_was_empty = False
             except BadSignature as e:
-                logger.info("Invalid session data")
-                logger.info(e)
+                logger.debug("Invalid session data")
+                logger.debug(e)
                 scope["session"] = {}
         else:
             scope["session"] = {}
-            logger.info("No cookie found")
+            logger.debug("No cookie found")
 
         async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start":
@@ -71,7 +71,7 @@ class StorageSessionMiddleware(SessionMiddleware):
                         # Remove internal data, which should always be in here
                         scope["session"].pop(SESSION_DATA_FIELD, None)
                     session_data = scope["session"]
-                    logger.info(f"Setting session data to {scope['session']}")
+                    logger.debug(f"Setting session data to {scope['session']}")
                     data = b64encode(json.dumps(session_data).encode("utf-8"))
                     data = self.signer.sign(data)
                     headers = MutableHeaders(scope=message)

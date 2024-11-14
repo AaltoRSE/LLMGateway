@@ -242,8 +242,8 @@ def check_auth_response(
         if "redirect_url" in request.session:
             # If we have a popup, which is the only way response is None here, we ignore any redirect url given.
             request.session.pop("redirect_url")
-        logger.info(request.session)
-        logger.info("Session created.")
+        logger.debug(request.session)
+        logger.debug("Session created.")
         # TODO: This needs to be improved to make sure, that there are proper error messages displayed, if the postMessage cannot be called.
         return HTMLResponse(close_logout_popup)
     else:
@@ -253,13 +253,13 @@ def check_auth_response(
 
 
 def check_auth_session(request: Request, session: Union[HTTPSession, None]):
-    logger.info(request.session)
+    logger.debug(request.session)
     if session == None:
-        logger.info("No session provided")
+        logger.debug("No session provided")
         raise HTTPException(403, "Not authenticated")
     # We now have an authed session, so we set the key in the session.
-    logger.info("Setting session key")
-    logger.info(session)
+    logger.debug("Setting session key")
+    logger.debug(session)
     request.session["key"] = session.key
 
 

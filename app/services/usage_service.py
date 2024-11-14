@@ -345,7 +345,7 @@ class UsageService:
         ]
         pipeline.extend(group_to_user)
         results = list(self.usage_collection.aggregate(pipeline))
-        logger.info(results)
+        logger.debug(results)
 
         if len(results) == 0:
             usage_data = UsagePerKeyForUser()

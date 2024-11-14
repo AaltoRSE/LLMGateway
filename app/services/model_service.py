@@ -38,7 +38,7 @@ class ModelService:
             LLMModel.model_validate(entry)
             for entry in self.model_collection.find({}, {"_id": 0})
         ]
-        modelLogger.info(models)
+        modelLogger.debug(models)
         return models
 
     def get_api_models(self) -> List[LLMModel]:
