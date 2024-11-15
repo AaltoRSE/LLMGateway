@@ -33,7 +33,7 @@ async def create_key(
         )
     if new_key == None:
         raise HTTPException(
-            status=status.HTTP_400_BAD_REQUEST, detail="MAximum number of keys reached"
+            status=status.HTTP_400_BAD_REQUEST, detail="Maximum number of keys reached"
         )
     return new_key
 

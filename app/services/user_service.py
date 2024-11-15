@@ -12,6 +12,9 @@ import os
 logger = logging.getLogger("app")
 
 
+allowedgroups = ["employee","faculty"]
+
+
 class UserService:
     """Service for User related business logic"""
 
@@ -34,8 +37,16 @@ class UserService:
         return User.model_validate(user)
 
     def get_or_create_user_from_auth_data(
-        self, auth_id: str, first_name: str, last_name: str, email: str = ""
+        self, auth_id: str, first_name: str, last_name: str, email: str = "", groups: List[str] = []
     ) -> User:
+        # If the user is not part of the allowed groups, throw an HTTPException
+
+        if len(set(groups).intersection(allowedgroups)) == 0:
+            logger.debug(f"User {auth_id} is not part of allowed groups")
+            raise HTTPException(
+                status_code=403,
+                detail="Only Staff is allowed to use this service",
+            )
         user = self.get_user_by_id(auth_id)
         if not user:
             user = self.create_new_user(
