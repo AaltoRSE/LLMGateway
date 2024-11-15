@@ -54,7 +54,7 @@ class SessionService:
             session_data["first_name"],
             session_data["last_name"],
             session_data["email"],
-            session_data["groups"]
+            session_data["auth_groups"]
         )
         session = HTTPSession(
             key=session_key,
