@@ -113,7 +113,7 @@ def test_add_remove_update_and_get_model_admin(admin_client: TestClient):
 def test_reset_user(admin_client: TestClient):
     user_service = UserService()
     user_service.get_or_create_user_from_auth_data(
-        "test", "test", "test", "thi@test.fi"
+        "test", "test", "test", "thi@test.fi", ["employee"]
     )
     user_service.update_agreement_version("test", "1.0")
     # Also manual set a key, which will be removed by the reset
@@ -136,7 +136,7 @@ def test_reset_user(admin_client: TestClient):
 def test_list_keys(admin_client: TestClient):
     user_service = UserService()
     user_service.get_or_create_user_from_auth_data(
-        "test", "test", "test", "thi@test.fi"
+        "test", "test", "test", "thi@test.fi", ["employee"]
     )
     key_service = KeyService()
     key1 = key_service.create_key("test", "test")
@@ -158,7 +158,7 @@ def test_list_keys(admin_client: TestClient):
 def test_list_users(admin_client: TestClient):
     user_service = UserService()
     user_service.get_or_create_user_from_auth_data(
-        "test", "test", "test", "thi@test.fi"
+        "test", "test", "test", "thi@test.fi", ["employee"]
     )
     key_service = KeyService()
     key1 = key_service.create_key("test", "test")
@@ -171,7 +171,7 @@ def test_list_users(admin_client: TestClient):
     assert "Admin" in [user["auth_id"] for user in listed_users]
     assert "test" in [user["auth_id"] for user in listed_users]
     user_service.get_or_create_user_from_auth_data(
-        "test2", "test2", "test2", "thi@test2.fi"
+        "test2", "test2", "test2", "thi@test2.fi", ["employee"]
     )
     response = admin_client.post("/admin/list_users")
     assert response.status_code == 200
@@ -182,7 +182,7 @@ def test_list_users(admin_client: TestClient):
 def test_set_admin(admin_client: TestClient):
     user_service = UserService()
     user_service.get_or_create_user_from_auth_data(
-        "test", "test", "test", "thi@test.fi"
+        "test", "test", "test", "thi@test.fi", ["employee"]
     )
     response = admin_client.post(
         "/admin/set_admin", json={"username": "test", "admin": True}
@@ -211,7 +211,7 @@ def test_get_usage_for_user(admin_client: TestClient):
     user_service = UserService()
     key_service = KeyService()
     user_service.get_or_create_user_from_auth_data(
-        "test", "test", "test", "thi@test.fi"
+        "test", "test", "test", "thi@test.fi", ["employee"]
     )
     key = key_service.create_key("test", "test")
     key2 = key_service.create_key("Admin", "admin")

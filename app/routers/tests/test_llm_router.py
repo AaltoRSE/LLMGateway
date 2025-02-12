@@ -92,7 +92,7 @@ def test_chat_completion(
     response = unauthed_client.post(
         chat_path,
         json={
-            "prompt": "Hello there, how may I assist you today?",
+            "messages": [{"role": "user", "content": "Hello"}],
             "model": "gpt-4o-mini",
         },
     )

@@ -29,7 +29,7 @@ def test_create_session(redis, monkeypatch):
     session_service = SessionService()
     user_service = UserService()
     session = session_service.create_session(
-        session_data=createTestSessionData(user="Test"),
+        session_data=createTestSessionData(user="Test", groups=["employee"]),
         source_ip="Foo",
         user_service=user_service,
     )
@@ -47,7 +47,7 @@ def test_expire_session(redis, monkeypatch):
     session_service = SessionService(exp_time=1)
     user_service = UserService()
     session = session_service.create_session(
-        session_data=createTestSessionData(user="Test"),
+        session_data=createTestSessionData(user="Test", groups=["employee"]),
         source_ip="Foo",
         user_service=user_service,
     )
@@ -62,7 +62,7 @@ def test_delete_session(redis, monkeypatch):
     session_service = SessionService()
     user_service = UserService()
     session = session_service.create_session(
-        session_data=createTestSessionData(user="Test"),
+        session_data=createTestSessionData(user="Test", groups=["employee"]),
         source_ip="Foo",
         user_service=user_service,
     )

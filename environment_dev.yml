@@ -2,6 +2,7 @@ name: LLMGateWay
 channels:
   - conda-forge
 dependencies:
+  - python=3.12
   - fastapi
   - gunicorn
   - uvicorn
@@ -9,16 +10,20 @@ dependencies:
   - pymongo
   - schedule
   - httpx
-  - pytest
   - python3-saml
   - python-multipart
   - python-jose[cryptography]
   - sse-starlette>=1.6.1
   - itsdangerous
+  - pip
+  - watchfiles==0.24.0
+  - pytest-asyncio  
   - respx
   - pytest-mock  
+  - pytest-cov
+  - pytest-redis
   - pip:
       - pytest-mock-resources[mongo]
       - pytest-mock-resources[redis]
-      - /home/thomas/Work/gitRepos/llama-cpp-python[server]
       - mongomock  
+      - vllm

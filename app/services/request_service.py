@@ -7,7 +7,7 @@ import json
 import logging
 import os
 
-from app.requests.llama_requests import (
+from app.requests.protocol import (
     CompletionRequest,
     ChatCompletionRequest,
     EmbeddingRequest,

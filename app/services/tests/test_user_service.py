@@ -9,7 +9,7 @@ from app.models.user import User
 redis = create_redis_fixture()
 
 
-def createTestSessionData(user: str, groups: list = ["test"]):
+def createTestSessionData(user: str, groups: list = ["employee"]):
     return {
         "auth_name": user,
         "first_name": "test",
@@ -46,6 +46,7 @@ def test_no_duplicate_user(monkeypatch):
         auth_id=test_user.auth_id,
         first_name=test_user.first_name,
         last_name=test_user.last_name,
+        groups=["employee"],
     )
     assert created_user.first_name == "test"
     assert created_user.last_name == "test"
@@ -56,6 +57,7 @@ def test_no_duplicate_user(monkeypatch):
         auth_id=test_user.auth_id,
         first_name=test_user.first_name,
         last_name=test_user.last_name,
+        groups=["employee"],
     )
     # Nothing new.
     assert user_collection.count_documents({}) == 1
@@ -76,6 +78,7 @@ def test_reset_user(redis, monkeypatch):
         auth_id=test_user.auth_id,
         first_name=test_user.first_name,
         last_name=test_user.last_name,
+        groups=["employee"],
     )
     # create 2 keys
     key1 = key_service.create_key(created_user.auth_id, "Key1")

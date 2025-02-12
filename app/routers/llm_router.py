@@ -15,15 +15,15 @@ import logging
 import httpx
 import os
 
-from llama_cpp.llama_types import (
-    Completion,
-    ChatCompletion,
-    CreateEmbeddingResponse,
+from app.requests.protocol import (
+    ModelList,
+    CompletionResponse,
+    ChatCompletionResponse,
+    EmbeddingResponse,
 )
-from llama_cpp.server.types import ModelList
 
 # These are essentially the llama_cpp classes except, that they have a default value for the model
-from app.requests.llama_requests import (
+from app.requests.protocol import (
     CompletionRequest,
     ChatCompletionRequest,
     EmbeddingRequest,
@@ -72,7 +72,7 @@ async def completion(
     quota_service: Annotated[QuotaService, Depends(QuotaService)],
     request_handler: Annotated[RequestService, Depends(RequestService)],
     api_key: APIKey = Security(get_api_key),
-) -> Completion:
+) -> CompletionResponse:
     # Check the quota, needs the api key before it can be done.
     quota_service.check_quota(api_key)
     llm_request = await request_handler.generate_client_and_request(
@@ -133,7 +133,7 @@ async def chat_completion(
     quota_service: Annotated[QuotaService, Depends(QuotaService)],
     request_handler: Annotated[RequestService, Depends(RequestService)],
     api_key: APIKey = Security(get_api_key),
-) -> ChatCompletion:
+) -> ChatCompletionResponse:
     quota_service.check_quota(api_key)
     llm_request = await request_handler.generate_client_and_request(
         requestData, request, stream_client
@@ -196,7 +196,7 @@ async def embedding(
     quota_service: Annotated[QuotaService, Depends(QuotaService)],
     request_handler: Annotated[RequestService, Depends(RequestService)],
     api_key: APIKey = Security(get_api_key),
-) -> CreateEmbeddingResponse:
+) -> EmbeddingResponse:
     quota_service.check_quota(api_key)
     llm_request = await request_handler.generate_client_and_request(
         requestData, request, stream_client

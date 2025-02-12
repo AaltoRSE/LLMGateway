@@ -24,8 +24,8 @@ def get_session(request: Request) -> HTTPSession:
 
 
 class StorageSessionMiddleware(SessionMiddleware):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.session_service = SessionService()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
