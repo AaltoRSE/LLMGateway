@@ -21,5 +21,4 @@ dependencies:
   - pip:
       - pytest-mock-resources[mongo]
       - pytest-mock-resources[redis]
-      - mongomock
-      - vllm
+      - mongomock      
