@@ -25,16 +25,11 @@ def num_tokens_from_messages(messages):
 
 
 endpoints = {
-    "gpt4": {
-        "endpoint": "openai/gpt4-1106-preview/chat/completions",
-        "prompt": 0.01 / 1000.0,
-        "completion": 0.028 / 1000.0,
-    },
-    "gpt3": {
-        "endpoint": "chat",
-        "prompt": 0.0005 / 1000.0,
-        "completion": 0.0014 / 1000.0,
-    },
+    "gpt4o": {
+        "endpoint": "openai/deployments/gpt-4o-2024-08-06/chat/completions",
+        "prompt": 2.75 / 1000000.0,
+        "completion": 11 / 1000000.0,
+    }
 }
 
 
@@ -62,10 +57,8 @@ class Quota:
 
     def get_current_model(self):
         current_price = self.get_price()
-        if current_price < 10:
-            return "gpt4"
-        elif current_price < 50:
-            return "gpt3"
+        if current_price < 50:
+            return "gpt4o"
         else:
             raise HTTPException(
                 status_code=status.HTTP_410_GONE, detail="Quota exceeded"
