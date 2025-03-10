@@ -3,26 +3,35 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: whisper-gateway-ingress
-  namespace: {{ $.Release.Namespace }}
+  name: llm-azure-gateway-ingress
+  namespace:
+    rse # Everything we do will be in the "rse" namespace,
+    # which logically separates different uses (like with
+    # permissions, resource limits, etc).  Everything
+    # below is in the rse namespace.
   annotations:
+    # The line below magically gives us letsencrypt certificates for
+    # our service!  This is for the CSIT cluster, other clusters may
+    # be different.
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
     # We can define various things declaratively... this tells the
     # maximum HTTP body size to the ingress.
     # TODO: Might need to adapt this...
     nginx.ingress.kubernetes.io/proxy-body-size: 20m
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
-    # Set upstream host header to make sure saml works properly...
-    nginx.ingress.kubernetes.io/upstream-vhost: {{ .Values.gateway_url }}
-    # Allow access only from within aalto
-    #nginx.ingress.kubernetes.io/whitelist-source-range: 130.233.0.0/16
+    nginx.ingress.kubernetes.io/upstream-vhost: azure-gateway.k8s-test.cs.aalto.fi
+    # Comment out during dev
+    nginx.ingress.kubernetes.io/whitelist-source-range: 130.233.0.0/16
+
+# Spec tells the actual parameters: hosts to listen on, path prefixes.
 spec:
-  ingressClassName: nginx
   tls:
     - hosts:
-        - {{ .Values.gateway_url }}
+        - azure-gateway.k8s-test.cs.aalto.fi
+      secretName: llm-azure-gateway-deployment
   rules:
-    - host: {{ .Values.gateway_url }}
+    - host: azure-gateway.k8s-test.cs.aalto.fi
       http:
         paths:
           - path: /
@@ -32,6 +41,6 @@ spec:
             # the service defined below (matching the name).
             backend:
               service:
-                name: whisper-gateway-svc
+                name: llm-azure-gateway-svc
                 port:
-                  number: 80
+                  number: 3000
