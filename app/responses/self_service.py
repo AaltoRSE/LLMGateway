@@ -8,6 +8,7 @@ class ModelDescription(BaseModel):
     name: str
     description: str
     id: str
+    type: str
 
 
 ModelListResponse = List[ModelDescription]

@@ -37,6 +37,7 @@ def add_model(
             id=modelData.id,
             owned_by=admin_user.username,
             permissions=[],
+            type=modelData.type,
         ),
     )
     try:
@@ -83,6 +84,7 @@ def get_details_for_model(
             id=modelData.id,
             owned_by=admin_user.username,
             permissions=[],
+            type=modelData.type,
         ),
     )
     model_service.update_model(model_to_update)

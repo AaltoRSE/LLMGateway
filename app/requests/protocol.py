@@ -767,7 +767,7 @@ class EmbeddingChatRequest(OpenAIBaseModel):
         return PoolingParams(additional_data=self.additional_data)
 
 
-EmbeddingRequest = Union[EmbeddingCompletionRequest, EmbeddingChatRequest]
+EmbeddingRequest = EmbeddingCompletionRequest | EmbeddingChatRequest
 
 PoolingCompletionRequest = EmbeddingCompletionRequest
 PoolingChatRequest = EmbeddingChatRequest

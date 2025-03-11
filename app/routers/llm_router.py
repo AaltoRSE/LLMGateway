@@ -64,67 +64,6 @@ async def lifespan(app: FastAPI):
     stream_client = None
 
 
-@router.post("/completions")
-async def completion(
-    requestData: CompletionRequest,
-    request: Request,
-    background_tasks: BackgroundTasks,
-    quota_service: Annotated[QuotaService, Depends(QuotaService)],
-    request_handler: Annotated[RequestService, Depends(RequestService)],
-    api_key: APIKey = Security(get_api_key),
-) -> CompletionResponse:
-    # Check the quota, needs the api key before it can be done.
-    quota_service.check_quota(api_key)
-    llm_request = await request_handler.generate_client_and_request(
-        requestData, request, stream_client
-    )
-
-    try:
-        if llm_request.streaming:
-            responselogger = StreamLogger(
-                quota_service=quota_service, source=api_key, model=llm_request.model
-            )
-            # no logging implemented yet...
-            r = await stream_client.send(llm_request.request, stream=True)
-            if r.status_code >= 400:
-                raise HTTPException(status_code=r.status_code)
-            background_tasks.add_task(r.aclose)
-            return LoggingStreamResponse(
-                content=event_generator(r.aiter_raw()),
-                streamlogger=responselogger,
-                include_usage=llm_request.stream_usage_requested,
-            )
-        else:
-            llm_logger.debug(llm_request.request)
-            r = await stream_client.send(llm_request.request)
-            llm_logger.debug(r.content)
-            if r.status_code >= 400:
-                raise HTTPException(status_code=r.status_code)
-            responseData = r.json()
-            completion_tokens = responseData["usage"]["completion_tokens"]
-            prompt_tokens = responseData["usage"]["prompt_tokens"]
-            new_request = RequestUsage(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                prompt_cost=llm_request.model.prompt_cost,
-                completion_cost=llm_request.model.completion_cost,
-            )
-            background_tasks.add_task(
-                quota_service.add_usage,
-                api_key,
-                llm_request.model.model.id,
-                new_request,
-            )
-            return responseData
-    except HTTPException as e:
-        llm_logger.exception(e)
-        raise e
-    except Exception as e:
-        llm_logger.exception(e)
-        # re-raise to let FastAPI handle it.
-        raise HTTPException(status_code=500)
-
-
 @router.post("/chat/completions")
 async def chat_completion(
     requestData: ChatCompletionRequest,
@@ -136,7 +75,7 @@ async def chat_completion(
 ) -> ChatCompletionResponse:
     quota_service.check_quota(api_key)
     llm_request = await request_handler.generate_client_and_request(
-        requestData, request, stream_client
+        requestData, request, "TextGeneration", stream_client
     )
 
     try:
@@ -199,7 +138,7 @@ async def embedding(
 ) -> EmbeddingResponse:
     quota_service.check_quota(api_key)
     llm_request = await request_handler.generate_client_and_request(
-        requestData, request, stream_client
+        requestData, request, "Embedding", stream_client
     )
     try:
         llm_logger.debug(llm_request.request.content)

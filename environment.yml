@@ -17,6 +17,8 @@ dependencies:
   - itsdangerous
   - pip
   - watchfiles==0.24.0
+  - openai
+  - msgspec
   - pytest-asyncio  
   - pip:
       - pytest-mock-resources[mongo]

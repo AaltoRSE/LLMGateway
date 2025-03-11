@@ -8,3 +8,4 @@ export ADMIN_KEY=321
 export MONGO_SESSION_COLLECTION=sessions
 export LLM_DEFAULT_URL=http://host.docker.internal:8080
 export DEBUG=1
+export LLM_FOLDER=/home/thomas/Work/LLMs/models

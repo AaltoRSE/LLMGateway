@@ -50,11 +50,17 @@ class ModelService:
         models = self.get_models()
         return [model.model for model in models]
 
-    def get_model_path(self, model_id):
+    def get_model_path(self, model_id, type: str) -> str:
         model_data = self.redis_client.get(model_id)
         if model_data:
             requested_model = json.loads(model_data)
-            return requested_model["path"]
+            if type == requested_model["model"]["type"]:
+                return requested_model["path"]
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Model {model_id} cannot be used for {type}",
+                )
         else:
             raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
 
@@ -77,6 +83,7 @@ class ModelService:
                 status_code=409, detail=f"Model {model.model.id} already exists"
             )
         else:
+
             self.model_collection.insert_one(model.model_dump())
             # Update the models, setting them.
             # This is the "simple" even though slightly more expensive approach. However, this request
@@ -94,6 +101,7 @@ class ModelService:
             self.model_collection.update_one(
                 {"model.id": model.model.id}, {"$set": model.model_dump()}
             )
+            modelLogger.warning(model.model_dump())
             # Update the models, setting them.
             # This is the "simple" even though slightly more expensive approach. However, this request
             # will only be run very rarely....

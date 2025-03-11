@@ -93,6 +93,7 @@ async def get_models(
             name=model.name,
             description=model.description,
             id=model.model.id,
+            type=model.model.type,
         )
         for model in models
     ]

@@ -1,4 +1,4 @@
-FROM node:21.5.0 AS frontend-builder
+FROM node:22.13.0 AS frontend-builder
 
 ARG LOGIN_URL=https://ai-gateway.k8s.aalto.fi/saml/login
 ARG LOGOUT_URL=https://ai-gateway.k8s.aalto.fi/saml/logout
@@ -34,7 +34,7 @@ COPY environment.yml /opt/
 
 # Install copy of llama-cpp-python with streaming option
 WORKDIR /llama_cpp
-RUN git clone https://github.com/tpfau/llama-cpp-python.git && cd llama-cpp-python && git checkout stream_testing && git submodule init && git submodule update
+#RUN git clone https://github.com/tpfau/llama-cpp-python.git && cd llama-cpp-python && git checkout stream_testing && git submodule init && git submodule update
 
 RUN micromamba create -f /opt/environment.yml -p /opt/env/
 

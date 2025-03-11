@@ -59,10 +59,6 @@ cors_origings = [
     "https://ai.aalto.fi",
     "https://ai-testing.aalto.fi",
 ]
-# This covers all feature-branch deployments of aalto ai assistant
-cors_regex = (
-    "https://ashy-ground-060e46403-(.+)\\.westeurope\\.4\\.azurestaticapps\\.net"
-)
 
 # Add CORS Middleware
 
@@ -72,8 +68,6 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    # Allow everything from ai.aalto.fi and ai-testing.aalto.fi
-    allow_origin_regex=cors_regex,
 )
 
 

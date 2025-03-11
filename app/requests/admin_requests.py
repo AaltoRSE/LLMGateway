@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, Extra
-
+from app.models.model import model_type
 from app.requests.general_requests import UserRequest
 
 model_field = Field(description="The id of the model")
@@ -19,6 +19,9 @@ class AddAvailableModelRequest(BaseModel, extra=Extra.allow):
     )
     completion_cost: float = Field(
         description="The cost of a completion token", default=0.01 / 1000
+    )
+    type: model_type = Field(
+        description="The type of model. E.g. 'TextGeneration' or 'Embedding' ."
     )
 
 

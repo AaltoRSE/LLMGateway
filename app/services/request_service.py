@@ -44,6 +44,7 @@ class RequestService:
         self,
         requestData: ChatCompletionRequest | CompletionRequest | EmbeddingRequest,
         request: Request,
+        type: str,
         stream_client=httpx.AsyncClient,
     ) -> LLMRequest:
         # Add the API Key for the inference server
@@ -56,12 +57,18 @@ class RequestService:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, "Requested Model not available"
             )
+        # Check, that the request can be handled by this model
+        if model.model.type != type:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Model {model.model.id} cannot be used for {type}",
+            )
         # set the request path and host
         path = request.url.path
         url = httpx.URL(model.path + path)
         stream_usage_requested = True
         streaming = False
-        if not request is EmbeddingRequest:
+        if not type == "Embedding":
             stream_usage_requested = requests_stream_usage(requestData)
             streaming = requestData.stream
         # Extract the body for forwarding
