@@ -2,21 +2,6 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: llm-mongo
-  namespace: {{ .Values.namespace }}
-spec:
-  accessModes: 
-    - ReadWriteOnce # This should only ever be accessed by one mongoDB server instance
-  resources:
-    requests:
-      # Need to have a look how big this will become.
-      storage: 4Gi
-  storageClassName: moodle-nfs-csi
-  volumeMode: Filesystem
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
   name: new-mongo-volume
   namespace: {{ .Values.namespace }}
 spec:
