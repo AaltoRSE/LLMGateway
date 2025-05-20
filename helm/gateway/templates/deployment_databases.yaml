@@ -73,4 +73,4 @@ spec:
       volumes:
         - name: llm-mongo
           persistentVolumeClaim:
-            claimName: llm-mongo
+            claimName: new-mongo-volume
