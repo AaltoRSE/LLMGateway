@@ -1,4 +1,4 @@
-from typing import List, Dict, Literal
+from typing import List, Dict, Literal, Optional
 from pydantic import BaseModel, RootModel, Field
 
 model_type = Literal["TextGeneration", "Embedding"]
@@ -7,13 +7,14 @@ model_type = Literal["TextGeneration", "Embedding"]
 class LLMModelData(BaseModel):
     id: str
     owned_by: str
-    permissions: List[str] = []
-    object: str = Field(default="model")
-    type: model_type = Field(default="TextGeneration")
+    permissions: Optional[List[str]] = []
+    object: Optional[str] = Field(default="model")
+    type: Optional[List[model_type]] = ["TextGeneration"]
 
 
 class LLMModel(BaseModel):
     path: str
+    host: str
     model: LLMModelData
     name: str
     description: str
