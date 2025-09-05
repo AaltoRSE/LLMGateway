@@ -1,29 +1,30 @@
 from typing import List, Dict, Literal, Optional
 from pydantic import BaseModel, RootModel, Field
 
-model_type = Literal["TextGeneration", "Embedding"]
+model_type = Literal["chat", "embedding", "responses"]
 
 
-class LLMModelData(BaseModel):
+class LLMModelDataDetails(BaseModel):
     id: str
     owned_by: str
     permissions: Optional[List[str]] = []
     object: Optional[str] = Field(default="model")
-    type: Optional[List[model_type]] = ["TextGeneration"]
+    type: Optional[List[model_type]] = ["chat"]
 
 
-class LLMModel(BaseModel):
+class LLMModelData(BaseModel):
     path: str
     host: str
-    model: LLMModelData
+    model: LLMModelDataDetails
     name: str
     description: str
     prompt_cost: float = 0.0001
     completion_cost: float = 0.0001
+    cached_token_cost: float = 0.00001
 
 
 class LLMModelDict(RootModel):
-    root: Dict[str, LLMModel]
+    root: Dict[str, LLMModelData]
 
     def __iter__(self):
         return iter(self.root)

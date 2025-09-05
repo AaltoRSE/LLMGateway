@@ -13,7 +13,7 @@ from app.requests.protocol import (
     EmbeddingRequest,
 )
 from app.services.model_service import ModelService
-from app.models.model import LLMModel
+from gateway.app.schemas.llmmodel_schema import LLMModel
 
 logger = logging.getLogger("app")
 

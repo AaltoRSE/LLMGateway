@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, Extra
-from app.models.model import model_type
+from gateway.app.schemas.llmmodel_schema import model_type
 from app.requests.general_requests import UserRequest
 
 model_field = Field(description="The id of the model")

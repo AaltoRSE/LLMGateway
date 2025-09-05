@@ -1,43 +1,45 @@
-""" This module provides User service functionality """
+"""This module provides User service functionality"""
 
-from typing import List
-import app.db.mongo as mongo
-from app.models.user import User
+from typing import List, Annotated
+from app.schemas.user_schema import User, UserBase
 from pymongo import MongoClient
 from pymongo import ReturnDocument as Document
 import logging
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends
+from app.repositories import UserRepository, APIKeyRepository
+from app.repositories.factories import (
+    get_user_repository_class,
+    get_key_repository_class,
+)
+
 import os
 
 logger = logging.getLogger("app")
 
 
-allowedgroups = ["employee","faculty"]
+allowedgroups = ["employee", "faculty"]
 
 
 class UserService:
     """Service for User related business logic"""
 
-    def __init__(self) -> None:
-        self.mongo_client: MongoClient = mongo.mongo_client
-        self.db = self.mongo_client["gateway"]
-        self.user_collection = self.db[mongo.USER_COLLECTION]
-        self.key_collection = self.db[mongo.KEY_COLLECTION]
+    def __init__(
+        self,
+        user_respository: Annotated[
+            UserRepository, Depends(get_user_repository_class())
+        ],
+        key_repository: Annotated[
+            APIKeyRepository, Depends(get_key_repository_class())
+        ],
+    ) -> None:
+        self.user_respository = user_respository
+        self.key_repository = key_repository
 
-    def init_user_db(self):
-        # Make sure, that username is an index (avoids duplicates when creating keys, which automatically adds a user if necessary);
-        userindices = self.user_collection.index_information()
-        if not mongo.ID_FIELD in userindices:
-            self.user_collection.create_index(mongo.ID_FIELD, unique=True)
+    async def get_user_by_id(self, user_id: str) -> User:
+        return await self.user_respository.get_user_by_id(user_id)
 
-    def get_user_by_id(self, user_id: int) -> User:
-        user = self.user_collection.find_one({mongo.ID_FIELD: user_id})
-        if not user:
-            return None
-        return User.model_validate(user)
-
-    def get_or_create_user_from_auth_data(
-        self, auth_id: str, first_name: str, last_name: str, email: str = "", groups: List[str] = []
+    async def get_or_create_user_from_auth_data(
+        self, auth_id: str, first_name: str, last_name: str, groups: List[str] = []
     ) -> User:
         # If the user is not part of the allowed groups, throw an HTTPException
 
@@ -47,70 +49,46 @@ class UserService:
                 status_code=403,
                 detail="Only Staff is allowed to use this service",
             )
-        user = self.get_user_by_id(auth_id)
+        user = await self.get_user_by_id(auth_id)
         if not user:
-            user = self.create_new_user(
+            user = await self.create_new_user(
                 User(
                     auth_id=auth_id,
                     first_name=first_name,
                     last_name=last_name,
                     admin=False,
-                    seen_guide_version="",
-                    email=email,
+                    accepted_agreement_version="0.0",
                 )
             )
-        # TODO: Potentially Update th euser data if it is nt what auth provides!
+        # TODO: Potentially Update the user data if it is nt what auth provides!
         return user
 
-    def get_all_users(self) -> List[User]:
-        users = [User.model_validate(user) for user in self.user_collection.find({})]
-        return users
+    async def get_all_users(self) -> List[User]:
 
-    def update_agreement_version(self, username: str, version: str):
-        result = self.user_collection.find_one_and_update(
-            {mongo.ID_FIELD: username},
-            {"$set": {"seen_guide_version": version}},
-            upsert=False,
-        )
-        if not result:
-            raise HTTPException(status_code=400, detail="User not found")
+        return await self.user_respository.get_all_users()
 
-    def reset_user(self, user: User):
-        db_user = self.user_collection.find_one({mongo.ID_FIELD: user.auth_id})
-        if not db_user:
-            raise HTTPException(status_code=400, detail="User not found")
-        db_user["seen_guide_version"] = ""
-        db_user["keys"] = [
-            entry["key"]
-            for entry in self.key_collection.find(
-                {"user": user.auth_id, "active": True}, {"key": 1}
-            )
-        ]
-        result = self.user_collection.find_one_and_update(
-            {mongo.ID_FIELD: db_user[mongo.ID_FIELD]},
-            {"$set": db_user},
-            upsert=False,
-            projection={"_id": 0},
-            return_document=Document.AFTER,
-        )
-        logger.debug(result)
-        return result
+    async def update_agreement_version(self, user: User, version: str) -> User | None:
+        user.accepted_agreement_version = version
+        updated_user = await self.user_respository.update_user(User)
+        if updated_user is None:
+            raise HTTPException(404, "User not found")
+        return updated_user
 
-    def create_new_user(self, user: User) -> User:
-        try:
-            self.user_collection.insert_one(user.model_dump())
-            return user
-        except Exception as e:
-            logger.error(e)
-            # TODO: Proper handling here.
-            return None
+    async def reset_user(self, user: User):
+        user.accepted_agreement_version = 0.0
+        updated_user = await self.user_respository.update_user(user)
+        self.key_repository.deactivate_keys_for_user(user.id)
+        return updated_user
 
-    def delete_user(self, user_id: str):
-        self.user_collection.delete_one({mongo.ID_FIELD: user_id})
+    async def create_new_user(self, user: UserBase) -> User:
+        return await self.user_respository.create_new_user(user)
 
-    def set_admin_status(self, user_id: str, admin: bool):
-        res = self.user_collection.update_one(
-            {mongo.ID_FIELD: user_id}, {"$set": {"admin": admin}}
-        )
-        if res.matched_count == 0:
-            raise HTTPException(status_code=404, detail="User not found")
+    async def delete_user(self, user_id: str):
+        await self.user_respository.delete_user_by_id(user_id)
+
+    async def set_admin_status(self, user_id: str, admin: bool):
+        user = await self.user_respository.get_user_by_id(user_id)
+        if user is None:
+            raise HTTPException(404, "User does not exist")
+        user.admin = admin
+        await self.user_respository.update_user(user)

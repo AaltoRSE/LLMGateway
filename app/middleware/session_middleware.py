@@ -45,7 +45,7 @@ class StorageSessionMiddleware(SessionMiddleware):
                 logger.debug(f"Found session data: {scope['session']}")
                 key = scope["session"].get("key")
                 if key:
-                    session_data = self.session_service.get_session(key)
+                    session_data = await self.session_service.get_session(key)
                     if session_data:
                         logger.debug("Found session data")
                         scope["session"][SESSION_DATA_FIELD] = session_data

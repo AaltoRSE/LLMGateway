@@ -7,7 +7,7 @@ from app.security.auth import get_admin_user, get_user, BackendUser
 from app.services.model_service import ModelService
 from app.services.key_service import KeyService
 from app.services.user_service import UserService
-from app.models.model import LLMModel, LLMModelData
+from gateway.app.schemas.llmmodel_schema import LLMModel, LLMModelData
 
 
 import logging

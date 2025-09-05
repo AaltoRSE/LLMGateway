@@ -8,7 +8,7 @@ from app.services.model_service import ModelService
 from app.services.key_service import KeyService
 from app.services.user_service import UserService
 from app.services.usage_service import UsageService
-from app.models.model import LLMModel, LLMModelData
+from gateway.app.schemas.llmmodel_schema import LLMModel, LLMModelData
 from app.models.user import UserData
 from app.models.quota import PerHourUsage
 

@@ -1,6 +1,6 @@
 from app.services.quota_service import QuotaService
 from app.models.keys import APIKey
-from app.models.model import LLMModel
+from gateway.app.schemas.llmmodel_schema import LLMModel
 from app.models.quota import RequestTokens, RequestUsage
 import logging
 

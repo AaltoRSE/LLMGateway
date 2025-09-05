@@ -10,8 +10,3 @@ class APIKey(BaseModel):
     has_quota: bool = False
     day_quota: int = 0
     week_quota: int = 0
-
-
-# class UserKey(BaseModel):
-#    user: str
-#    key: str

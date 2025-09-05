@@ -2,190 +2,140 @@
 
 from fastapi import (
     APIRouter,
-    Request,
-    BackgroundTasks,
     Security,
     HTTPException,
-    status,
-    FastAPI,
     Depends,
 )
-from typing import Annotated, Union
+from fastapi.responses import JSONResponse
+from sse_starlette.sse import EventSourceResponse
+from typing import Annotated, Callable
 import logging
-import httpx
-import os
-
-from app.requests.protocol import (
-    ModelList,
-    CompletionResponse,
-    ChatCompletionResponse,
-    EmbeddingResponse,
-)
 
 # These are essentially the llama_cpp classes except, that they have a default value for the model
-from app.requests.protocol import (
-    CompletionRequest,
-    ChatCompletionRequest,
-    EmbeddingRequest,
+
+
+from typing import Annotated, Any
+from openai.types.create_embedding_response import CreateEmbeddingResponse
+from fastapi import APIRouter, Depends, HTTPException, Security
+from app.schemas.openai_schemas import (
+    ChatCompletionStreamOptions,
+    CreateResponse,
+    CreateEmbeddingRequest,
 )
+from app.schemas.usage_schema import APIRequest
+from app.security.auth import get_user, BackendUser
 
-
-from app.security.api_keys import get_api_key
-from app.utils.stream_response import LoggingStreamResponse, event_generator
-from app.utils.stream_logger import StreamLogger
-from app.models.keys import APIKey
-from app.models.quota import RequestUsage
+from app.services.usage_service import UsageService
 from app.services.model_service import ModelService
-from app.services.quota_service import QuotaService
-from app.services.request_service import RequestService
-from contextlib import asynccontextmanager
-
 
 llm_logger = logging.getLogger("app")
 
-
 router = APIRouter(
-    prefix="/v1",
+    prefix="/api/v1",
     tags=["LLM Endpoints"],
 )
 
-stream_client: httpx.AsyncClient | None = httpx.AsyncClient()
+# FIXME: This should probably either be an environment variable or
+# some other configuration element.
+default_model = "gpt-4o"
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    llm_logger.debug("Creating stream client")
-    stream_client = httpx.AsyncClient()
-    yield
-    llm_logger.debug("Closing stream client")
-    # Close the client
-    await stream_client.aclose()
-    # reset the client
-    stream_client = None
-
-
-@router.post("/chat/completions")
-async def chat_completion(
-    requestData: ChatCompletionRequest,
-    request: Request,
-    background_tasks: BackgroundTasks,
-    quota_service: Annotated[QuotaService, Depends(QuotaService)],
-    request_handler: Annotated[RequestService, Depends(RequestService)],
-    api_key: APIKey = Security(get_api_key),
-) -> ChatCompletionResponse:
-    quota_service.check_quota(api_key)
-    llm_request = await request_handler.generate_client_and_request(
-        requestData, request, "TextGeneration", stream_client
-    )
-
+@router.post("/responses", response_model=None)
+async def create_response(
+    request_data: CreateResponse,
+    usage_service: Annotated[UsageService, Depends(UsageService)],
+    model_service: Annotated[ModelService, Depends(ModelService)],
+    current_user: BackendUser = Security(get_user),
+) -> (
+    JSONResponse | EventSourceResponse
+):  # We will not define this further, as it otherwise will get painful, if the API changes.
+    if usage_service.get_current_balance(current_user).used_up():
+        raise HTTPException(402, "User out of Quota")
     try:
-        llm_logger.debug(llm_request)
-        if llm_request.streaming:
-            responselogger = StreamLogger(
-                quota_service=quota_service, source=api_key, model=llm_request.model
-            )
-            # no logging implemented yet...
-            r = await stream_client.send(llm_request.request, stream=True)
-            llm_logger.debug(r.status_code)
-            if r.status_code >= 400:
+        model = model_service.get_llm_model(
+            request_data.model if not request_data.model is None else default_model
+        )
+    except ValueError:
+        raise HTTPException(404, "The requested model is not available on the server")
+    usage_callback: Callable[[APIRequest], Any] = lambda usage: usage_service.log_usage(
+        user=current_user, usage=usage
+    )
+    if request_data.stream:
+        stream_iterator = await model.stream_response_request(
+            user=current_user,
+            request=request_data,
+            usage_callback=usage_callback,
+        )
+        return EventSourceResponse(content=stream_iterator)
+    else:
+        response_data = await model.non_stream_response_request(
+            user=current_user, request=request_data, usage_callback=usage_callback
+        )
+        return JSONResponse(content=response_data.model_dump())
 
-                raise HTTPException(status_code=r.status_code)
-            background_tasks.add_task(r.aclose)
-            llm_logger.debug(r)
-            return LoggingStreamResponse(
-                content=event_generator(r.aiter_raw()),
-                streamlogger=responselogger,
-                include_usage=llm_request.stream_usage_requested,
+
+@router.post("/chat/completions", response_model=None)
+async def chat_completion(
+    request_data: ChatCompletionRequest,
+    usage_service: Annotated[UsageService, Depends(UsageService)],
+    model_service: Annotated[ModelService, Depends(ModelService)],
+    current_user: BackendUser = Security(get_user),
+) -> (
+    JSONResponse | EventSourceResponse
+):  # We will not define this further, as it otherwise will get painful, if the API changes.
+    if usage_service.get_current_balance(current_user).used_up():
+        raise HTTPException(402, "User out of Quota")
+    try:
+        model = model_service.get_llm_model(
+            request_data.model if not request_data.model is None else default_model
+        )
+    except ValueError:
+        raise HTTPException(404, "The requested model is not available on the server")
+    usage_callback: Callable[[APIRequest], Any] = lambda usage: usage_service.log_usage(
+        user=current_user, usage=usage
+    )
+    if request_data.stream:
+        added_usage = False
+        if request_data.stream_options is None:
+            request_data.stream_options = ChatCompletionStreamOptions(
+                include_usage=True
             )
+            added_usage = True
         else:
-            r = await stream_client.send(llm_request.request)
-            llm_logger.debug(r.content)
-            if r.status_code >= 400:
-                raise HTTPException(status_code=r.status_code)
-            responseData = r.json()
-            completion_tokens = responseData["usage"]["completion_tokens"]
-            prompt_tokens = responseData["usage"]["prompt_tokens"]
-            new_request = RequestUsage(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                prompt_cost=llm_request.model.prompt_cost,
-                completion_cost=llm_request.model.completion_cost,
-            )
-            background_tasks.add_task(
-                quota_service.add_usage,
-                api_key,
-                llm_request.model.model.id,
-                new_request,
-            )
-            return responseData
-    except HTTPException as e:
-        llm_logger.exception(e)
-        raise e
-    except Exception as e:
-        llm_logger.exception(e)
-        # re-raise to let FastAPI handle it.
-        raise HTTPException(status_code=500)
+            if not request_data.stream_options.include_usage:
+                request_data.stream_options.include_usage = True
+                added_usage = True
+        stream_iterator = await model.stream_chat_request(
+            user=current_user,
+            request=request_data,
+            usage_callback=usage_callback,
+            filter_usage=added_usage,
+        )
+        return EventSourceResponse(content=stream_iterator)
+    else:
+        response_data = await model.non_stream_chat_request(
+            user=current_user, request=request_data, usage_callback=usage_callback
+        )
+        return JSONResponse(content=response_data.model_dump())
 
 
 @router.post("/embeddings")
 async def embedding(
-    requestData: EmbeddingRequest,
-    request: Request,
-    background_tasks: BackgroundTasks,
-    quota_service: Annotated[QuotaService, Depends(QuotaService)],
-    request_handler: Annotated[RequestService, Depends(RequestService)],
-    api_key: APIKey = Security(get_api_key),
-) -> EmbeddingResponse:
-    quota_service.check_quota(api_key)
-    llm_request = await request_handler.generate_client_and_request(
-        requestData, request, "Embedding", stream_client
-    )
+    request_data: EmbeddingRequest,
+    usage_service: Annotated[UsageService, Depends(UsageService)],
+    model_service: Annotated[ModelService, Depends(ModelService)],
+    current_user: BackendUser = Security(get_user),
+) -> CreateEmbeddingResponse:
+
+    if usage_service.get_current_balance(current_user).used_up():
+        raise HTTPException(402, "User out of Quota")
     try:
-        llm_logger.debug(llm_request.request.content)
-        r = await stream_client.send(llm_request.request)
-        if r.status_code >= 400:
-            raise HTTPException(status_code=r.status_code)
-        responseData = r.json()
-        completion_tokens = responseData["usage"]["completion_tokens"]
-        prompt_tokens = responseData["usage"]["prompt_tokens"]
-        new_request = RequestUsage(
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            prompt_cost=llm_request.model.prompt_cost,
-            completion_cost=llm_request.model.completion_cost,
-        )
-        background_tasks.add_task(
-            quota_service.add_usage, api_key, llm_request.model.model.id, new_request
-        )
-        return responseData
-    except HTTPException as e:
-        llm_logger.exception(e)
-        raise e
-    except Exception as e:
-        llm_logger.exception(e)
-        raise HTTPException(status_code=500)
-
-
-@router.get("/models/")
-@router.get("/models")
-def getModels(
-    model_handler: Annotated[ModelService, Depends(ModelService)],
-) -> ModelList:
-    # At the moment hard-coded. Will update
-    models = model_handler.get_api_models()
-    model_list = [model.model_dump() for model in models]
-    llm_logger.debug(model_list)
-    if len(models) > 0:
-        return {
-            "object": "list",
-            "data": [model.model_dump() for model in models],
-        }
-    else:
-        # Should never actually happen, since it should always have one...
-        raise HTTPException(status.HTTP_418_IM_A_TEAPOT)
-
-
-@router.post("/test_key")
-@router.get("/test_key")
-def test_key(api_key: APIKey = Security(get_api_key)):
-    return {"api_key"}
+        model = model_service.get_embedding_model(request_data.model)
+    except ValueError:
+        raise HTTPException(404, "The requested model is not available on the server")
+    usage_callback: Callable[[APIRequest], Any] = lambda usage: usage_service.log_usage(
+        user=current_user, usage=usage
+    )
+    return model.embed(
+        user=current_user, request=request_data, usage_callback=usage_callback
+    )

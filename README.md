@@ -113,3 +113,8 @@ The API of the model server needs to be compatible with the API provided by `lla
 In the future, LLM endpoints will also have to provide an additional `/extras/tokenize/count` endpoint, which calculates prompt tokens based on either a single input string, or a full `ChatCompletionRequest`.
 
 The `docker-compose.yml` included in this repo is an example on how to test locally. You will need to set up the keycloak installation for this to work and point the gateway saml authentication to that keycloak service.
+
+## Balance handling
+
+Usage/Balance is handled in a two fashioned way:
+Persistent databases contain the actual usage, with time stamps, prompt amounts and costs, a Redis database is being used for balance. The values in this db can be restored from the data in the usage database.

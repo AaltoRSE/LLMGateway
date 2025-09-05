@@ -1,0 +1,93 @@
+from app.repositories.api_key_repository import APIKeyRepositry, APIKey, User
+from fastapi import Depends
+
+# DB Specific imports
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from ..db import db as db_dependency
+
+from typing import Annotated, List
+from ..models.key_model import APIKey as DBAPIKey
+
+
+class SQLAPIKeyRepositry(APIKeyRepositry):
+    """Repository for User related database operations"""
+
+    def __init__(self, db: Annotated[Session, Depends(db_dependency.get_db)]):
+        self.db = db
+
+    def _convert_to_db_model(key: APIKey) -> DBAPIKey:
+        return DBAPIKey(
+            key=key.key, user=int(key.user), active=key.active, name=key.name
+        )
+
+    def _convert_to_api_model(key: DBAPIKey) -> APIKey:
+        return APIKey(key=key.key, user=str(key.user), active=key.active, name=key.name)
+
+    def _get_key_by_id(self, key: str) -> DBAPIKey | None:
+        return self.db.query(DBAPIKey).filter(DBAPIKey.key == key).first()
+
+    async def create_api_key_for_user(self, user: User, name: str) -> APIKey:
+        """
+        Create a new API key for a user
+        """
+        key = self.generate_api_key()
+        api_key: APIKey = self.build_new_key_object(user=user, key=key, name=name)
+        added = False
+        while not added:
+            try:
+                self.db.add(self._convert_to_db_model(api_key))
+                self.db.commit()
+                added = True
+            except IntegrityError:
+                # undo the add and try again.
+                self.db.rollback()
+                api_key.key = self.generate_api_key()
+
+        return api_key
+
+    async def update_key(self, updated_key: APIKey) -> APIKey | None:
+        """
+        Update a given API key based on it's id.
+        """
+        db_key = self._get_key_by_id(updated_key.key)
+        if db_key is None:
+            return None
+        db_key.name = updated_key.name
+        db_key.active = updated_key.active
+        self.db.commit()
+        self.db.refresh(db_key)
+        return self._convert_to_api_model(db_key)
+
+    async def get_active_api_keys_for_user(self, userid: str) -> List[APIKey] | None:
+        """
+        Get all Keys for a user
+        """
+        keys = (
+            self.db.query(DBAPIKey)
+            .filter(DBAPIKey.user == int(userid), DBAPIKey.active == True)
+            .all()
+        )
+        return [self._convert_to_api_model(key) for key in keys]
+
+    async def deactivate_key(self, key: APIKey) -> bool | None:
+        """
+        Deactivate a given key. Keys can not be reactivated.
+        """
+        update = APIKey(key.key, active=False, name=key.name)
+        res = self.update_key(update)
+        if res:
+            return True
+        else:
+            return None
+
+    async def get_all_keys(self, active_only=False) -> List[APIKey]:
+        """
+        Get all keys.
+        """
+        if active_only:
+
+            keys = self.db.query(DBAPIKey).filter(DBAPIKey.active == True).all()
+        else:
+            keys = self.db.query(DBAPIKey).all()
+        return [self._convert_to_api_model(key) for key in keys]
