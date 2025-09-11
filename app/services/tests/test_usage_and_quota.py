@@ -14,7 +14,7 @@ from app.models.quota import (
     TimedUserQuota,
 )
 import app.db.mongo
-import app.db.redis
+import gateway.app.dbs.redis.redis
 from datetime import datetime
 import pytest
 

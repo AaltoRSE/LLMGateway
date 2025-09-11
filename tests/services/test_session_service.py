@@ -2,7 +2,7 @@ from pytest_mock_resources import create_redis_fixture
 from app.services.session_service import SessionService
 from app.services.user_service import UserService
 from fastapi import HTTPException
-import app.db.redis
+import gateway.app.dbs.redis.redis
 import app.db.mongo
 import mongomock
 import time
@@ -24,7 +24,7 @@ def createTestSessionData(user: str, groups: list = ["test"]):
 
 # Testing whether keys are checked correctly
 def test_create_session(redis, monkeypatch):
-    monkeypatch.setattr(app.db.redis, "redis_session_client", redis)
+    monkeypatch.setattr(gateway.app.dbs.redis.redis, "redis_session_client", redis)
     monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
     session_service = SessionService()
     user_service = UserService()
@@ -42,7 +42,7 @@ def test_create_session(redis, monkeypatch):
 
 
 def test_expire_session(redis, monkeypatch):
-    monkeypatch.setattr(app.db.redis, "redis_session_client", redis)
+    monkeypatch.setattr(gateway.app.dbs.redis.redis, "redis_session_client", redis)
     monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
     session_service = SessionService(exp_time=1)
     user_service = UserService()
@@ -57,7 +57,7 @@ def test_expire_session(redis, monkeypatch):
 
 
 def test_delete_session(redis, monkeypatch):
-    monkeypatch.setattr(app.db.redis, "redis_session_client", redis)
+    monkeypatch.setattr(gateway.app.dbs.redis.redis, "redis_session_client", redis)
     monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
     session_service = SessionService()
     user_service = UserService()

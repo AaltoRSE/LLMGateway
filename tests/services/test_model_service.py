@@ -1,7 +1,7 @@
 from pytest_mock_resources import create_redis_fixture
 import mongomock
 import app.db.mongo
-import app.db.redis
+import gateway.app.dbs.redis.redis
 from app.services.model_service import ModelService
 from gateway.app.schemas.llmmodel_schema import LLMModel, LLMModelData
 from fastapi import HTTPException

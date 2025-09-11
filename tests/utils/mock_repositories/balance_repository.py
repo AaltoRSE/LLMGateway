@@ -1,26 +1,46 @@
 # This will directly depend on
 
-from datetime import datetime
+from datetime import datetime, date
 from typing import List
+import threading
 
 from app.schemas.usage_schema import Balance, UserBalance, KeyBalance
+from app.repositories.balance_repository import BalanceRepository
 
+class TimedBalance(Balance):
+    period : date
 
-class BalanceRepository:
+class MockBalanceRepository(BalanceRepository):
+    balance_list: List[TimedBalance] = []
+    _lock = threading.Lock()
+    def reset(self) -> None:
+        self.__class__.balance_list = []    
 
-    async def get_key_balance(self, key: str) -> KeyBalance:
+    def _get_balance(self, key : str = None, user : str = None, requested_date : date = None) -> TimedBalance:
+        if requested_date is None:
+            current_time = datetime.now()
+            requested_date = date(current_time.year, current_time.month, 1)
+        for balance in self.__class__.balance_list:
+            if balance.period == requested_date and ( balance.key == key or user == balance.user_id):
+                return balance
+        new_balance = Balance(key=key, user_id=user,balance_used=0)
+        self.__class__.balance_list.append(new_balance)
+        return new_balance
+
+    async def get_key_balance(self, key: str) -> Balance:
         """
-        Retrieve the balance associated with a specific API key.
+        Retrieve the current balance associated with a specific API key.
 
         Args:
             key (str): The API key for which the balance is to be retrieved.
 
         Returns:
             Balance: The balance information for the given API key.
-        """
-        raise NotImplementedError
+        """                
+        return self._get_balance(key=key).model_copy()
+        
 
-    async def get_user_balance(self, user_id: str) -> UserBalance:
+    async def get_user_balance(self, user_id: str) -> Balance:
         """
         Retrieve the balance associated with a specific user.
 
@@ -30,7 +50,8 @@ class BalanceRepository:
         Returns:
             Balance: The balance information for the given user.
         """
-        raise NotImplementedError
+        return self._get_balance(user_id=user_id).model_copy()
+            
 
     async def get_user_balances(self, month: datetime) -> List[UserBalance]:
         """
@@ -41,8 +62,11 @@ class BalanceRepository:
             month (str): a datetime with the month set to the current month
         Returns:
             List[Balance]: The balances for all users
-        """
-        raise NotImplementedError
+        """        
+        requestedDate = date(month.year, month.month, 1)
+        balances = [balance.model_copy() for balance in self.__class__.balance_list if balance.period == requestedDate and balance.user_id is not None]        
+
+        return [UserBalance(balance_used=balance.balance_used, user_id= balance.user_id,quota=balance.quota) for balance in balances]
 
     async def get_key_balances(self, month: datetime) -> List[KeyBalance]:
         """
@@ -54,7 +78,11 @@ class BalanceRepository:
         Returns:
             List[Balance]: The balances for all keys
         """
-        raise NotImplementedError
+        requestedDate = date(month.year, month.month, 1)
+        balances = [balance.model_copy() for balance in self.__class__.balance_list if balance.period == requestedDate and balance.key is not None]        
+
+        return [UserBalance(balance_used=balance.balance_used, key= balance.key,quota=balance.quota) for balance in balances]
+
 
     async def add_usage_to_user(self, user_id: str, cost: float) -> None:
         """
@@ -66,9 +94,11 @@ class BalanceRepository:
 
         Returns:
             None
-        """
-        raise NotImplementedError
-
+        """        
+        with self.__class__._lock:
+            balance : TimedBalance = self._get_balance(user_id = user_id)
+            balance.balance_used = balance.balance_used + cost
+        
     async def add_usage_to_key(self, key: str, cost: float) -> None:
         """
         Add a usage cost to an API key's balance.
@@ -80,7 +110,9 @@ class BalanceRepository:
         Returns:
             None
         """
-        raise NotImplementedError
+        with self.__class__._lock:
+            balance = self._get_balance(key = key)
+            balance.balance_used = balance.balance_used + cost
 
     async def set_quota_for_key(self, quota: float, key: str) -> None:
         """
@@ -93,7 +125,8 @@ class BalanceRepository:
         Returns:
             None
         """
-        raise NotImplementedError
+        balance = self._get_balance(key = key)
+        balance.quota = quota
 
     async def set_quota_for_user(self, quota: float, user_id: str) -> None:
         """
@@ -106,4 +139,5 @@ class BalanceRepository:
         Returns:
             None
         """
-        raise NotImplementedError
+        balance = self._get_balance(user_id = user_id)
+        balance.quota = quota

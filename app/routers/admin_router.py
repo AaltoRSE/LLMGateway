@@ -2,15 +2,13 @@ from app.requests.admin_requests import *
 from app.requests.general_requests import UserRequest
 from typing import Annotated, List
 from fastapi import APIRouter, Request, Security, HTTPException, status, Depends
-from app.security.api_keys import get_admin_key
 from app.security.auth import get_admin_user, BackendUser
 from app.services.model_service import ModelService
 from app.services.key_service import KeyService
 from app.services.user_service import UserService
 from app.services.usage_service import UsageService
-from gateway.app.schemas.llmmodel_schema import LLMModel, LLMModelData
+from app.schemas.llmmodel_schema import LLMModelData, LLMModelDataDetails
 from app.models.user import UserData
-from app.models.quota import PerHourUsage
 
 
 import logging
@@ -27,13 +25,13 @@ def add_model(
     model_handler: Annotated[ModelService, Depends(ModelService)],
     admin_user: BackendUser = Depends(get_admin_user),
 ):
-    model_to_add = LLMModel(
+    model_to_add = LLMModelData(
         path=modelData.path,
         prompt_cost=modelData.prompt_cost,
         completion_cost=modelData.completion_cost,
         name=modelData.name,
         description=modelData.description,
-        model=LLMModelData(
+        model=LLMModelDataDetails(
             id=modelData.id,
             owned_by=admin_user.username,
             permissions=[],
@@ -62,7 +60,7 @@ def remove_model(
 def get_details_for_model(
     model_service: Annotated[ModelService, Depends(ModelService)],
     admin_key: BackendUser = Security(get_admin_user),
-) -> List[LLMModel]:
+) -> List[LLMModelData]:
     models = model_service.get_models()
     logger.debug(models)
     return models
@@ -74,7 +72,7 @@ def get_details_for_model(
     model_service: Annotated[ModelService, Depends(ModelService)],
     admin_user: BackendUser = Security(get_admin_user),
 ):
-    model_to_update = LLMModel(
+    model_to_update = LLMModelData(
         path=modelData.path,
         prompt_cost=modelData.prompt_cost,
         completion_cost=modelData.completion_cost,

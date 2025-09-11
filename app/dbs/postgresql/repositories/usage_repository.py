@@ -6,13 +6,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from ..models.usage_model import Usage as DBUsage
-from ..models.user_balance_model import Balance as DBBalance
-from ..models.key_balance_model import Balance as DBKeyBalance
+from ..models.balance_model import Balance as DBBalance
 from ..db import db as db_dependency
 
 # App imports
 from app.repositories.usage_repository import UsageRepository
-from app.schemas.usage_schema import Usage, Balance, APIRequest
+from app.schemas.usage_schema import Usage, Balance, APIRequest, RequestSource
 from datetime import datetime, date
 
 
@@ -37,13 +36,11 @@ class SQLUsageRepository(UsageRepository):
         )
 
     async def log_usage(
-        self, usage: APIRequest, user_id: str | None = None, key: str | None = None
-    ) -> None:
-        if user_id is None and key is None:
-            raise ValueError("Request Invalid, neither user nor key provided")
+        self, usage: APIRequest, source : RequestSource
+    ) -> None:        
         db_usage = DBUsage(
-            user_id=int(user_id) if user_id is not None else None,
-            key=key,
+            user_id=int(source.user) if source.user is not None else None,
+            key=source.key,
             timestamp=usage.timestamp,
             cost=usage.cost,
             prompt_tokens=usage.prompt_tokens,

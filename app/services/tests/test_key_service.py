@@ -4,7 +4,7 @@ import mongomock
 from app.services.key_service import KeyService
 from app.services.user_service import UserService
 import app.db.mongo
-import app.db.redis
+import gateway.app.dbs.redis.redis
 
 from app.models.keys import APIKey
 from app.models.user import User

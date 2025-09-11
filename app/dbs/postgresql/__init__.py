@@ -2,16 +2,15 @@
 
 from .repositories import (
     user_repository,
-    conversation_repository,
-    message_repository,
+    balance_repository,
+    api_key_repository,
     usage_repository,
-    document_repository,
-    document_set_repository,
+    model_repository,    
 )
 
 UserRepository = user_repository.SQLUserRepository
-ConversationRepository = conversation_repository.SQLConversationRepository
-MessageRepository = message_repository.SQLMessageRepository
+ModelRepository = model_repository.SQLModelRepository
+BalanceRepository = balance_repository.SQLBalanceRepository
 UsageRepository = usage_repository.SQLUsageRepository
-DocumentRepository = document_repository.SQLDocumentRepository
-DocumentSetRepository = document_set_repository.SQLDocumentSetRepository
+APIKeyRepository = api_key_repository.SQLAPIKeyRepositry
+

@@ -1,11 +1,18 @@
 from fastapi import Depends
 from typing import Annotated, List
+import pymongo
 
 # DB Specific imports
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 
-from ..models.usage_model import Usage as DBUsage
+from pymongo.asynchronous import database, collection
+
+# from ..models.model import LLMModel as DBLLMModel # might become important at some point
+from ..db import mongo
+
+# App imports
+from app.repositories.model_repository import LLMModelRepository, LLMModelData
+
+from ..models.usage import Usage as DBUsage
 from ..models.user_balance_model import Balance as DBBalance
 from ..models.key_balance_model import Balance as DBKeyBalance
 from ..db import db as db_dependency
@@ -18,7 +25,11 @@ from datetime import datetime, date
 
 class SQLUsageRepository(UsageRepository):
     def __init__(self, db: Annotated[Session, Depends(db_dependency.get_db)]):
-        self.db = db
+        self.client = client
+        self.db: database.AsyncDatabase = self.client[mongo.DB_NAME]
+        self.collection: collection.AsyncCollection = self.db.get_collection(
+            mongo.MODEL_COLLECTION
+        )
 
     def _convert_usage_to_schema(self, db_usage: DBUsage) -> APIRequest:
         return APIRequest(

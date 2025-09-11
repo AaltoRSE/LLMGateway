@@ -1,23 +1,26 @@
 from typing import Annotated
 from fastapi import Security, HTTPException, Depends
 from fastapi.security import APIKeyHeader
-from app.models.keys import APIKey
+from app.security.auth import BackendUser
 from app.services.key_service import KeyService
+from app.services.user_service import UserService
+from app.schemas.usage_schema import RequestSource
 import logging
 import re
 import os
 
 
-admin_key_header = APIKeyHeader(name="AdminKey")
-api_key_header = APIKeyHeader(name="Authorization")
+admin_key_header = APIKeyHeader(name="AdminKey", auto_error=False)
+api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
 uvlogger = logging.getLogger("app")
 
 
-def get_api_key(
+async def get_user_for_api_key(
     key_service: Annotated[KeyService, Depends(KeyService)],
+    user_service: Annotated[UserService, Depends(UserService)],
     api_key: str = Security(api_key_header),
-) -> APIKey:
+) -> BackendUser:
     """
     Retrieves and validates the API key from the header.
 
@@ -32,18 +35,30 @@ def get_api_key(
         with the detail "Invalid or missing API Key". Additionally, logs information about the header and key.
     """
     api_key = re.sub("^Bearer ", "", api_key)
-    user_key = key_service.get_user_key_if_active(api_key)
-    if not user_key == None:
+    if api_key == "":
+        # This should happen, if there is no API key set.
+        return None
+    user_key = await key_service.get_user_key_if_active(api_key)
+    if user_key is not None:
+        if user_key.user is not None:
+            user = await user_service.get_user_by_id(user_key.user)
+            return BackendUser(
+                username=user.id,
+                isadmin=user.admin,
+                request_source=RequestSource(user=user.id, key=api_key),
+            )
         return user_key
     else:
         uvlogger.warning(f"Attempted usage with invalid key: {api_key}")
     raise HTTPException(
         status_code=401,
-        detail="Invalid or missing API Key",
+        detail="Invalid API Key",
     )
 
 
-def get_admin_key(admin_key_header: str = Security(admin_key_header)) -> str:
+def check_admin(
+    admin_key_header: str = Security(admin_key_header),
+) -> BackendUser | None:
     """
     Retrieves the admin key from the header for privileged access.
 
@@ -57,9 +72,14 @@ def get_admin_key(admin_key_header: str = Security(admin_key_header)) -> str:
     - HTTPException: If the provided admin key doesn't match the one stored in the environment.
         It raises a 401 status code error with the detail "Privileged Access required".
     """
+    if admin_key_header == "":
+        # This should happen, if there is no API key set.
+        return None
     if admin_key_header == os.environ.get("ADMIN_KEY"):
-        return admin_key_header
+        return BackendUser(username="Admin", isadmin=True)
+    else:
+        uvlogger.warning(f"Attempted Admin access with invalid key: {admin_key_header}")
     raise HTTPException(
         status_code=401,
-        detail="Priviledged Access required",
+        detail="Invalid API Key",
     )

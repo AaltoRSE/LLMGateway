@@ -23,6 +23,7 @@ class APIKey(BaseModelClass):
 
     key = mapped_column(String, primary_key=True, nullable=False, unique=True)
     user = mapped_column(ForeignKey((User.id)), nullable=True)
+    service = mapped_column(String, nullable=True)
     active = mapped_column(Boolean, default=True, nullable=False)
     name = mapped_column(String, nullable=False)
     quota = mapped_column(Float, nullable=True)

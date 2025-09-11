@@ -12,21 +12,22 @@ uvlogger = logging.getLogger("app")
 
 from fastapi import FastAPI, Request, Security
 
-
+from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.cors import CORSMiddleware
 
 from app.utils.serverlogging import RouterLogging
 from gateway.app.routers.llm_router import lifespan
 import app.middleware.authentication_middleware as auth_middleware
-import app.middleware.session_middleware as session_middleware
+from app.middleware.session_sanitize_middleware import SessionSanitizationMiddleWare
+
 from app.static_files import SPAStaticFiles
 from app.security.auth import get_user, BackendUser
 from app.services.key_service import KeyService
 from app.services.model_service import ModelService
 from app.services.user_service import UserService
 
-from app.services.quota_service import QuotaService
+
 from app.services.usage_service import UsageService
 
 # Initiaize services
@@ -76,11 +77,13 @@ app.add_middleware(
     backend=auth_middleware.SessionAuthenticationBackend(),
 )
 
+# This will remove / add the actual session Data
+app.add_middleware(SessionSanitizationMiddleWare)
+
 # Need a fixed session key to work with potentially multiple instances.
 session_key = os.environ.get("SESSION_KEY")
-
 app.add_middleware(
-    session_middleware.StorageSessionMiddleware, secret_key=session_key, max_age=600
+    SessionMiddleware, secret_key=session_key, max_age=600
 )
 
 

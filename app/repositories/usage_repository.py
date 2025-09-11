@@ -9,13 +9,13 @@ datetimes month.
 
 from typing import List
 from datetime import datetime
-from app.schemas.usage_schema import APIRequest, Usage, Balance
+from app.schemas.usage_schema import APIRequest, Usage, Balance, RequestSource
 
 
 class UsageRepository:
 
     async def log_usage(
-        self, usage: APIRequest, user_id: str | None = None, key: str | None = None
+        self, usage: APIRequest, source : RequestSource
     ) -> None:
         """
         Add the given request to the database and update the balance.
@@ -70,5 +70,43 @@ class UsageRepository:
         -------
         List[APIRequest]
             A list of detailed usage data for the specified user.
+        """
+        raise NotImplementedError
+
+    async def get_usage_for_key_in_range(
+        self, key: str, from_timestamp: datetime, to_timestamp: datetime
+    ) -> Usage:
+        """
+        Get usage data for a key within a specific time range.
+
+        Parameters
+        ----------
+        key : str
+            The key to retrieve usage data for.
+        from_timestamp : datetime
+            The start of the time range.
+        to_timestamp : datetime
+            The end of the time range.
+
+        Returns
+        -------
+        Usage
+            An overview of the keys's usage within the specified time range.
+        """
+        raise NotImplementedError
+
+    async def get_usage_details_for_key(self, key: str) -> List[APIRequest]:
+        """
+        Get detailed usage data for a key.
+
+        Parameters
+        ----------
+        key : str
+            The key to retrieve detailed usage data for.
+
+        Returns
+        -------
+        List[APIRequest]
+            A list of detailed usage data for the specified key.
         """
         raise NotImplementedError

@@ -1,7 +1,7 @@
 from starlette.authentication import AuthCredentials, AuthenticationBackend
 from starlette.requests import HTTPConnection
-from fastapi import HTTPException
-
+from fastapi import HTTPException, Request, Depends
+from fastapi.security import APIKeyHeader
 import logging
 
 # Unfortunately we need to import the whole stack here, as FastAPI dependency injection
@@ -11,19 +11,19 @@ from app.models.session import SESSION_DATA_FIELD, HTTPSession
 
 logger = logging.getLogger(__name__)
 
-session_handler = SessionService()
-
 from app.security.auth import get_request_source, BackendUser
 
 
-# This is a simple backend for SAML authentication.
-class SessionAuthenticationBackend(AuthenticationBackend):
-    def __init__(self):
-        pass
+api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
+admin_key_header = APIKeyHeader(name="AdminKey", auto_error=False)
+def authenticate_request(self, conn : HTTPConnection, api_key : str = Depends(api_key_header), admin_key : str = Depends(admin_key_header), session_handler : SessionService = Depends(SessionService) ):
+    api_key_user = 1
+    
+    session_user = get_user_from_session(conn, session_handler)
+    
+    pass
 
-    async def authenticate(self, conn: HTTPConnection):
-        # We need to set up our connection...
-        print("original Auth called")
+def get_user_from_session(conn : HTTPConnection, session_handler : SessionService):        
         try:
             if conn.session == None:
                 logger.debug("No session in connection")
@@ -50,6 +50,9 @@ class SessionAuthenticationBackend(AuthenticationBackend):
                 logger.debug(
                     f"Request IP is {get_request_source(conn)} while stored IP for session was {session.ip}"
                 )
+                # Invalid access to the session. We will delete it. 
+                session_handler.delete_session(session.key)                
+
                 return
         except HTTPException as e:
             logger.debug("Exception -> No User")
@@ -62,4 +65,4 @@ class SessionAuthenticationBackend(AuthenticationBackend):
             isadmin=session.admin,
             agreement_ok=session.agreement_ok,
         )
-        return AuthCredentials(["authenticated"]), currentUser
+        return currentUser

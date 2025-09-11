@@ -21,15 +21,14 @@ class DatabaseConfig(TypedDict):
 # We will need a bunch of potential environment variables to check on what services to use for which type of data.
 Databases: Dict[str, DatabaseConfig] = {
     "UserDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
-    "ConversationDB": {
+    "ModelDB": {
         "options": ["postgresql"],
         "default": "postgresql",
         "current": None,
     },
-    "DocumentDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
-    "DocumentSetDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
-    "UsageDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
-    "MessageDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
+    "BalanceDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
+    "APIKeyDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
+    "UsageDB": {"options": ["postgresql"], "default": "postgresql", "current": None},    
 }
 
 # Load all options
@@ -40,17 +39,15 @@ for db in Databases:
         Databases[db]["current"] = Databases[db]["default"]
 
 user_db = Databases["UserDB"]["current"]
-conversation_db = Databases["ConversationDB"]["current"]
-document_db = Databases["DocumentDB"]["current"]
-document_set_db = Databases["DocumentSetDB"]["current"]
-message_db = Databases["MessageDB"]["current"]
+balance_db = Databases["BalanceDB"]["current"]
+apikey_db = Databases["APIKeyDB"]["current"]
+model_db = Databases["ModelDB"]["current"]
 usage_db = Databases["UsageDB"]["current"]
 
 UserRepositoryImpl: Type[repositories.UserRepository] = repositories.UserRepository
-ConversationRepositoryImpl: Type[repositories.ConversationRepository] = (repositories.ConversationRepository)
-DocumentRepositoryImpl: Type[repositories.DocumentRepository] = (repositories.DocumentRepository)
-DocumentSetRepositoryImpl:Type[repositories.DocumentSetRepository] = (repositories.DocumentSetRepository)
-MessageRepositoryImpl: Type[repositories.MessageRepository] = (repositories.MessageRepository)
+LLMModelRepositoryImpl: Type[repositories.LLMModelRepository] = (repositories.LLMModelRepository)
+APIKeyRepositoryImpl: Type[repositories.APIKeyRepository] = (repositories.APIKeyRepository)
+BalanceRepositoryImpl:Type[repositories.BalanceRepository] = (repositories.BalanceRepository)
 UsageRepositoryImpl: Type[repositories.UsageRepository] = repositories.UsageRepository
 
 # Load the correct database
@@ -66,25 +63,20 @@ if user_db == "postgresql":
 else:
     raise Exception("No valid user database found")
 
-if conversation_db == "postgresql":
-    from app.dbs.postgresql import ConversationRepository
+if balance_db == "postgresql":
+    from app.dbs.postgresql import BalanceRepository
 
-    ConversationRepositoryImpl = ConversationRepository
+    BalanceRepositoryImpl = BalanceRepository
 
-if document_db == "postgresql":
-    from app.dbs.postgresql import DocumentRepository
+if model_db == "postgresql":
+    from app.dbs.postgresql import ModelRepository
 
-    DocumentRepositoryImpl = DocumentRepository
+    LLMModelRepositoryImpl = ModelRepository
 
-if document_set_db == "postgresql":
-    from app.dbs.postgresql import DocumentSetRepository
+if apikey_db == "postgresql":
+    from app.dbs.postgresql import APIKeyRepository
 
-    DocumentSetRepositoryImpl = DocumentSetRepository
-
-if message_db == "postgresql":
-    from app.dbs.postgresql import MessageRepository
-
-    MessageRepositoryImpl = MessageRepository
+    APIKeyRepositoryImpl = APIKeyRepository
 
 if usage_db == "postgresql":
     from app.dbs.postgresql import UsageRepository

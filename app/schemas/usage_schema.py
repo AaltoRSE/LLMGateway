@@ -1,14 +1,24 @@
 from datetime import datetime, date
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from typing import Optional
-
+from typing_extensions import Self
 
 class Balance(BaseModel):
     balance_used: float
-    total_balance: float = 30
+    quota: float = 30
+    user_id: Optional[str] = (None,)
+    key: Optional[str] = (None,)
 
     def used_up(self) -> bool:
-        return self.balance_used >= self.total_balance
+        return self.balance_used >= self.quota
+
+
+class KeyBalance(Balance):
+    key: str
+
+
+class UserBalance(Balance):
+    user_id: str
 
 
 class RequestTokens(BaseModel):
@@ -25,3 +35,15 @@ class Usage(BaseModel):
 class APIRequest(Usage):
     model: str
     timestamp: datetime
+
+
+class RequestSource(BaseModel):
+    key : Optional[str] = None
+    user : Optional[str] = None
+    
+    @model_validator(mode='after')
+    def check_one_source_exists(self) -> Self:
+        if self.key is None and self.user is None:
+            raise ValueError("Missing Source! Either user or key has to be non None")
+        return self
+        

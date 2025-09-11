@@ -11,6 +11,8 @@ import json
 # does not work with starlette middlewares.
 
 from app.models.session import HTTPSession
+from app.schemas.user_schema import User
+from app.schemas.usage_schema import RequestSource
 from app.services.session_service import SessionService
 
 
@@ -71,22 +73,24 @@ class BackendUser(SimpleUser):
     def __init__(
         self,
         username: str,
-        userdata: dict,
-        roles: List[str],
-        isadmin: bool,
-        agreement_ok: bool,
+        request_source: RequestSource,
+        roles: List[str] = None,
+        isadmin: bool = False,
+        userdata: dict[str, any] = None,
     ):
         super().__init__(username)
-        self.admin = isadmin
-        self.agreement_ok = agreement_ok
-        self.data = userdata
-        self.role = roles
-
-    def get_user_data(self):
-        return self.data
+        self.admin: bool = isadmin
+        self.roles = roles
+        self.userdata = userdata
+        self.request_source = request_source
 
     def is_admin(self):
         return self.admin
+
+    # This easily checks, whether a User is a service user
+    # !No service user is an admin! and there is no user source for the user.
+    def is_service(self) -> bool:
+        return not self.is_admin() and self.request_source.user is None
 
 
 class BackendAuthenticator:

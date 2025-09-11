@@ -20,6 +20,7 @@ class SQLAPIKeyRepositry(APIKeyRepository):
         return DBAPIKey(
             key=key.key,
             user=int(key.user),
+            service=key.service,
             active=key.active,
             name=key.name,
             quota=key.quota,
@@ -30,6 +31,7 @@ class SQLAPIKeyRepositry(APIKeyRepository):
             key=key.key,
             user=str(key.user),
             active=key.active,
+            service=key.service,
             name=key.name,
             quota=key.quota,
         )

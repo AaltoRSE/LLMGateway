@@ -6,7 +6,7 @@ from fastapi import Depends
 from app.repositories import UsageRepository
 from app.repositories.factories import get_usage_repository_class
 from app.repositories.balance_repository import BalanceRepository
-from app.schemas.usage_schema import Balance, APIRequest
+from app.schemas.usage_schema import Balance, APIRequest, RequestSource
 from app.security.auth import BackendUser
 
 
@@ -29,7 +29,7 @@ class UsageService:
         :param user: The user for whom the balance is being retrieved
         :return: The current balance of the user
         """
-        return self.balance_repository.get_user_balance(user.)
+        return self.balance_repository.get_user_balance(user)
 
     async def get_current_key_balance(self, key: str) -> Balance:
         """
@@ -37,14 +37,20 @@ class UsageService:
         :param user: The user for whom the balance is being retrieved
         :return: The current balance of the user
         """
-        return self.usage_repository.get_balance(user.user.id, datetime.now())
+        return self.balance_repository.get_key_balance(key)
+
 
     
-    async def log_usage(self, user: BackendUser, usage: APIRequest) -> None:
+    async def log_usage(self, source : RequestSource, usage: APIRequest) -> None:
         """
         Log usage for a user based on a given usage request.
         :param user: The user for whom the usage is being logged
         :param usage: The usage data to log
         :return: None
         """
-        self.usage_repository.add_request(user_id=user.user.id, request=usage)
+
+        self.usage_repository.log_usage(user_id=source.user, key=source.key, usage=usage)
+        if(source.user):
+            self.balance_repository.add_usage_to_user(user_id=source.user,cost=usage.cost)
+        if(source.key):
+            self.balance_repository.add_usage_to_key(key=source.key,cost=usage.cost)
