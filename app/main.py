@@ -18,9 +18,8 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.utils.serverlogging import RouterLogging
 from gateway.app.routers.llm_router import lifespan
-import app.middleware.authentication_middleware as auth_middleware
 from app.middleware.session_sanitize_middleware import SessionSanitizationMiddleWare
-
+from app.middleware.authentication_dependency import authenticate_request
 from app.static_files import SPAStaticFiles
 from app.security.auth import get_user, BackendUser
 from app.services.key_service import KeyService
@@ -40,10 +39,6 @@ model_service = ModelService()
 model_service.init_models()
 # Initialize Users for use in the app
 user_service = UserService()
-user_service.init_user_db()
-# Initialize Quota DB for use in the app
-quota_service = QuotaService(usage_service=UsageService())
-quota_service.init_quota()
 
 
 debugging = True
@@ -73,19 +68,12 @@ app.add_middleware(
 
 # Middlewares Order of execution is from last to first for incoming requests
 
-app.add_middleware(
-    AuthenticationMiddleware,
-    backend=auth_middleware.SessionAuthenticationBackend(),
-)
-
 # This will remove / add the actual session Data
 app.add_middleware(SessionSanitizationMiddleWare)
 
 # Need a fixed session key to work with potentially multiple instances.
 session_key = os.environ.get("SESSION_KEY")
-app.add_middleware(
-    SessionMiddleware, secret_key=session_key, max_age=600
-)
+app.add_middleware(SessionMiddleware, secret_key=session_key, max_age=600)
 
 # Add Request logging
 app.add_middleware(RouterLogging, logger=uvlogger, debug=debugging)

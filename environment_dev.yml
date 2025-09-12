@@ -1,29 +1,36 @@
-name: LLMGateWay
+name: LLMGateway
 channels:
-  - conda-forge
+ - conda-forge
 dependencies:
-  - python=3.12
-  - fastapi
-  - gunicorn
-  - uvicorn
-  - redis-py
-  - pymongo
-  - schedule
-  - httpx
-  - python3-saml
-  - python-multipart
-  - python-jose[cryptography]
-  - sse-starlette>=1.6.1
-  - itsdangerous
-  - pip
-  - watchfiles==0.24.0
-  - pytest-asyncio  
+  - python=3.11
+  - alembic=1.13.1
+  - SQLAlchemy=2.0.28
+  - fastapi=0.116.1
+  - uvicorn=0.28.0
+  - python-multipart=0.0.18
+  - watchfiles=0.24.0
+  - pyjwt[crypto]
+  - requests=2.32.4
+  - httpx=0.27.2
+  - openai=1.56.1
   - respx
-  - pytest-mock  
+  - h11=0.16.0
+  - urllib3=2.5.0
+  - sse-starlette=3.0.2
+  - redis-py=6.4.0
+  - pymongo=4.14.1
+  - python3-saml=1.16.0
+  - itsdangerous=2.2.0
+  - pytest=8.2.2
+  - mock=5.1.0
+  - pylint=3.2.7
+  - pytest-asyncio=0.24.0
+  - pip-audit
+  - dill
+  - mypy
+  - types-requests
   - pytest-cov
-  - pytest-redis
-  - black
-  - pip:
-      - pytest-mock-resources[mongo]
-      - pytest-mock-resources[redis]
-      - mongomock        
+  - responses=0.25.7
+  - respx=0.22.0
+  - pytest-postgresql=7.0.1
+  - pipenv

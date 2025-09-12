@@ -61,7 +61,7 @@ async def get_user_for_api_key(
     )
 
 
-def check_admin(
+def get_admin_user(
     admin_key_header: str = Security(admin_key_header),
 ) -> BackendUser | None:
     """
