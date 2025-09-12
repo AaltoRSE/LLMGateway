@@ -1,7 +1,7 @@
 from starlette.authentication import AuthCredentials, AuthenticationBackend
 from starlette.requests import HTTPConnection
-from fastapi import HTTPException
-
+from fastapi import HTTPException, Request
+from fastapi.security import APIKeyHeader
 import logging
 
 # Unfortunately we need to import the whole stack here, as FastAPI dependency injection
@@ -15,6 +15,8 @@ session_handler = SessionService()
 
 from app.security.auth import get_request_source, BackendUser
 
+admin_key_header 
+api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
 # This is a simple backend for SAML authentication.
 class SessionAuthenticationBackend(AuthenticationBackend):
@@ -22,8 +24,14 @@ class SessionAuthenticationBackend(AuthenticationBackend):
         pass
 
     async def authenticate(self, conn: HTTPConnection):
-        # We need to set up our connection...
-        print("original Auth called")
+        temp = Request(conn.scope,)
+        # We need to set up our connection...        
+        pass
+
+    def check_api_key(self, request : Request):
+
+        
+    def check_for_session(self,conn: HTTPConnection):
         try:
             if conn.session == None:
                 logger.debug("No session in connection")

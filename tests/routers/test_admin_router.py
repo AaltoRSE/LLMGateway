@@ -9,7 +9,7 @@ from app.services.user_service import UserService
 from app.services.key_service import KeyService
 from app.services.usage_service import UsageService
 import app.db.mongo as mongo
-from app.models.quota import (
+from app.schemas.quota import (
     UsageElements,
     UsagePerKeyForUser,
     KeyPerModelUsage,

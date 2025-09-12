@@ -4,7 +4,7 @@ from typing import Any, Generator
 from datetime import datetime
 import pytest
 from app.security.auth import BackendUser
-from app.schemas.user_schema import User
+from app.schemas.user_schema import User, UserBase
 from tests.fixtures.db_fixtures import Repositories
 from tests.utils.jwt_utils import create_token_for_user
 
@@ -42,24 +42,23 @@ def get_db_user(user_data: dict[str, Any]) -> User:
         selected_language=user_data.get("selected_language", "en"),
     )
 
+normalData = UserBase(
+    auth_id = "TestUser",
+    first_name = "Test",
+    last_name = "User",
+    admin = False,
+    accepted_agreement_version="1.0",
+    quota="40"
+)
 
-normalData: dict[str, Any] = {
-    "auth_name": "TestUser",
-    "first_name": "Test",
-    "last_name": "User",
-    "auth_groups": ["employee"],     
-    "admin": False,
-    "agreement": "1.0",    
-}
-
-adminData: dict[str, Any] = {    
-    "auth_name": "AdminUser",
-    "first_name": "Admin",
-    "last_name": "User",
-    "auth_groups": ["employee", "staff"],    
-    "admin": True,    
-    "agreement": "2.0",    
-}
+adminData = UserBase(
+    auth_id = "AdminUser",
+    first_name = "Admin",
+    last_name = "User",
+    admin = True,
+    accepted_agreement_version="2.0",
+    quota="100"
+)
 
 
 @pytest.fixture

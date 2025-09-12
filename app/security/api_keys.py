@@ -38,16 +38,21 @@ async def get_user_for_api_key(
     if api_key == "":
         # This should happen, if there is no API key set.
         return None
-    user_key = await key_service.get_user_key_if_active(api_key)
-    if user_key is not None:
-        if user_key.user is not None:
-            user = await user_service.get_user_by_id(user_key.user)
+    key = await key_service.get_user_key_if_active(api_key)
+    if key is not None:
+        if key.user is not None:
+            user = await user_service.get_user_by_id(key.user)
             return BackendUser(
                 username=user.id,
                 isadmin=user.admin,
                 request_source=RequestSource(user=user.id, key=api_key),
             )
-        return user_key
+        else:
+            return BackendUser(
+                username=key.service,
+                isadmin=False,
+                request_source=RequestSource(key=api_key),
+            )
     else:
         uvlogger.warning(f"Attempted usage with invalid key: {api_key}")
     raise HTTPException(

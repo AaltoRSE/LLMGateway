@@ -24,3 +24,6 @@ def list_users(
     admin_key: BackendUser = Security(get_admin_user),
 ):
     return user_service.get_all_users()
+
+@router.get("/test_auth", status_code=status.HTTP_200_OK)
+def test_auth(request : Request,)

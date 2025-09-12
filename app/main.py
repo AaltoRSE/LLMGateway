@@ -71,6 +71,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Middlewares Order of execution is from last to first for incoming requests
 
 app.add_middleware(
     AuthenticationMiddleware,
@@ -85,7 +86,6 @@ session_key = os.environ.get("SESSION_KEY")
 app.add_middleware(
     SessionMiddleware, secret_key=session_key, max_age=600
 )
-
 
 # Add Request logging
 app.add_middleware(RouterLogging, logger=uvlogger, debug=debugging)
