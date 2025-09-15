@@ -1,85 +1,41 @@
 from fastapi import HTTPException
-from app.routers.tests.mocks import mockAdminUserAuth, mockNormalUserAuth
-import app.middleware.authentication_middleware as auth_middleware
 from fastapi.testclient import TestClient
-import pytest
+
 import app.requests.admin_requests as admin
 from app.services.model_service import ModelService
 from app.services.user_service import UserService
 from app.services.key_service import KeyService
 from app.services.usage_service import UsageService
-import app.db.mongo as mongo
-from app.schemas.quota import (
-    UsageElements,
-    UsagePerKeyForUser,
-    KeyPerModelUsage,
-    ModelUsage,
-    PerHourUsage,
-    PerUserUsage,
-    PerModelUsage,
-    UsageElements,
-    DEFAULT_USAGE,
-    RequestUsage,
-)
+from tests.fixtures.db_fixtures import Repositories
+from app.dbs.redis.redis import get_model_client
 
 
-@pytest.fixture()
-def admin_client(monkeypatch) -> TestClient:
-    authmock = mockAdminUserAuth()
-    monkeypatch.setattr(
-        auth_middleware.SessionAuthenticationBackend,
-        "authenticate",
-        authmock,
-    )
-    import app.main
-
-    return TestClient(app.main.app)
-
-
-@pytest.fixture()
-def user_client(monkeypatch) -> TestClient:
-    authmock = mockNormalUserAuth()
-    monkeypatch.setattr(
-        auth_middleware.SessionAuthenticationBackend,
-        "authenticate",
-        authmock,
-    )
-    import app.main
-
-    return TestClient(app.main.app)
-
-
-@pytest.fixture()
-def unauthed_client() -> TestClient:
-    import app.main
-
-    return TestClient(app.main.app)
-
-
-def test_add_remove_update_and_get_model_admin(admin_client: TestClient):
+def test_add_remove_update_and_get_model_admin(
+    mock_repositories: Repositories, redis_dbs, admin_key_client: TestClient
+):
     request = admin.AddAvailableModelRequest(
         id="test", path="test", name="test", description="test"
     )
-    response = admin_client.post("/admin/addmodel", json=request.model_dump())
+    response = admin_key_client.post("/admin/addmodel", json=request.model_dump())
     assert response.status_code == 201
-    service = ModelService()
+    service = ModelService(mock_repositories.model_repo, get_model_client())
     models = service.get_models()
     assert len(models) == 1
     assert models[0].name == "test"
     request2 = admin.AddAvailableModelRequest(
         id="test2", path="test2", name="test2", description="test2"
     )
-    response2 = admin_client.post("/admin/addmodel", json=request2.model_dump())
+    response2 = admin_key_client.post("/admin/addmodel", json=request2.model_dump())
     assert response2.status_code == 201
     models = service.get_models()
     assert len(models) == 2
     assert service.get_model_path("test2") == "test2"
     assert service.get_model_path("test") == "test"
     # No conflict allowed
-    response3 = admin_client.post("/admin/addmodel", json=request.model_dump())
+    response3 = admin_key_client.post("/admin/addmodel", json=request.model_dump())
     assert response3.status_code == 409
     # Lets get the models
-    response3 = admin_client.get("/admin/models")
+    response3 = admin_key_client.get("/admin/models")
     assert response3.status_code == 200
     models = response3.json()
     assert len(models) == 2
@@ -87,7 +43,7 @@ def test_add_remove_update_and_get_model_admin(admin_client: TestClient):
 
     # Remove the model
     request3 = admin.RemoveModelRequest(model="test")
-    response4 = admin_client.post("/admin/removemodel", json=request3.model_dump())
+    response4 = admin_key_client.post("/admin/removemodel", json=request3.model_dump())
     assert response4.status_code == 200
     assert len(service.get_models()) == 1
     try:
@@ -97,15 +53,15 @@ def test_add_remove_update_and_get_model_admin(admin_client: TestClient):
         assert e.status_code == 404
         assert e.detail == f"Model test not found"
     # Can't remove it again.
-    response4 = admin_client.post("/admin/removemodel", json=request3.model_dump())
+    response4 = admin_key_client.post("/admin/removemodel", json=request3.model_dump())
     assert response4.status_code == 410
-    response3 = admin_client.get("/admin/models")
+    response3 = admin_key_client.get("/admin/models")
     assert response3.status_code == 200
     models = response3.json()
     assert len(models) == 1
     assert set([model["model"]["id"] for model in models]) == set(["test2"])
     request2.path = "/new/path"
-    response = admin_client.post("/admin/update_model", json=request2.model_dump())
+    response = admin_key_client.post("/admin/update_model", json=request2.model_dump())
     assert response.status_code == 200
     assert service.get_model_path("test2") == "/new/path"
 

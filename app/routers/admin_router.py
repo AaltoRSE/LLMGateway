@@ -21,25 +21,12 @@ logger = logging.getLogger("admin")
 # Admin endpoints
 @router.post("/addmodel", status_code=status.HTTP_201_CREATED)
 def add_model(
-    modelData: AddAvailableModelRequest,
+    modelData: LLMModelData,
     model_handler: Annotated[ModelService, Depends(ModelService)],
     admin_user: BackendUser = Depends(get_admin_user),
 ):
-    model_to_add = LLMModelData(
-        path=modelData.path,
-        prompt_cost=modelData.prompt_cost,
-        completion_cost=modelData.completion_cost,
-        name=modelData.name,
-        description=modelData.description,
-        model=LLMModelDataDetails(
-            id=modelData.id,
-            owned_by=admin_user.username,
-            permissions=[],
-            type=modelData.type,
-        ),
-    )
     try:
-        model_handler.add_model(model_to_add)
+        model_handler.add_model(modelData)
     except KeyError as e:
         raise HTTPException(status.HTTP_409_CONFLICT)
 

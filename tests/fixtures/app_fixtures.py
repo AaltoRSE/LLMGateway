@@ -24,7 +24,7 @@ def setup_repos(mock_repositories: Repositories) -> Generator[FastAPI, None, Non
     currentapp.dependency_overrides = {}
 
 
-@pytest.fixture
-def setup_auth(monkeypatch: pytest.MonkeyPatch) -> None:
-    auth_service = app.security.entra_jwt.get_entrajwt_auth_service()
-    auth_service._set_jwks(jwks)  # type: ignore
+# @pytest.fixture
+# def setup_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+#    auth_service = app.security.entra_jwt.get_entrajwt_auth_service()
+#    auth_service._set_jwks(jwks)  # type: ignore

@@ -92,7 +92,7 @@ class KeyService:
         else:
             await self.delete_key_for_user(key=key, user=user)
 
-    async def create_key(self, name: str, user: str | None = None):
+    async def create_key(self, name: str, user_id: str | None = None):
         """
         Generates a unique API key and associates it with a specified user.
         The User MUST exist prior to calling this function.

@@ -10,8 +10,14 @@ from tests.utils.mock_repositories import (
     LLMModelRepositoryImpl,
     APIKeyRepositoryImpl,
     UsageRepositoryImpl,
-    BalanceRepositoryImpl,    
+    BalanceRepositoryImpl,
 )
+
+import uuid as uuid
+
+
+import pytest
+from pytest_redis import factories
 
 
 class Repositories:
@@ -21,14 +27,13 @@ class Repositories:
         model_repo: LLMModelRepositoryImpl,
         key_repo: APIKeyRepositoryImpl,
         usage_repo: UsageRepositoryImpl,
-        balance_repo: BalanceRepositoryImpl,        
+        balance_repo: BalanceRepositoryImpl,
     ) -> None:
         self.user_repo: UserRepositoryImpl = user_repo
         self.model_repo: LLMModelRepositoryImpl = model_repo
         self.key_repo: APIKeyRepositoryImpl = key_repo
         self.usage_repo: UsageRepositoryImpl = usage_repo
         self.balance_repo: BalanceRepositoryImpl = balance_repo
-        
 
 
 @pytest.fixture
@@ -49,9 +54,7 @@ def mock_repositories(
         The mocked database connection.
     """
     monkeypatch.setattr(app.config.db, "UserRepositoryImpl", UserRepositoryImpl)
-    monkeypatch.setattr(
-        app.config.db, "LLMModelRepositoryImpl", LLMModelRepositoryImpl
-    )
+    monkeypatch.setattr(app.config.db, "LLMModelRepositoryImpl", LLMModelRepositoryImpl)
     monkeypatch.setattr(app.config.db, "APIKeyRepositoryImpl", APIKeyRepositoryImpl)
     monkeypatch.setattr(app.config.db, "UsageRepositoryImpl", UsageRepositoryImpl)
     monkeypatch.setattr(app.config.db, "BalanceRepositoryImpl", BalanceRepositoryImpl)
@@ -79,20 +82,64 @@ def mock_repositories(
         app.repositories.factories,
         "get_key_repository_class",
         lambda: APIKeyRepositoryImpl,
-    )    
+    )
 
     user_repo = UserRepositoryImpl()
-    model_repo =  LLMModelRepositoryImpl()
-    key_repo =  APIKeyRepositoryImpl()
+    model_repo = LLMModelRepositoryImpl()
+    key_repo = APIKeyRepositoryImpl()
     usage_repo = UsageRepositoryImpl()
     balance_repo = BalanceRepositoryImpl()
 
     yield Repositories(
-        user_repo=user_repo, model_repo=model_repo, key_repo=key_repo, usage_repo=usage_repo, balance_repo=balance_repo
+        user_repo=user_repo,
+        model_repo=model_repo,
+        key_repo=key_repo,
+        usage_repo=usage_repo,
+        balance_repo=balance_repo,
     )
     user_repo.reset()
     model_repo.reset()
     key_repo.reset()
     usage_repo.reset()
     balance_repo.reset()
-    
+
+
+redis_my_proc = factories.redis_proc(port=6379)
+redis_model_client = factories.redisdb("redis_my_proc", 1)
+redis_key_client = factories.redisdb("redis_my_proc", 2)
+redis_key_quota_month_client = factories.redisdb("redis_my_proc", 3)
+redis_session_client = factories.redisdb("redis_my_proc", 4)
+redis_user_quota_month_client = factories.redisdb("redis_my_proc", 5)
+redis_user_balance_client = factories.redisdb("redis_my_proc", 6)
+redis_key_balance_client = factories.redisdb("redis_my_proc", 7)
+
+
+@pytest.fixture(autouse=True)
+def redis_dbs(
+    monkeypatch,
+    redis_model_client,
+    redis_key_client,
+    redis_key_quota_month_client,
+    redis_session_client,
+    redis_user_quota_month_client,
+    redis_user_balance_client,
+    redis_key_balance_client,
+):
+    print("Redis Clients")
+    monkeypatch.setattr(app.dbs.redis, "get_model_client", lambda: redis_model_client)
+    monkeypatch.setattr(app.db.redis, "get_key_client", lambda: redis_key_client)
+    monkeypatch.setattr(
+        app.db.redis, "get_key_quota_client", lambda: redis_key_quota_month_client
+    )
+    monkeypatch.setattr(
+        app.db.redis, "get_session_client", lambda: redis_session_client
+    )
+    monkeypatch.setattr(
+        app.db.redis, "get_user_quota_client", lambda: redis_user_quota_month_client
+    )
+    monkeypatch.setattr(
+        app.db.redis, "get_user_balance_client", lambda: redis_user_balance_client
+    )
+    monkeypatch.setattr(
+        app.db.redis, "get_key_balance_client", lambda: redis_key_balance_client
+    )
