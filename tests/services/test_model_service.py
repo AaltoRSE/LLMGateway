@@ -1,181 +1,148 @@
-from pytest_mock_resources import create_redis_fixture
-import mongomock
-import app.db.mongo
-import gateway.app.dbs.redis.redis
-from app.services.model_service import ModelService
-from gateway.app.schemas.llmmodel_schema import LLMModel, LLMModelData
+import pytest
 from fastapi import HTTPException
+from tests.fixtures.db_fixtures import Repositories
+from app.services.model_service import ModelService
+from app.schemas.llmmodel_schema import LLMModelData, LLMModelDataDetails
 
-redis = create_redis_fixture()
 
-
-def create_test_model(path="test", id="test", owned_by="test3"):
-    return LLMModel(
+def create_test_model(path="test", host="http://host.svc", id="test", owned_by="test3"):
+    return LLMModelData(
         path=path,
+        host=host,
         name="Test Model",
         description="A Model for testing purposes",
-        model=LLMModelData(id=id, owned_by=owned_by),
+        model=LLMModelDataDetails(id=id, owned_by=owned_by),
     )
 
 
-def test_init_models(redis, monkeypatch):
-    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
-    monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
-    handler = ModelService()
+async def test_init_models(
+    model_service: ModelService, mock_repositories: Repositories
+):
     testmodel = create_test_model()
-    db = app.db.mongo.mongo_client[app.db.mongo.DB_NAME]
-    model_collection = db[app.db.mongo.MODEL_COLLECTION]
-    model_collection.insert_one(testmodel.model_dump())
-    try:
-        handler.get_model_path(testmodel.model.id)
-        assert False, "Model should not have been found without init"
-    except HTTPException as e:
-        assert e.status_code == 404
-        assert e.detail == f"Model {testmodel.model.id} not found"
-    models = handler.get_api_models()
-    # We have one in the db.
+    await mock_repositories.model_repo.add_model(testmodel)
+    with pytest.raises(HTTPException) as execinfo:
+        model_service.get_model(testmodel.model.id)
+    assert execinfo.value.status_code == 404
+    models = await model_service.get_api_models()
     assert len(models) == 1
-    handler.init_models()
-    path = handler.get_model_path(testmodel.model.id)
-    assert path == testmodel.path
+    # now init.
+    await model_service.init_models()
+    model = await model_service.get_model(testmodel.model.id)
+    assert model.model.path == testmodel.path
 
 
 # Testing whether keys are checked correctly
-def test_add_model(redis, monkeypatch):
-    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
-    monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
-    handler = ModelService()
-    handler.init_models()
-    currentModels = handler.get_api_models()
-    db = app.db.mongo.mongo_client[app.db.mongo.DB_NAME]
-    model_collection = db[app.db.mongo.MODEL_COLLECTION]
+async def test_add_model(model_service: ModelService, mock_repositories: Repositories):
+    await model_service.init_models()
+    currentModels = model_service.get_api_models()
     assert len(currentModels) == 0
-    assert model_collection.count_documents({}) == 0
+    assert len(mock_repositories.model_repo.__class__.models.values()) == 0
     model = create_test_model(path="test", id="test")
-    handler.add_model(model)
+    await model_service.add_model(model)
     # Adding model works
-    assert model_collection.count_documents({}) == 1
-    try:
+    assert len(mock_repositories.model_repo.__class__.models.values()) == 1
+    with pytest.raises(HTTPException) as execinfo:
         model = create_test_model(path="test2", id="test")
-        handler.add_model(model)
-        assert False, "Model should be rejected because the ID already exists"
-    except HTTPException as e:
-        assert e.status_code == 409
-        assert e.detail == f"Model {model.model.id} already exists"
+        await model_service.add_model(model)
+    assert execinfo.value.status_code == 409
+
     model = create_test_model(path="test2", id="test2")
-    handler.add_model(model)
+    model_service.add_model(model)
     # Adding second model works
-    assert model_collection.count_documents({}) == 2
+    assert len(mock_repositories.model_repo.__class__.models.values()) == 2
 
 
 # Testing whether keys are checked correctly
-def test_update_model(redis, monkeypatch):
-    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
-    monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
-    handler = ModelService()
-    handler.init_models()
-    currentModels = handler.get_api_models()
-    db = app.db.mongo.mongo_client[app.db.mongo.DB_NAME]
-    model_collection = db[app.db.mongo.MODEL_COLLECTION]
+async def test_update_model(
+    model_service: ModelService, mock_repositories: Repositories
+):
+    await model_service.init_models()
+    currentModels = model_service.get_api_models()
     assert len(currentModels) == 0
-    assert model_collection.count_documents({}) == 0
     model = create_test_model(path="test", id="test")
-    handler.add_model(model)
-    created_model = handler.get_model(model.model.id)
-    # Adding model works
-    assert model_collection.count_documents({}) == 1
+    await model_service.add_model(model)
+    created_model = await model_service.get_model(model.model.id)
     model.model.owned_by = "Someone"
     model.path = "this/is/the/new/path"
-    handler.update_model(model)
-    changed_model = handler.get_model(model.model.id)
-    assert created_model.model.owned_by != changed_model.model.owned_by
-    assert created_model.path != changed_model.path
-    assert changed_model.model.owned_by == "Someone"
-    assert changed_model.path == "this/is/the/new/path"
+    await model_service.update_model(model)
+    changed_model = await model_service.get_model(model.model.id)
+    assert created_model.model.model.owned_by != changed_model.model.model.owned_by
+    assert created_model.model.path != changed_model.model.path
+    assert changed_model.model.model.owned_by == "Someone"
+    assert changed_model.model.path == "this/is/the/new/path"
 
 
-def test_get_model_path(redis, monkeypatch):
-    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
-    monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
-    handler = ModelService()
-    handler.init_models()
-    currentModels = handler.get_api_models()
-    db = app.db.mongo.mongo_client["gateway"]
-    model_collection = db["model"]
-    assert len(currentModels) == 0
-    assert model_collection.count_documents({}) == 0
+async def test_get_model_path(
+    model_service: ModelService, mock_repositories: Repositories
+):
     model = create_test_model(path="test2")
-    handler.add_model(model)
-    assert model_collection.count_documents({}) == 1
+    await model_service.add_model(model)
     model = create_test_model(path="test2", id="test2", owned_by="test4")
-    handler.add_model(model)
-    models = handler.get_api_models()
+    await model_service.add_model(model)
+    models = await model_service.get_api_models()
     assert len(models) == 2
     found1 = False
     found2 = False
     for model in models:
-        if model.id == "test":
+        if model.model.id == "test":
             found1 = True
-            assert model.owned_by == "test3"
-            assert len(model.permissions) == 0
-            assert model.object == "model"
-        if model.id == "test2":
+            assert model.model.owned_by == "test3"
+            assert len(model.model.permissions) == 0
+            assert model.model.object == "model"
+        if model.model.id == "test2":
             found2 = True
-            assert model.owned_by == "test4"
-            assert len(model.permissions) == 0
-            assert model.object == "model"
+            assert model.model.owned_by == "test4"
+            assert len(model.model.permissions) == 0
+            assert model.model.object == "model"
 
     assert found1 and found2
     model = create_test_model(path="test3", id="test3")
-    handler.add_model(model)
-    assert model_collection.count_documents({}) == 3
-    assert handler.get_model_path("test") == "test2"
-    assert handler.get_model_path("test2") == "test2"
-    assert handler.get_model_path("test3") == "test3"
-    models = handler.get_api_models()
+    await model_service.add_model(model)
+    assert len(mock_repositories.model_repo.__class__.models.values()) == 3
+    host, path = await model_service.get_model_location("test")
+    host2, path2 = await model_service.get_model_location("test2")
+    host3, path3 = await model_service.get_model_location("test")
+    assert path == "test2"
+    assert path2 == "test2"
+    assert path3 == "test3"
+    models = model_service.get_api_models()
     assert len(models) == 3
 
 
-def test_get_model(redis, monkeypatch):
-    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
-    monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
-    handler = ModelService()
-    handler.init_models()
-    currentModels = handler.get_api_models()
-    db = app.db.mongo.mongo_client["gateway"]
-    model_collection = db["model"]
+async def test_get_model(model_service: ModelService, mock_repositories: Repositories):
+    await model_service.init_models()
+    currentModels = model_service.get_api_models()
     assert len(currentModels) == 0
-    assert model_collection.count_documents({}) == 0
     model1 = create_test_model(path="test2")
-    handler.add_model(model1)
-    assert model_collection.count_documents({}) == 1
+    await model_service.add_model(model1)
     model2 = create_test_model(path="test2", id="test2", owned_by="test4")
-    handler.add_model(model2)
-    model1_retrieved = handler.get_model(model1.model.id)
-    assert model1_retrieved.model.owned_by == "test3"
-    assert model1_retrieved.path == model1.path
+    await model_service.add_model(model2)
+    model1_retrieved = await model_service.get_model(model1.model.id)
+    assert model1_retrieved.model.model.owned_by == "test3"
+    assert model1_retrieved.model.path == model1.path
 
-    model2_retrieved = handler.get_model(model2.model.id)
-    assert model2_retrieved.model.owned_by == "test4"
-    assert model2_retrieved.path == model2.path
+    model2_retrieved = await model_service.get_model(model2.model.id)
+    assert model2_retrieved.model.model.owned_by == "test4"
+    assert model2_retrieved.model.path == model2.path
 
 
-def test_remove_model(redis, monkeypatch):
-    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
-    monkeypatch.setattr(app.db.redis, "redis_model_client", redis)
-    handler = ModelService()
-    handler.init_models()
-    currentModels = handler.get_api_models()
-    db = app.db.mongo.mongo_client["gateway"]
-    model_collection = db["model"]
+async def test_remove_model(
+    model_service: ModelService, mock_repositories: Repositories
+):
+    await model_service.init_models()
+    currentModels = await model_service.get_api_models()
     assert len(currentModels) == 0
-    assert model_collection.count_documents({}) == 0
     model = create_test_model(path="test2")
-    handler.add_model(model)
+    await model_service.add_model(model)
     model = create_test_model(path="test2", id="test2", owned_by="test4")
-    handler.add_model(model)
-    handler.remove_model(model="test2")
-    assert len(handler.get_api_models()) == 1
-    assert model_collection.count_documents({}) == 1
-    assert model_collection.count_documents({"model.id": "test2"}) == 0
-    assert model_collection.count_documents({"model.id": "test"}) == 1
+    await model_service.add_model(model)
+    await model_service.remove_model(model="test2")
+    assert len(await model_service.get_api_models()) == 1
+    assert len(mock_repositories.model_repo.__class__.models.values()) == 1
+    with pytest.raises(HTTPException) as execinfo:
+        await model_service.remove_model(model="test3")
+    assert execinfo.value.status_code == 410
+    assert len(mock_repositories.model_repo.__class__.models.values()) == 1
+    remaining_models = await mock_repositories.model_repo.get_models()
+    assert len(remaining_models) == 1
+    assert remaining_models[0].model.id == "test"

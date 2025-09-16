@@ -3,6 +3,7 @@ from pydantic import BaseModel, model_validator
 from typing import Optional
 from typing_extensions import Self
 
+
 class Balance(BaseModel):
     balance_used: float
     quota: float = 30
@@ -38,12 +39,19 @@ class APIRequest(Usage):
 
 
 class RequestSource(BaseModel):
-    key : Optional[str] = None
-    user : Optional[str] = None
-    
-    @model_validator(mode='after')
+    key: Optional[str] = None
+    user: Optional[str] = None
+
+    # A session based auth will not have a key.
+    def is_session_based(self) -> bool:
+        return self.user is not None and self.key is None
+
+    # We will only get a key as source, if this is based on a key.
+    def is_key_based(self) -> bool:
+        return self.key is not None
+
+    @model_validator(mode="after")
     def check_one_source_exists(self) -> Self:
         if self.key is None and self.user is None:
             raise ValueError("Missing Source! Either user or key has to be non None")
         return self
-        

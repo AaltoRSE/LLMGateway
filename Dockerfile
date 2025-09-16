@@ -12,52 +12,65 @@ RUN npm install
 COPY frontend/ ./
 RUN npm run ${BUILD}
 
+FROM docker.io/oz123/pipenv:3.11-v2023-6-26 AS builder
 
-FROM mambaorg/micromamba:1.5.9 AS environment-builder
+# Tell pipenv to create venv in the current directory
+ENV PIPENV_VENV_IN_PROJECT=1
 
-USER root
+ARG ENV=production
 
-RUN apt-get update -y && apt-get upgrade -y
-RUN apt-get install gcc g++ \
-    cmake \
-    git \
-    ninja-build \
-    libopenblas-dev \
-    build-essential \
-    pkg-config -y 
+# Pipfile contains requests
+ADD Pipfile.lock Pipfile /usr/src/
 
-# Don't write .pyc files into image to reduce image size 
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /usr/src
 
-# Install conda environment to /opt/env/ and prepend to PATH
-COPY environment.yml /opt/
+# NOTE: If you install binary packages required for a python module, you need
+# to install them again in the runtime. For example, if you need to install pycurl
+# you need to have pycurl build dependencies libcurl4-gnutls-dev and libcurl3-gnutls
+# In the runtime container you need only libcurl3-gnutls
 
-# Install copy of llama-cpp-python with streaming option
-WORKDIR /llama_cpp
-#RUN git clone https://github.com/tpfau/llama-cpp-python.git && cd llama-cpp-python && git checkout stream_testing && git submodule init && git submodule update
+# RUN apt install -y libcurl3-gnutls libcurl4-gnutls-dev
 
-RUN micromamba create -f /opt/environment.yml -p /opt/env/
+ENV PATH="/root/.local/bin:$PATH"
 
+RUN if [ "$ENV" = "production" ]; then \
+    pipenv sync ; \
+    else \
+    pipenv sync -d ; \
+    fi
+
+# Unnecessary
+# RUN /usr/src/.venv/bin/python -c "import requests; print(requests.__version__)"
+
+# This is the runtime container, no pipenv installed there.
 
 # Dockerfile
 # Could be changed at some point to something slimmer
-FROM mambaorg/micromamba:1.5.9
+FROM docker.io/python:3.11 AS runtime
 
-USER root
-# run the container as a non-root user
-ENV USER=aaltorse
-RUN groupadd -r $USER && useradd -r -g $USER $USER
-USER $USER
+# Create user to run the server with
+RUN useradd -ms /bin/bash aaltoai
 
-COPY --from=environment-builder --chown=aaltorse:aaltorse /opt/env/ /opt/env/
+RUN mkdir -v /usr/src/.venv
 
-ENV PATH="/opt/env/bin:$PATH"
+COPY --from=builder /usr/src/.venv/ /usr/src/.venv/
 
-WORKDIR /app 
-# Copy application contents (this includes the frontend files, and only those)
-COPY --chown=aaltorse:aaltorse ./app ./app
-# Frontend needs to be compiled!
-COPY --chown=aaltorse:aaltorse --from=frontend-builder /frontend/dist ./dist
+# If something odd happens uncomment to see if versions match
+# RUN /usr/src/.venv/bin/python -c "import requests; print(requests.__version__)"
 
-# Entrypoint
+WORKDIR /usr/src/app
+
+COPY app ./app
+
+# For imgrations
+COPY migrations ./migrations
+COPY alembic.ini ./alembic.ini
+COPY run.sh ./run.sh
+
+# Change user
+USER aaltoai
+
+ENV PATH="/usr/src/.venv/bin:$PATH"
+
 CMD ["gunicorn", "app.main:app", "--bind", "0.0.0.0:3000", "-k", "uvicorn.workers.UvicornWorker", "--workers", "6" ]
+

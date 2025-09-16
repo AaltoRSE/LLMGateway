@@ -26,7 +26,7 @@ class KeyService:
         key_quota_db: Annotated[redis.StrictRedis, Depends(get_key_quota_client)],
     ):
         self.repository = key_repository
-        self.key_client = key_db
+        self.key_client: redis.StrictRedis = key_db
         self.quota_client = key_quota_db
 
     async def init_keys(self):
@@ -63,22 +63,30 @@ class KeyService:
             # There are only active keys in the redis db.
             return APIKey.model_validate(json.loads(key_data))
 
-    async def delete_key_for_user(self, key: str, user: str):
+    async def delete_key_for_user(self, key: str, user_id: str):
         """
         Function to delete an existing key for agiven user. only delete
         the key if it exists for this user.
 
         Parameters:
         - key (str): The key to check.
-        - user (str): The user that requests this deletion
+        - user_id(str): The user that requests this deletion
 
         """
         db_key = await self.repository.get_key(key)
-        if not db_key is None and db_key.username == user:
+        if not db_key is None and db_key.user_id == user_id:
             await self.repository.deactivate_key(key)
             await self.key_client.delete(key)
+        else:
+            if db_key is None:
+                raise HTTPException(404, "Key does not exist")
+            else:
+                raise HTTPException(
+                    400,
+                    "Requested deletion of a key that does not belong to the indicated user",
+                )
 
-    async def delete_key(self, key: str, user: str = None):
+    async def delete_key(self, key: str, user_id: str = None):
         """
         Function to delete an existing key irrespective of who had that key
 
@@ -86,48 +94,48 @@ class KeyService:
         - key (str): The key to check.
 
         """
-        if user == None:
+        if user_id == None:
             await self.repository.deactivate_key(key)
             await self.key_client.delete(key)
         else:
-            await self.delete_key_for_user(key=key, user=user)
+            await self.delete_key_for_user(key=key, user_id=user_id)
 
-    async def create_key(self, name: str, user_id: str | None = None):
+    async def create_key(self, name: str, user_id: str | None = None) -> APIKey:
         """
         Generates a unique API key and associates it with a specified user.
         The User MUST exist prior to calling this function.
         Args:
-        - user: Username of the user to whom the API key will be associated.
+        - user_id Username of the user to whom the API key will be associated.
         - name: Name or label for the API key.
 
         Returns:
-        - api_key: The generated unique API key associated with the user.
+        - api_key: The generated unique API key associated with the user_id
         """
-        api_key = await self.repository.create_api_key(user=user, name=name)
+        api_key = await self.repository.create_api_key(user_id=user_id, name=name)
         await self._set_key_in_redis(api_key)
         return api_key
 
     async def _set_key_in_redis(self, api_key: APIKey) -> None:
         await self.key_client.set(api_key.key, json.dumps(api_key.model_dump()))
 
-    async def list_keys(self, user=None) -> List[APIKey]:
+    async def list_keys(self, user_id: str | None = None) -> List[APIKey]:
         """
         List the available
 
         Args:
-        - user: Username of the user who requests their keys, None if all keys are requested
+        - user_id Username of the user who requests their keys, None if all keys are requested
 
         Returns:
         - a list of keys in the format [{'key' : key, 'active' : True/False, 'name' : keyname}]
         """
 
-        if user is None:
+        if user_id is None:
             return await self.repository.get_all_keys()
 
         else:
-            return await self.repository.get_active_api_keys_for_user(user)
+            return await self.repository.get_active_api_keys_for_user(user_id)
 
-    async def set_key_quota(self, key: str, quota: float):
+    async def set_key_quota(self, key: str, quota: float) -> None:
         """
         Function to set the quota for a key.
 
@@ -141,3 +149,13 @@ class KeyService:
             await self.repository.update_key(api_key)
             await self.quota_client.set(key, quota)
             await self._set_key_in_redis(key)
+
+    async def deactivate_keys_for_user(self, user_id: str) -> None:
+        """
+        Deactivate all keys for a specific user.
+        """
+        keys = await self.repository.deactivate_keys_for_user(user_id=user_id)
+        # Clea up the keys in redis
+        for key in keys:
+            self.key_client.delete(key.key)
+            self.quota_client.delete(key.key)

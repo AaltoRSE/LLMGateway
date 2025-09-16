@@ -4,7 +4,7 @@ The schemas include base, creation, and update models for users.
 """
 
 import re
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 from datetime import datetime
 from pydantic import AfterValidator, BaseModel
 from typing_extensions import Annotated
@@ -13,13 +13,20 @@ from app.config import base_quota
 possible_languages = Literal["en", "fi", "sv"]
 
 
-# Base schema for users
-#
-# SECURITY: Note that each field in this model is exposed in get_user_details call, do not add sensitive items
-class UserBase(BaseModel):
+class AuthData(BaseModel):
     auth_id: str
     first_name: str
     last_name: str
+
+
+class SessionAuthData(AuthData):
+    roles: List[str]
+
+
+# Base schema for users
+#
+# SECURITY: Note that each field in this model is exposed in get_user_details call, do not add sensitive items
+class UserBase(AuthData):
     admin: bool
     accepted_agreement_version: str
     quota: float = base_quota

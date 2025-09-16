@@ -1,72 +1,59 @@
-from pytest_mock_resources import create_redis_fixture
+import time
+from fastapi import HTTPException
+
 from app.services.session_service import SessionService
 from app.services.user_service import UserService
-from fastapi import HTTPException
-import gateway.app.dbs.redis.redis
-import app.db.mongo
-import mongomock
-import time
+from app.schemas.user_schema import SessionAuthData
+from app.dbs.redis.redis import get_session_client
 
 
-redis = create_redis_fixture()
-
-
-def createTestSessionData(user: str, groups: list = ["test"]):
-    return {
-        "auth_name": user,
-        "first_name": "test",
-        "last_name": "test",
-        "auth_groups": groups,
-        "email": "",
-        "agreement_ok": True,
-    }
+def createTestSessionData(auth_id: str, groups: list = ["test"]) -> SessionAuthData:
+    return SessionAuthData(
+        auth_id=auth_id, first_name="test", last_name="test", roles=groups
+    )
 
 
 # Testing whether keys are checked correctly
-def test_create_session(redis, monkeypatch):
-    monkeypatch.setattr(gateway.app.dbs.redis.redis, "redis_session_client", redis)
-    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
-    session_service = SessionService()
-    user_service = UserService()
-    session = session_service.create_session(
-        session_data=createTestSessionData(user="Test", groups=["employee"]),
+async def test_create_session(
+    session_service: SessionService, user_service: UserService
+):
+    session = await session_service.create_session(
+        session_data=createTestSessionData(auth_id="TestUser", groups=["employee"]),
         source_ip="Foo",
         user_service=user_service,
     )
-    users = user_service.get_all_users()
+    # Check, that a user was created
+    users = await user_service.get_all_users()
     assert len(users) == 1
     assert users[0].auth_id == "Test"
-    session2 = session_service.get_session(session_key=session.key)
-    assert session2.user == session.user
+    session2 = await session_service.get_session(session_key=session.key)
+    assert session2.user_id == session.user_id
     assert session2.ip == session.ip
 
 
-def test_expire_session(redis, monkeypatch):
-    monkeypatch.setattr(gateway.app.dbs.redis.redis, "redis_session_client", redis)
-    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
-    session_service = SessionService(exp_time=1)
+async def test_expire_session(user_service, redis_dbs):
+    # We need a different client, that sets a different expiration time.
+    session_service = SessionService(get_session_client(), exp_time=1)
     user_service = UserService()
-    session = session_service.create_session(
+    session = await session_service.create_session(
         session_data=createTestSessionData(user="Test", groups=["employee"]),
         source_ip="Foo",
         user_service=user_service,
     )
     time.sleep(2)
     # Should have expired immediately
-    assert session_service.get_session(session.key) == None
+    assert await session_service.get_session(session.key) is None
 
 
-def test_delete_session(redis, monkeypatch):
-    monkeypatch.setattr(gateway.app.dbs.redis.redis, "redis_session_client", redis)
-    monkeypatch.setattr(app.db.mongo, "mongo_client", mongomock.MongoClient())
-    session_service = SessionService()
-    user_service = UserService()
-    session = session_service.create_session(
+async def test_delete_session(
+    session_service: SessionService, user_service: UserService
+):
+    session = await session_service.create_session(
         session_data=createTestSessionData(user="Test", groups=["employee"]),
         source_ip="Foo",
         user_service=user_service,
     )
-    session_service.delete_session(session.key)
-    assert session_service.get_session(session.key) == None
-    users = user_service.get_all_users()
+    await session_service.delete_session(session.key)
+    assert await session_service.get_session(session.key) is None
+    users = await user_service.get_all_users()
     assert len(users) == 1

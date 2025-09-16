@@ -1,7 +1,8 @@
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-import app.requests.admin_requests as admin
+from app.schemas.llmmodel_schema import LLMModelData, LLMModelDataDetails
+from app.requests.admin_requests import *
 from app.services.model_service import ModelService
 from app.services.user_service import UserService
 from app.services.key_service import KeyService
@@ -10,27 +11,38 @@ from tests.fixtures.db_fixtures import Repositories
 from app.dbs.redis.redis import get_model_client
 
 
-def test_add_remove_update_and_get_model_admin(
+async def test_add_remove_update_and_get_model_admin(
     mock_repositories: Repositories, redis_dbs, admin_key_client: TestClient
 ):
-    request = admin.AddAvailableModelRequest(
-        id="test", path="test", name="test", description="test"
+    request = LLMModelData(
+        path="testpath",
+        name="test",
+        description="test",
+        host="http://host.svc",
+        model=LLMModelDataDetails(
+            id="test",
+            owned_by="Test",
+        ),
     )
     response = admin_key_client.post("/admin/addmodel", json=request.model_dump())
     assert response.status_code == 201
     service = ModelService(mock_repositories.model_repo, get_model_client())
-    models = service.get_models()
+    models = await service.get_models()
     assert len(models) == 1
     assert models[0].name == "test"
-    request2 = admin.AddAvailableModelRequest(
-        id="test2", path="test2", name="test2", description="test2"
-    )
+    request2 = request.model_copy(deep=True)
+    request2.path = "test2"
+    request2.model.id = "testpath2"
     response2 = admin_key_client.post("/admin/addmodel", json=request2.model_dump())
     assert response2.status_code == 201
     models = service.get_models()
     assert len(models) == 2
-    assert service.get_model_path("test2") == "test2"
-    assert service.get_model_path("test") == "test"
+    model_path_1, model_host_1 = await service.get_model_location("test")
+    model_path_2, model_host_2 = await service.get_model_location("test2")
+    assert model_path_1 == "testpath"
+    assert model_host_1 == "test"
+    assert model_path_2 == "testpath2"
+    assert model_host_2 == "test2"
     # No conflict allowed
     response3 = admin_key_client.post("/admin/addmodel", json=request.model_dump())
     assert response3.status_code == 409
@@ -42,12 +54,12 @@ def test_add_remove_update_and_get_model_admin(
     assert set([model["model"]["id"] for model in models]) == set(["test", "test2"])
 
     # Remove the model
-    request3 = admin.RemoveModelRequest(model="test")
+    request3 = RemoveModelRequest(model="test")
     response4 = admin_key_client.post("/admin/removemodel", json=request3.model_dump())
     assert response4.status_code == 200
     assert len(service.get_models()) == 1
     try:
-        service.get_model_path("test")
+        service.get_model_location("test")
         assert False
     except HTTPException as e:
         assert e.status_code == 404
@@ -63,28 +75,30 @@ def test_add_remove_update_and_get_model_admin(
     request2.path = "/new/path"
     response = admin_key_client.post("/admin/update_model", json=request2.model_dump())
     assert response.status_code == 200
-    assert service.get_model_path("test2") == "/new/path"
+    model_path_2, model_host_2 = await service.get_model_location("test2")
+    assert model_path_2 == "/new/path"
 
 
-def test_reset_user(admin_client: TestClient):
-    user_service = UserService()
-    user_service.get_or_create_user_from_auth_data(
-        "test", "test", "test", "thi@test.fi", ["employee"]
+async def test_reset_user(
+    admin_client: TestClient, mock_repositories: Repositories, redis_dbs
+):
+    user_service = UserService(
+        user_respository=mock_repositories.user_repo,
+        key_repository=mock_repositories.key_repo,
     )
-    user_service.update_agreement_version("test", "1.0")
+    await user_service.get_or_create_user_from_auth_data(
+        "test", "test", "test", ["employee"]
+    )
+    await user_service.update_agreement_version("test", "1.0")
     # Also manual set a key, which will be removed by the reset
-    user_service.user_collection.update_one(
-        {mongo.ID_FIELD: "test"}, {"$set": {"keys": ["test"]}}
-    )
-    request = admin.UserRequest(username="test")
-    user = user_service.get_user_by_id("test")
-    assert user.seen_guide_version == "1.0"
+    request = UserRequest(username="test")
+    user = await user_service.get_user_by_id("test")
+    assert user.accepted_agreement_version == "1.0"
     response = admin_client.post("/admin/reset_user", json=request.model_dump())
     assert response.status_code == 200
-    user = user_service.get_user_by_id("test")
-    assert user.seen_guide_version == ""
-    assert user.keys == []
-    request = admin.UserRequest(username="test2")
+    user = await user_service.get_user_by_id("test")
+    assert user.accepted_agreement_version == ""
+    request = UserRequest(username="test2")
     response = admin_client.post("/admin/reset_user", json=request.model_dump())
     assert response.status_code == 404
 

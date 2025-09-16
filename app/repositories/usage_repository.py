@@ -14,9 +14,7 @@ from app.schemas.usage_schema import APIRequest, Usage, Balance, RequestSource
 
 class UsageRepository:
 
-    async def log_usage(
-        self, usage: APIRequest, source : RequestSource
-    ) -> None:
+    async def log_usage(self, usage: APIRequest, source: RequestSource) -> None:
         """
         Add the given request to the database and update the balance.
         At least one of user_id and key have to be non None.
@@ -36,7 +34,7 @@ class UsageRepository:
         raise NotImplementedError
 
     async def get_usage_for_user_in_range(
-        self, user_id: str, from_timestamp: datetime, to_timestamp: datetime
+        self, user_id: str, from_time: datetime, to_time: datetime
     ) -> Usage:
         """
         Get usage data for a user within a specific time range.
@@ -45,9 +43,9 @@ class UsageRepository:
         ----------
         user_id : str
             The ID of the user to retrieve usage data for.
-        from_timestamp : datetime
+        from_time : datetime
             The start of the time range.
-        to_timestamp : datetime
+        to_time : datetime
             The end of the time range.
 
         Returns
@@ -57,7 +55,12 @@ class UsageRepository:
         """
         raise NotImplementedError
 
-    async def get_usage_details_for_user(self, user_id: str) -> List[APIRequest]:
+    async def get_usage_details_for_user(
+        self,
+        user_id: str,
+        from_time: datetime | None = None,
+        to_time: datetime | None = None,
+    ) -> List[APIRequest]:
         """
         Get detailed usage data for a user.
 
@@ -65,7 +68,10 @@ class UsageRepository:
         ----------
         user_id : str
             The ID of the user to retrieve detailed usage data for.
-
+        from_time : datetime
+            The start of the time range.
+        to_time : datetime
+            The end of the time range.
         Returns
         -------
         List[APIRequest]
@@ -74,7 +80,7 @@ class UsageRepository:
         raise NotImplementedError
 
     async def get_usage_for_key_in_range(
-        self, key: str, from_timestamp: datetime, to_timestamp: datetime
+        self, key: str, from_time: datetime, to_time: datetime
     ) -> Usage:
         """
         Get usage data for a key within a specific time range.
@@ -83,9 +89,9 @@ class UsageRepository:
         ----------
         key : str
             The key to retrieve usage data for.
-        from_timestamp : datetime
+        from_time : datetime
             The start of the time range.
-        to_timestamp : datetime
+        to_time : datetime
             The end of the time range.
 
         Returns
@@ -95,7 +101,12 @@ class UsageRepository:
         """
         raise NotImplementedError
 
-    async def get_usage_details_for_key(self, key: str) -> List[APIRequest]:
+    async def get_usage_details_for_key(
+        self,
+        key: str,
+        from_time: datetime | None = None,
+        to_time: datetime | None = None,
+    ) -> List[APIRequest]:
         """
         Get detailed usage data for a key.
 
@@ -103,7 +114,10 @@ class UsageRepository:
         ----------
         key : str
             The key to retrieve detailed usage data for.
-
+        from_time : datetime
+            The start of the time range.
+        to_time : datetime
+            The end of the time range.
         Returns
         -------
         List[APIRequest]

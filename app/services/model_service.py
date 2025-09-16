@@ -52,6 +52,19 @@ class ModelService:
         return [model.model for model in models]
 
     async def get_model_location(self, model_id, type: str) -> Tuple[str, str]:
+        """
+        Retrieve the path and host for a specific model and type.
+
+        Args:
+            model_id (str): The ID of the model to look up.
+            type (str): The type of model usage requested.
+
+        Returns:
+            Tuple[str, str]: A tuple containing the model's path and host.
+
+        Raises:
+            HTTPException: If the model is not found or cannot be used for the requested type.
+        """
         model_data = await self.model_client.get(model_id)
         if model_data:
             requested_model = LLMModelData.model_validate(json.loads(model_data))

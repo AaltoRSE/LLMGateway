@@ -4,7 +4,7 @@ from typing import Optional, Self
 
 class APIKey(BaseModel):
     key: str
-    user: Optional[str] = None
+    user_id: Optional[str] = None
     service: Optional[str] = None
     active: bool
     name: Optional[str] = None

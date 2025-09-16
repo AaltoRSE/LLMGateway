@@ -35,9 +35,7 @@ class SQLUsageRepository(UsageRepository):
             total_balance=db_balance.total_balance,
         )
 
-    async def log_usage(
-        self, usage: APIRequest, source : RequestSource
-    ) -> None:        
+    async def log_usage(self, usage: APIRequest, source: RequestSource) -> None:
         db_usage = DBUsage(
             user_id=int(source.user) if source.user is not None else None,
             key=source.key,
@@ -52,7 +50,7 @@ class SQLUsageRepository(UsageRepository):
         self.db.refresh(db_usage)
 
     async def get_usage_for_user_in_range(
-        self, user_id: str, from_timestamp: datetime, to_timestamp: datetime
+        self, user_id: str, from_time: datetime, to_time: datetime
     ) -> Usage:
         usage = (
             self.db.query(
@@ -62,8 +60,8 @@ class SQLUsageRepository(UsageRepository):
             )
             .filter(
                 DBUsage.user_id == int(user_id),
-                DBUsage.timestamp >= from_timestamp,
-                DBUsage.timestamp <= to_timestamp,
+                DBUsage.timestamp >= from_time,
+                DBUsage.timestamp <= to_time,
             )
             .one()
         )
@@ -75,7 +73,7 @@ class SQLUsageRepository(UsageRepository):
         )
 
     async def get_usage_for_key_in_range(
-        self, key: str, from_timestamp: datetime, to_timestamp: datetime
+        self, key: str, from_time: datetime, to_time: datetime
     ) -> Usage:
         usage = (
             self.db.query(
@@ -85,8 +83,8 @@ class SQLUsageRepository(UsageRepository):
             )
             .filter(
                 DBUsage.api_key == key,
-                DBUsage.timestamp >= from_timestamp,
-                DBUsage.timestamp <= to_timestamp,
+                DBUsage.timestamp >= from_time,
+                DBUsage.timestamp <= to_time,
             )
             .one()
         )
@@ -96,25 +94,48 @@ class SQLUsageRepository(UsageRepository):
             completion_tokens=usage.total_completion_tokens,
         )
 
-    async def get_usage_details_for_user(self, user_id: str) -> List[APIRequest]:
-        usage = (
-            self.db.query(DBUsage)
-            .filter(
-                DBUsage.user_id == int(user_id),
-            )
-            .all()
-        )
+    def _query_usage(
+        self,
+        from_time: datetime | None = None,
+        to_time: datetime | None = None,
+        user_id: str | None = None,
+        key: str | None = None,
+    ) -> List[Usage]:
+        conditions = []
+        if key is None and user_id is None:
+            raise ValueError("Need either user id or key id for query")
+        if key is not None:
+            conditions.append(DBUsage.api_key == key)
+        if user_id is not None:
+            conditions.append(DBUsage.user_id == user_id)
+        if from_time is None:
+            from_time = datetime.fromtimestamp(0)
+        if to_time is None:
+            to_time = datetime.now()
+        conditions.append(DBUsage.timestamp >= from_time)
+        conditions.append(DBUsage.timestamp <= to_time)
+        usage = self.db.query(DBUsage).filter(*conditions).all()
         return [self._convert_usage_to_schema(u) for u in usage]
 
-    async def get_usage_details_for_key(self, key: str) -> List[APIRequest]:
-        usage = (
-            self.db.query(DBUsage)
-            .filter(
-                DBUsage.api_key == key,
-            )
-            .all()
-        )
-        return [self._convert_usage_to_schema(u) for u in usage]
+    async def get_usage_details_for_user(
+        self,
+        user_id: str,
+        from_time: datetime | None = None,
+        to_time: datetime | None = None,
+    ) -> List[APIRequest]:
+
+        return [
+            self._query_usage(user_id=user_id, from_time=from_time, to_time=to_time)
+        ]
+
+    async def get_usage_details_for_key(
+        self,
+        key: str,
+        from_time: datetime | None = None,
+        to_time: datetime | None = None,
+    ) -> List[APIRequest]:
+
+        return [self._query_usage(key=key, from_time=from_time, to_time=to_time)]
 
     def _get_db_balance(self, user_id: int, period: datetime) -> tuple[DBBalance, bool]:
         requestedDate = date(period.year, period.month, 1)

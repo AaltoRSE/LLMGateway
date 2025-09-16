@@ -1,68 +1,35 @@
 """User Fixtures"""
 
-from typing import Any, Generator
-from datetime import datetime
+from typing import AsyncGenerator
 import pytest
-from app.security.auth import BackendUser
+import pytest_asyncio
 from app.schemas.user_schema import User, UserBase
 from tests.fixtures.db_fixtures import Repositories
-from tests.utils.jwt_utils import create_token_for_user
 
-
-def get_backend_user(
-    user_data: dict[str, Any],
-) -> BackendUser:
-    user = get_db_user(user_data)
-    token = create_token_for_user(user, user_data["data"]["auth_groups"])
-    return BackendUser(
-        user=user,
-        userdata = user_data,
-        roles=user_data["data"]["auth_groups"],
-        auth_token=token,
-        agreement_ok=True
-    )
-
-
-def get_db_user(user_data: dict[str, Any]) -> User:
-    return User(
-        auth_id=user_data["data"]["auth_name"],
-        first_name=user_data["data"]["first_name"],
-        last_name=user_data["data"]["last_name"],
-        id=user_data["id"],
-        admin=user_data["admin"],
-        store_data=user_data["store_data"],
-        accepted_agreement_version=user_data["agreement"],
-        created_at=datetime.strptime(
-            "2021-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S"
-        ).astimezone(),
-        last_active=datetime.strptime(
-            "2021-01-01T00:00:00", "%Y-%m-%dT%H:%M:%S"
-        ).astimezone(),
-        seen_tiptour=user_data["seen_tiptour"],
-        selected_language=user_data.get("selected_language", "en"),
-    )
 
 normalData = UserBase(
-    auth_id = "TestUser",
-    first_name = "Test",
-    last_name = "User",
-    admin = False,
+    auth_id="TestUser",
+    first_name="Test",
+    last_name="User",
+    admin=False,
     accepted_agreement_version="1.0",
-    quota="40"
+    quota="40",
 )
 
 adminData = UserBase(
-    auth_id = "AdminUser",
-    first_name = "Admin",
-    last_name = "User",
-    admin = True,
+    auth_id="AdminUser",
+    first_name="Admin",
+    last_name="User",
+    admin=True,
     accepted_agreement_version="2.0",
-    quota="100"
+    quota="100",
 )
 
 
-@pytest.fixture
-def normal_user(monkeypatch: pytest.MonkeyPatch, mock_repositories : Repositories) -> BackendUser:
+@pytest_asyncio.fixture
+async def normal_user(
+    mock_repositories: Repositories,
+) -> AsyncGenerator[User, None, None]:
     """
     Fixture to a normal user in the authentication scheme.
 
@@ -73,12 +40,15 @@ def normal_user(monkeypatch: pytest.MonkeyPatch, mock_repositories : Repositorie
 
     """
 
-    user = get_backend_user(normalData)
-    return user
+    user = await mock_repositories.user_repo.create_new_user(normalData)
+    yield user
+    mock_repositories.usage_repo.reset()
 
 
 @pytest.fixture
-def admin_user(monkeypatch: pytest.MonkeyPatch) -> BackendUser:
+async def admin_user(
+    mock_repositories: Repositories,
+) -> AsyncGenerator[User, None, None]:
     """
     Fixture to an admin user in the authentication scheme.
 
@@ -89,14 +59,11 @@ def admin_user(monkeypatch: pytest.MonkeyPatch) -> BackendUser:
 
     """
 
-    user = get_backend_user(adminData)
-    return user
+    user = mock_repositories.user_repo.create_new_user(adminData)
+    yield user
+    mock_repositories.usage_repo.reset()
 
 
-@pytest.fixture
-def basic_users(mock_repositories: Repositories) -> Generator[Repositories, None, None]:
-    mock_repositories.user_repo.users[] = get_db_user(normalData)
-    mock_repositories.user_repo.users[2] = get_db_user(adminData)
-    mock_repositories.user_repo.set_current_user_id(3)
-    yield mock_repositories
-    mock_repositories.user_repo.reset()
+@pytest_asyncio.fixture
+async def basic_users(normal_user, admin_user) -> None:
+    pass

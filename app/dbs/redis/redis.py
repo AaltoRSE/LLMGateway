@@ -75,10 +75,10 @@ async def get_user_balance_client():
 
 
 async def get_key_balance_client():
-    redis_user_balance_client = redis.StrictRedis(
+    redis_key_balance_client = redis.StrictRedis(
         host=redis_host, port=int(redis_port), db=REDIS_KEY_BALANCE_DB
     )
     try:
-        yield redis_user_balance_client
+        yield redis_key_balance_client
     finally:
-        redis_user_balance_client.close()
+        redis_key_balance_client.close()

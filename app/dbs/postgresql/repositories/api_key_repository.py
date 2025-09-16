@@ -1,4 +1,4 @@
-from app.repositories.api_key_repository import APIKeyRepository, APIKey, User
+from app.repositories.api_key_repository import APIKeyRepository, APIKey, user_id
 from fastapi import Depends
 
 # DB Specific imports
@@ -19,7 +19,7 @@ class SQLAPIKeyRepositry(APIKeyRepository):
     def _convert_to_db_model(key: APIKey) -> DBAPIKey:
         return DBAPIKey(
             key=key.key,
-            user=int(key.user),
+            user_id=int(key.user_id),
             service=key.service,
             active=key.active,
             name=key.name,
@@ -29,7 +29,7 @@ class SQLAPIKeyRepositry(APIKeyRepository):
     def _convert_to_api_model(key: DBAPIKey) -> APIKey:
         return APIKey(
             key=key.key,
-            user=str(key.user),
+            user_id=str(key.user_id),
             active=key.active,
             service=key.service,
             name=key.name,
@@ -53,12 +53,12 @@ class SQLAPIKeyRepositry(APIKeyRepository):
 
         return api_key
 
-    async def create_api_key(self, name: str, user: str | None = None) -> APIKey:
+    async def create_api_key(self, name: str, user_id: str | None = None) -> APIKey:
         """
         Create a new API key for a user
         """
         key = self.generate_api_key()
-        api_key: APIKey = self.build_new_key_object(key=key, name=name, user=user)
+        api_key: APIKey = self.build_new_key_object(key=key, name=name, user_id=user_id)
         return self._create_new_db_key(api_key)
 
     async def update_key(self, updated_key: APIKey) -> APIKey | None:
@@ -75,13 +75,13 @@ class SQLAPIKeyRepositry(APIKeyRepository):
         self.db.refresh(db_key)
         return self._convert_to_api_model(db_key)
 
-    async def get_active_api_keys_for_user(self, userid: str) -> List[APIKey] | None:
+    async def get_active_api_keys_for_user(self, user_id: str) -> List[APIKey] | None:
         """
         Get all Keys for a user
         """
         keys = (
             self.db.query(DBAPIKey)
-            .filter(DBAPIKey.user == int(userid), DBAPIKey.active == True)
+            .filter(DBAPIKey.user_id == int(user_id), DBAPIKey.active == True)
             .all()
         )
         return [self._convert_to_api_model(key) for key in keys]
@@ -108,11 +108,20 @@ class SQLAPIKeyRepositry(APIKeyRepository):
             keys = self.db.query(DBAPIKey).all()
         return [self._convert_to_api_model(key) for key in keys]
 
-    async def deactivate_keys_for_user(self, userid: str) -> None:
+    async def deactivate_keys_for_user(self, user_id: str) -> List[APIKey]:
         """
         Deactivate all keys of a user
         """
-        self.db.query(DBAPIKey).filter(DBAPIKey.user == userid).update(
+        # Get all active keys for the user
+        keys = (
+            self.db.query(DBAPIKey)
+            .filter(DBAPIKey.user_id == int(user_id), DBAPIKey.active == True)
+            .all()
+        )
+        # Deactivate them
+        self.db.query(DBAPIKey).filter(DBAPIKey.user_id == int(user_id)).update(
             {DBAPIKey.active: False}, synchronize_session=False
         )
         self.db.commit()
+        # Return the list of deactivated keys as APIKey objects
+        return [self._convert_to_api_model(key) for key in keys]

@@ -24,7 +24,7 @@ class APIKeyRepository:
         return api_key
 
     async def build_new_key_object(
-        self, user: str | None, key: str, name: str
+        self, user_id: str | None, key: str, name: str
     ) -> APIKey:
         """
         Function to create a new key object.
@@ -36,11 +36,11 @@ class APIKeyRepository:
         Returns:
         - APIKey: A dictionary representing the key object with "active" status, key, and name.
         """
-        return APIKey(user=user, key=key, name=name, active=True)
+        return APIKey(user_id=user_id, key=key, name=name, active=True)
 
-    async def create_api_key(self, name: str, user: str | None = None) -> APIKey:
+    async def create_api_key(self, name: str, user_id: str | None = None) -> APIKey:
         """
-        Create a new API key for a user
+        Create a new API key for a user_id
         """
         raise NotImplementedError
 
@@ -50,15 +50,21 @@ class APIKeyRepository:
         """
         raise NotImplementedError
 
-    async def get_active_api_keys_for_user(self, userid: str) -> List[APIKey] | None:
+    async def get_active_api_keys_for_user(self, user_id: str) -> List[APIKey] | None:
         """
         Get all Keys for a user
         """
         raise NotImplementedError
 
-    async def deactivate_keys_for_user(self, userid: str) -> None:
+    async def deactivate_keys_for_user(self, user_id: str) -> List[APIKey]:
         """
         Deactivate all keys of a user
+        Parameters:
+        - user_id (str): the id of the user
+
+        Returns:
+        - List[APIKey]: The list of all deactivated keys.
+
         """
         raise NotImplementedError
 

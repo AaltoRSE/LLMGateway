@@ -1,12 +1,13 @@
 """This module provides User service functionality"""
 
 from typing import List, Annotated
-from app.schemas.user_schema import User, UserBase
+from app.schemas.user_schema import User, UserBase, SessionAuthData
 from pymongo import MongoClient
 from pymongo import ReturnDocument as Document
 import logging
 from fastapi import HTTPException, Depends
 from app.repositories import UserRepository, APIKeyRepository
+from app.services.key_service import KeyService
 from app.repositories.factories import (
     get_user_repository_class,
     get_key_repository_class,
@@ -28,34 +29,32 @@ class UserService:
         user_respository: Annotated[
             UserRepository, Depends(get_user_repository_class())
         ],
-        key_repository: Annotated[
-            APIKeyRepository, Depends(get_key_repository_class())
-        ],
+        key_service: Annotated[KeyService, Depends(KeyService)],
     ) -> None:
         self.user_respository = user_respository
-        self.key_repository = key_repository
+        self.key_service = key_service
 
     async def get_user_by_id(self, user_id: str) -> User:
         return await self.user_respository.get_user_by_id(user_id)
 
     async def get_or_create_user_from_auth_data(
-        self, auth_id: str, first_name: str, last_name: str, groups: List[str] = []
+        self, authdata: SessionAuthData
     ) -> User:
         # If the user is not part of the allowed groups, throw an HTTPException
 
-        if len(set(groups).intersection(allowedgroups)) == 0:
-            logger.debug(f"User {auth_id} is not part of allowed groups")
+        if len(set(authdata.roles).intersection(allowedgroups)) == 0:
+            logger.debug(f"User {authdata.auth_id} is not part of allowed groups")
             raise HTTPException(
                 status_code=403,
                 detail="Only Staff is allowed to use this service",
             )
-        user = await self.get_user_by_id(auth_id)
+        user = await self.get_user_by_id(authdata.auth_id)
         if not user:
             user = await self.create_new_user(
                 User(
-                    auth_id=auth_id,
-                    first_name=first_name,
-                    last_name=last_name,
+                    auth_id=authdata.auth_id,
+                    first_name=authdata.first_name,
+                    last_name=authdata.last_name,
                     admin=False,
                     accepted_agreement_version="0.0",
                 )
@@ -75,9 +74,11 @@ class UserService:
         return updated_user
 
     async def reset_user(self, user: User):
-        user.accepted_agreement_version = 0.0
+        user.accepted_agreement_version = "0.0"
         updated_user = await self.user_respository.update_user(user)
-        self.key_repository.deactivate_keys_for_user(user.id)
+        if updated_user is None:
+            raise HTTPException(404, "User does not exist")
+        self.key_service.deactivate_keys_for_user(user.id)
         return updated_user
 
     async def create_new_user(self, user: UserBase) -> User:
