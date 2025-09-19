@@ -8,8 +8,8 @@ from app.schemas.usage_schema import Usage, APIRequest, Balance, RequestSource
 
 
 class DataUsage(BaseModel):
-    user_id: str
-    key: str
+    user_id: str | None
+    key: str | None
     prompt_tokens: Optional[int] = None
     completion_tokens: Optional[int] = None
     model: str
@@ -28,7 +28,7 @@ class UsageRepositoryImpl(UsageRepository):
     def reset(self) -> None:
         self.__class__.usage_list = []
 
-    async def log_request(self, usage: APIRequest, source: RequestSource) -> None:
+    async def log_usage(self, usage: APIRequest, source: RequestSource) -> None:
         self.__class__.usage_list.append(
             DataUsage(
                 user_id=source.user_id,

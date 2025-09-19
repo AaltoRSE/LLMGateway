@@ -32,7 +32,7 @@ class UsageService:
     ) -> None:
         self.usage_repository = usage_repository
         self.balance_repository = balance_repository
-        self.usage_repository = user_repository
+        self.user_repository = user_repository
 
     async def get_current_user_balance(self, user_id: str) -> Balance:
         """
@@ -44,7 +44,7 @@ class UsageService:
         Returns:
             Balance: The current balance of the user.
         """
-        return self.balance_repository.get_user_balance(user_id)
+        return await self.balance_repository.get_user_balance(user_id)
 
     async def get_balance_for_request(self, source: RequestSource) -> Balance:
         """
@@ -56,10 +56,10 @@ class UsageService:
         Returns:
             Balance: The current balance for the request
         """
-        if source.is_key_based():
-            return self.balance_repository.get_key_balance(source.key)
+        if source.has_key():
+            return await self.balance_repository.get_key_balance(source.key)
         else:
-            return self.get_current_user_balance(source.user_id)
+            return await self.get_current_user_balance(source.user_id)
 
     async def get_current_key_balance(self, key: str) -> Balance:
         """
@@ -71,7 +71,7 @@ class UsageService:
         Returns:
             Balance: The current balance of the key.
         """
-        return self.balance_repository.get_key_balance(key)
+        return await self.balance_repository.get_key_balance(key)
 
     async def log_usage(self, source: RequestSource, usage: APIRequest) -> None:
         """
@@ -84,10 +84,7 @@ class UsageService:
         Returns:
             None
         """
-
-        await self.usage_repository.log_usage(
-            user_id=source.user_id, key=source.key, usage=usage
-        )
+        await self.usage_repository.log_usage(source=source, usage=usage)
         if source.user_id:
             await self.balance_repository.add_usage_to_user(
                 user_id=source.user_id, cost=usage.cost

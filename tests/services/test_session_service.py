@@ -27,19 +27,18 @@ async def test_create_session(
     # Check, that a user was created
     users = await user_service.get_all_users()
     assert len(users) == 1
-    assert users[0].auth_id == "Test"
+    assert users[0].auth_id == "TestUser"
     session2 = await session_service.get_session(session_key=session.key)
     assert session2.user_id == session.user_id
     assert session2.ip == session.ip
 
 
 @pytest.mark.asyncio
-async def test_expire_session(user_service, redis_dbs):
+async def test_expire_session(user_service, redis_session_client, redis_dbs):
     # We need a different client, that sets a different expiration time.
-    session_service = SessionService(get_session_client(), exp_time=1)
-    user_service = UserService()
+    session_service = SessionService(redis_session_client, exp_time=1)
     session = await session_service.create_session(
-        session_data=createTestSessionData(user="Test", groups=["employee"]),
+        session_data=createTestSessionData(auth_id="Test", groups=["employee"]),
         source_ip="Foo",
         user_service=user_service,
     )
@@ -53,7 +52,7 @@ async def test_delete_session(
     session_service: SessionService, user_service: UserService
 ):
     session = await session_service.create_session(
-        session_data=createTestSessionData(user="Test", groups=["employee"]),
+        session_data=createTestSessionData(auth_id="Test", groups=["employee"]),
         source_ip="Foo",
         user_service=user_service,
     )

@@ -36,7 +36,10 @@ class LLMModelRepository:
         """
         if model.model.id in self.__class__.models:
             raise HTTPException(409, "Model already exists")
+        print("Model doesn't exist, adding")
+        print(model)
         self.__class__.models[model.model.id] = model.model_copy(deep=True)
+        return self.__class__.models[model.model.id].model_copy(deep=True)
 
     async def update_model(self, model: LLMModelData) -> LLMModelData | None:
         """

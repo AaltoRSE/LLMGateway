@@ -7,23 +7,33 @@ import threading
 from app.schemas.usage_schema import Balance, UserBalance, KeyBalance
 from app.repositories.balance_repository import BalanceRepository
 
+
 class TimedBalance(Balance):
-    period : date
+    period: date
+
 
 class MockBalanceRepository(BalanceRepository):
     balance_list: List[TimedBalance] = []
     _lock = threading.Lock()
-    def reset(self) -> None:
-        self.__class__.balance_list = []    
 
-    def _get_balance(self, key : str = None, user : str = None, requested_date : date = None) -> TimedBalance:
+    def reset(self) -> None:
+        self.__class__.balance_list = []
+
+    def _get_balance(
+        self, key: str = None, user_id: str = None, requested_date: date = None
+    ) -> TimedBalance:
         if requested_date is None:
             current_time = datetime.now()
             requested_date = date(current_time.year, current_time.month, 1)
         for balance in self.__class__.balance_list:
-            if balance.period == requested_date and ( balance.key == key or user == balance.user_id):
+            if balance.period == requested_date and (
+                (balance.key is not None and balance.key == key)
+                or (balance.user_id is not None and user_id == balance.user_id)
+            ):
                 return balance
-        new_balance = Balance(key=key, user_id=user,balance_used=0)
+        new_balance = TimedBalance(
+            key=key, user_id=user_id, balance_used=0, period=requested_date
+        )
         self.__class__.balance_list.append(new_balance)
         return new_balance
 
@@ -36,9 +46,8 @@ class MockBalanceRepository(BalanceRepository):
 
         Returns:
             Balance: The balance information for the given API key.
-        """                
+        """
         return self._get_balance(key=key).model_copy()
-        
 
     async def get_user_balance(self, user_id: str) -> Balance:
         """
@@ -51,7 +60,6 @@ class MockBalanceRepository(BalanceRepository):
             Balance: The balance information for the given user.
         """
         return self._get_balance(user_id=user_id).model_copy()
-            
 
     async def get_user_balances(self, month: datetime) -> List[UserBalance]:
         """
@@ -62,11 +70,22 @@ class MockBalanceRepository(BalanceRepository):
             month (str): a datetime with the month set to the current month
         Returns:
             List[Balance]: The balances for all users
-        """        
+        """
         requestedDate = date(month.year, month.month, 1)
-        balances = [balance.model_copy() for balance in self.__class__.balance_list if balance.period == requestedDate and balance.user_id is not None]        
+        balances = [
+            balance.model_copy()
+            for balance in self.__class__.balance_list
+            if balance.period == requestedDate and balance.user_id is not None
+        ]
 
-        return [UserBalance(balance_used=balance.balance_used, user_id= balance.user_id,quota=balance.quota) for balance in balances]
+        return [
+            UserBalance(
+                balance_used=balance.balance_used,
+                user_id=balance.user_id,
+                quota=balance.quota,
+            )
+            for balance in balances
+        ]
 
     async def get_key_balances(self, month: datetime) -> List[KeyBalance]:
         """
@@ -79,10 +98,18 @@ class MockBalanceRepository(BalanceRepository):
             List[Balance]: The balances for all keys
         """
         requestedDate = date(month.year, month.month, 1)
-        balances = [balance.model_copy() for balance in self.__class__.balance_list if balance.period == requestedDate and balance.key is not None]        
+        balances = [
+            balance.model_copy()
+            for balance in self.__class__.balance_list
+            if balance.period == requestedDate and balance.key is not None
+        ]
 
-        return [UserBalance(balance_used=balance.balance_used, key= balance.key,quota=balance.quota) for balance in balances]
-
+        return [
+            UserBalance(
+                balance_used=balance.balance_used, key=balance.key, quota=balance.quota
+            )
+            for balance in balances
+        ]
 
     async def add_usage_to_user(self, user_id: str, cost: float) -> None:
         """
@@ -94,11 +121,11 @@ class MockBalanceRepository(BalanceRepository):
 
         Returns:
             None
-        """        
+        """
         with self.__class__._lock:
-            balance : TimedBalance = self._get_balance(user_id = user_id)
+            balance: TimedBalance = self._get_balance(user_id=user_id)
             balance.balance_used = balance.balance_used + cost
-        
+
     async def add_usage_to_key(self, key: str, cost: float) -> None:
         """
         Add a usage cost to an API key's balance.
@@ -111,7 +138,7 @@ class MockBalanceRepository(BalanceRepository):
             None
         """
         with self.__class__._lock:
-            balance = self._get_balance(key = key)
+            balance = self._get_balance(key=key)
             balance.balance_used = balance.balance_used + cost
 
     async def set_quota_for_key(self, quota: float, key: str) -> None:
@@ -125,7 +152,7 @@ class MockBalanceRepository(BalanceRepository):
         Returns:
             None
         """
-        balance = self._get_balance(key = key)
+        balance = self._get_balance(key=key)
         balance.quota = quota
 
     async def set_quota_for_user(self, quota: float, user_id: str) -> None:
@@ -139,5 +166,5 @@ class MockBalanceRepository(BalanceRepository):
         Returns:
             None
         """
-        balance = self._get_balance(user_id = user_id)
+        balance = self._get_balance(user_id=user_id)
         balance.quota = quota

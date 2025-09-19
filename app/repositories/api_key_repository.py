@@ -23,8 +23,8 @@ class APIKeyRepository:
         api_key = "".join(secrets.choice(alphabet) for _ in range(length))
         return api_key
 
-    async def build_new_key_object(
-        self, user_id: str | None, key: str, name: str
+    def build_new_key_object(
+        self, user_id: str | None, key: str, service: str | None, name: str
     ) -> APIKey:
         """
         Function to create a new key object.
@@ -36,9 +36,11 @@ class APIKeyRepository:
         Returns:
         - APIKey: A dictionary representing the key object with "active" status, key, and name.
         """
-        return APIKey(user_id=user_id, key=key, name=name, active=True)
+        return APIKey(user_id=user_id, key=key, name=name, active=True, service=service)
 
-    async def create_api_key(self, name: str, user_id: str | None = None) -> APIKey:
+    async def create_api_key(
+        self, name: str, user_id: str | None = None, service: str | None = None
+    ) -> APIKey:
         """
         Create a new API key for a user_id
         """

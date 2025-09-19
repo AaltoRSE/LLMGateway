@@ -16,6 +16,14 @@ from contextlib import asynccontextmanager
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.cors import CORSMiddleware
 
+
+from app.routers import (
+    llm_router,
+    self_service_router,
+    admin_router,
+    user_router,
+    auth_router,
+)
 from app.utils.serverlogging import RouterLogging
 from app.middleware.session_sanitize_middleware import SessionSanitizationMiddleWare
 from app.static_files import SPAStaticFiles
@@ -43,54 +51,47 @@ async def startup(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=startup, debug=True)
+def create_app():
+    app = FastAPI(lifespan=startup, debug=True)
 
+    # Middleware is wrapped "around" existing middleware. i.e. order of execution is done inverse to order of adding.
 
-# Middleware is wrapped "around" existing middleware. i.e. order of execution is done inverse to order of adding.
+    # Set CORS Policy
+    cors_origings = [
+        "https://localhost",
+        "https://localhost:5173",
+        "https://ai.aalto.fi",
+        "https://ai-testing.aalto.fi",
+    ]
 
-# Set CORS Policy
-cors_origings = [
-    "https://localhost",
-    "https://localhost:5173",
-    "https://ai.aalto.fi",
-    "https://ai-testing.aalto.fi",
-]
+    # Add CORS Middleware
 
-# Add CORS Middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origings,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_origings,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    # Middlewares Order of execution is from last to first for incoming requests
 
-# Middlewares Order of execution is from last to first for incoming requests
+    # This will remove / add the actual session Data
+    app.add_middleware(SessionSanitizationMiddleWare)
 
-# This will remove / add the actual session Data
-app.add_middleware(SessionSanitizationMiddleWare)
+    # Need a fixed session key to work with potentially multiple instances.
+    session_key = os.environ.get("SESSION_KEY")
+    app.add_middleware(SessionMiddleware, secret_key=session_key, max_age=600)
 
-# Need a fixed session key to work with potentially multiple instances.
-session_key = os.environ.get("SESSION_KEY")
-app.add_middleware(SessionMiddleware, secret_key=session_key, max_age=600)
+    # Add Request logging
+    app.add_middleware(RouterLogging, logger=uvlogger, debug=debugging)
 
-# Add Request logging
-app.add_middleware(RouterLogging, logger=uvlogger, debug=debugging)
-from app.routers import (
-    llm_router,
-    self_service_router,
-    admin_router,
-    user_router,
-    auth_router,
-)
+    app.include_router(llm_router.router)
+    app.include_router(self_service_router.router)
+    app.include_router(admin_router.router)
+    app.include_router(auth_router.router)
+    app.include_router(user_router.router)
 
-app.include_router(llm_router.router)
-app.include_router(self_service_router.router)
-app.include_router(admin_router.router)
-app.include_router(auth_router.router)
-app.include_router(user_router.router)
-
-
-# This has to be the very last route!!
-app.mount("/", SPAStaticFiles(directory="dist", html=True), name="FrontEnd")
+    # This has to be the very last route!!
+    app.mount("/", SPAStaticFiles(directory="dist", html=True), name="FrontEnd")
+    return app

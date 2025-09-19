@@ -34,11 +34,9 @@ class KeyService:
         Initialize keys from the database, and check that indexing is set up properly.
         """
 
-        all_keys = await self.repository.get_all_keys()
-        activeKeys = {
-            x["key"]: json.dumps(APIKey.model_validate(x).model_dump())
-            for x in all_keys
-        }
+        # Load all keys that are active
+        all_keys = await self.repository.get_all_keys(active_only=True)
+        activeKeys = {x.key: x.model_dump_json() for x in all_keys}
         # Clear the current db
         await self.key_client.flushdb()
         # Set up the new one.
@@ -75,7 +73,7 @@ class KeyService:
         """
         db_key = await self.repository.get_key(key)
         if not db_key is None and db_key.user_id == user_id:
-            await self.repository.deactivate_key(key)
+            await self.repository.deactivate_key(db_key)
             await self.key_client.delete(key)
         else:
             if db_key is None:
@@ -95,12 +93,16 @@ class KeyService:
 
         """
         if user_id == None:
-            await self.repository.deactivate_key(key)
-            await self.key_client.delete(key)
+            db_key = await self.repository.get_key(key)
+            if db_key is not None:
+                await self.repository.deactivate_key(db_key)
+                await self.key_client.delete(key)
         else:
             await self.delete_key_for_user(key=key, user_id=user_id)
 
-    async def create_key(self, name: str, user_id: str | None = None) -> APIKey:
+    async def create_key(
+        self, name: str, user_id: str | None = None, service: str | None = None
+    ) -> APIKey:
         """
         Generates a unique API key and associates it with a specified user.
         The User MUST exist prior to calling this function.
@@ -111,7 +113,10 @@ class KeyService:
         Returns:
         - api_key: The generated unique API key associated with the user_id
         """
-        api_key = await self.repository.create_api_key(user_id=user_id, name=name)
+        assert user_id is not None or service is not None
+        api_key = await self.repository.create_api_key(
+            user_id=user_id, name=name, service=service
+        )
         await self._set_key_in_redis(api_key)
         return api_key
 
@@ -157,5 +162,5 @@ class KeyService:
         keys = await self.repository.deactivate_keys_for_user(user_id=user_id)
         # Clea up the keys in redis
         for key in keys:
-            self.key_client.delete(key.key)
-            self.quota_client.delete(key.key)
+            await self.key_client.delete(key.key)
+            await self.quota_client.delete(key.key)

@@ -12,6 +12,8 @@ class APIKey(BaseModel):
 
     @model_validator(mode="after")
     def check_one_source_exists(self) -> Self:
-        if self.user is None and self.service is None:
-            raise ValueError("Missing Source! Either user or key has to be non None")
+        if self.user_id is None and self.service is None:
+            raise ValueError(
+                "Missing Source! Either user or service has to be non None"
+            )
         return self

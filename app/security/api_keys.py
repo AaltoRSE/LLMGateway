@@ -34,6 +34,8 @@ async def get_user_for_api_key(
     - HTTPException: If the provided API key is invalid or missing, it raises a 401 status code error
         with the detail "Invalid or missing API Key". Additionally, logs information about the header and key.
     """
+    if api_key is None or api_key == "":
+        return None
     api_key = re.sub("^Bearer ", "", api_key)
     if api_key == "":
         # This should happen, if there is no API key set.
@@ -43,13 +45,13 @@ async def get_user_for_api_key(
         if key.user_id is not None:
             user = await user_service.get_user_by_id(key.user_id)
             return BackendUser(
-                user_id=user.id,
+                username=user.id,
                 isadmin=user.admin,
                 request_source=RequestSource(user_id=user.id, key=api_key),
             )
         else:
             return BackendUser(
-                user_id=key.service,
+                username=key.service,
                 isadmin=False,
                 request_source=RequestSource(key=api_key),
             )
@@ -77,12 +79,12 @@ def get_admin_user_from_key(
     - HTTPException: If the provided admin key doesn't match the one stored in the environment.
         It raises a 401 status code error with the detail "Privileged Access required".
     """
-    if admin_key_header == "":
+    if admin_key_header is None or admin_key_header == "":
         # This should happen, if there is no API key set.
         return None
     if admin_key_header == os.environ.get("ADMIN_KEY"):
         return BackendUser(
-            user_id="Admin",
+            username="Admin",
             request_source=RequestSource(key=admin_key_header),
             isadmin=True,
         )

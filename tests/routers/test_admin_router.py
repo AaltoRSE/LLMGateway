@@ -3,18 +3,21 @@ from fastapi.testclient import TestClient
 
 from app.schemas.llmmodel_schema import LLMModelData, LLMModelDataDetails
 from app.requests.admin_requests import *
-from app.services.model_service import ModelService
 from app.services.user_service import UserService
 from app.services.key_service import KeyService
+from app.services.model_service import ModelService
 from app.services.usage_service import UsageService
+from app.services.model_service import ModelService
 from tests.fixtures.db_fixtures import Repositories
-from app.dbs.redis.redis import get_model_client
 import pytest
 
 
 @pytest.mark.asyncio
 async def test_add_remove_update_and_get_model_admin(
-    mock_repositories: Repositories, redis_dbs, admin_key_client: TestClient
+    mock_repositories: Repositories,
+    redis_dbs,
+    admin_key_client: TestClient,
+    model_service: ModelService,
 ):
     request = LLMModelData(
         path="testpath",
@@ -28,23 +31,22 @@ async def test_add_remove_update_and_get_model_admin(
     )
     response = admin_key_client.post("/admin/addmodel", json=request.model_dump())
     assert response.status_code == 201
-    service = ModelService(mock_repositories.model_repo, get_model_client())
-    models = await service.get_models()
+    models = await model_service.get_models()
     assert len(models) == 1
     assert models[0].name == "test"
     request2 = request.model_copy(deep=True)
-    request2.path = "test2"
-    request2.model.id = "testpath2"
+    request2.path = "testpath2"
+    request2.model.id = "test2"
     response2 = admin_key_client.post("/admin/addmodel", json=request2.model_dump())
     assert response2.status_code == 201
-    models = service.get_models()
+    models = await model_service.get_models()
     assert len(models) == 2
-    model_path_1, model_host_1 = await service.get_model_location("test")
-    model_path_2, model_host_2 = await service.get_model_location("test2")
+    model_path_1, model_host_1 = await model_service.get_model_location("test", "chat")
+    model_path_2, model_host_2 = await model_service.get_model_location("test2", "chat")
     assert model_path_1 == "testpath"
-    assert model_host_1 == "test"
+    assert model_host_1 == "http://host.svc"
     assert model_path_2 == "testpath2"
-    assert model_host_2 == "test2"
+    assert model_host_2 == "http://host.svc"
     # No conflict allowed
     response3 = admin_key_client.post("/admin/addmodel", json=request.model_dump())
     assert response3.status_code == 409
@@ -59,13 +61,11 @@ async def test_add_remove_update_and_get_model_admin(
     request3 = RemoveModelRequest(model="test")
     response4 = admin_key_client.post("/admin/removemodel", json=request3.model_dump())
     assert response4.status_code == 200
-    assert len(service.get_models()) == 1
-    try:
-        service.get_model_location("test")
-        assert False
-    except HTTPException as e:
-        assert e.status_code == 404
-        assert e.detail == f"Model test not found"
+    assert len(await model_service.get_models()) == 1
+    with pytest.raises(HTTPException) as execinfo:
+        await model_service.get_model_location("test", "chat")
+    assert execinfo.value.status_code == 404
+
     # Can't remove it again.
     response4 = admin_key_client.post("/admin/removemodel", json=request3.model_dump())
     assert response4.status_code == 410
@@ -77,7 +77,7 @@ async def test_add_remove_update_and_get_model_admin(
     request2.path = "/new/path"
     response = admin_key_client.post("/admin/update_model", json=request2.model_dump())
     assert response.status_code == 200
-    model_path_2, model_host_2 = await service.get_model_location("test2")
+    model_path_2, model_host_2 = await model_service.get_model_location("test2")
     assert model_path_2 == "/new/path"
 
 

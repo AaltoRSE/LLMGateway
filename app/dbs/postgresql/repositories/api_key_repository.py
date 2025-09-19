@@ -53,12 +53,16 @@ class SQLAPIKeyRepositry(APIKeyRepository):
 
         return api_key
 
-    async def create_api_key(self, name: str, user_id: str | None = None) -> APIKey:
+    async def create_api_key(
+        self, name: str, user_id: str | None = None, service: str | None = None
+    ) -> APIKey:
         """
         Create a new API key for a user
         """
         key = self.generate_api_key()
-        api_key: APIKey = self.build_new_key_object(key=key, name=name, user_id=user_id)
+        api_key: APIKey = self.build_new_key_object(
+            key=key, name=name, user_id=user_id, service=service
+        )
         return self._create_new_db_key(api_key)
 
     async def update_key(self, updated_key: APIKey) -> APIKey | None:

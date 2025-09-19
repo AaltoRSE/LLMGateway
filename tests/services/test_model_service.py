@@ -21,8 +21,9 @@ async def test_init_models(
 ):
     testmodel = create_test_model()
     await mock_repositories.model_repo.add_model(testmodel)
+    # Model not yet added to the redis system, only to the db
     with pytest.raises(HTTPException) as execinfo:
-        model_service.get_model(testmodel.model.id)
+        await model_service.get_model(testmodel.model.id)
     assert execinfo.value.status_code == 404
     models = await model_service.get_api_models()
     assert len(models) == 1
@@ -36,7 +37,7 @@ async def test_init_models(
 @pytest.mark.asyncio
 async def test_add_model(model_service: ModelService, mock_repositories: Repositories):
     await model_service.init_models()
-    currentModels = model_service.get_api_models()
+    currentModels = await model_service.get_api_models()
     assert len(currentModels) == 0
     assert len(mock_repositories.model_repo.__class__.models.values()) == 0
     model = create_test_model(path="test", id="test")
@@ -49,7 +50,7 @@ async def test_add_model(model_service: ModelService, mock_repositories: Reposit
     assert execinfo.value.status_code == 409
 
     model = create_test_model(path="test2", id="test2")
-    model_service.add_model(model)
+    await model_service.add_model(model)
     # Adding second model works
     assert len(mock_repositories.model_repo.__class__.models.values()) == 2
 
@@ -60,7 +61,7 @@ async def test_update_model(
     model_service: ModelService, mock_repositories: Repositories
 ):
     await model_service.init_models()
-    currentModels = model_service.get_api_models()
+    currentModels = await model_service.get_api_models()
     assert len(currentModels) == 0
     model = create_test_model(path="test", id="test")
     await model_service.add_model(model)
@@ -88,35 +89,38 @@ async def test_get_model_path(
     found1 = False
     found2 = False
     for model in models:
-        if model.model.id == "test":
+        if model.id == "test":
             found1 = True
-            assert model.model.owned_by == "test3"
-            assert len(model.model.permissions) == 0
-            assert model.model.object == "model"
-        if model.model.id == "test2":
+            assert model.owned_by == "test3"
+            assert len(model.permissions) == 0
+            assert model.object == "model"
+        if model.id == "test2":
             found2 = True
-            assert model.model.owned_by == "test4"
-            assert len(model.model.permissions) == 0
-            assert model.model.object == "model"
+            assert model.owned_by == "test4"
+            assert len(model.permissions) == 0
+            assert model.object == "model"
 
     assert found1 and found2
     model = create_test_model(path="test3", id="test3")
     await model_service.add_model(model)
     assert len(mock_repositories.model_repo.__class__.models.values()) == 3
-    host, path = await model_service.get_model_location("test")
-    host2, path2 = await model_service.get_model_location("test2")
-    host3, path3 = await model_service.get_model_location("test")
+    path, host = await model_service.get_model_location("test", "chat")
+    path2, host2 = await model_service.get_model_location("test2", "chat")
+    path3, host3 = await model_service.get_model_location("test3", "chat")
     assert path == "test2"
     assert path2 == "test2"
     assert path3 == "test3"
-    models = model_service.get_api_models()
+    with pytest.raises(HTTPException) as execinfo:
+        host3, path3 = await model_service.get_model_location("test", "embedding")
+    assert execinfo.value.status_code == 404
+    models = await model_service.get_api_models()
     assert len(models) == 3
 
 
 @pytest.mark.asyncio
 async def test_get_model(model_service: ModelService, mock_repositories: Repositories):
     await model_service.init_models()
-    currentModels = model_service.get_api_models()
+    currentModels = await model_service.get_api_models()
     assert len(currentModels) == 0
     model1 = create_test_model(path="test2")
     await model_service.add_model(model1)

@@ -42,7 +42,7 @@ async def test_log_usage(
     await key_service.init_keys()
     key1 = await key_service.create_key(user_id=normal_user.id, name="Key1")
     key2 = await key_service.create_key(user_id=admin_user.id, name="Key2")
-    key3 = await key_service.create_key(name="Key3")
+    key3 = await key_service.create_key(name="Key3", service="TestService")
     request1 = APIRequest(
         prompt_tokens=10,
         completion_tokens=10,
@@ -105,5 +105,5 @@ async def test_get_usage_for_user(
     await usage_service.log_usage(source1, request1)
     await usage_service.log_usage(source1, request2)
     await usage_service.log_usage(source2, request2)
-    usage = usage_service.get_usage_for_user(normal_user.id)
+    usage = await usage_service.get_usage_for_user(normal_user.id)
     assert len(usage) == 2

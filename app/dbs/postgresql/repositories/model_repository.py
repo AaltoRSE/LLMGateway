@@ -3,6 +3,7 @@ from typing import Annotated, List
 
 # DB Specific imports
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 
 from ..models.llmmodel_model import LLMModel as DBLLMModel
@@ -19,7 +20,7 @@ class SQLModelRepository(LLMModelRepository):
 
     def _convert_db_to_schema(self, db_model: DBLLMModel) -> LLMModelData:
         details = LLMModelDataDetails(
-            id=db_model.id,
+            id=db_model.llm_model_id,
             owned_by=db_model.owned_by,
             object=db_model.object,
             type=db_model.type,
@@ -36,7 +37,7 @@ class SQLModelRepository(LLMModelRepository):
         )
 
     def _convert_schema_to_db(self, model: LLMModelData) -> DBLLMModel:
-        return LLMModelData(
+        return DBLLMModel(
             path=model.path,
             host=model.host,
             name=model.name,
@@ -44,7 +45,7 @@ class SQLModelRepository(LLMModelRepository):
             prompt_cost=model.prompt_cost,
             completion_cost=model.completion_cost,
             cached_token_cost=model.cached_token_cost,
-            id=model.model.id,
+            llm_model_id=model.model.id,
             owned_by=model.model.owned_by,
             object=model.model.object,
             type=model.model.type,
@@ -71,12 +72,13 @@ class SQLModelRepository(LLMModelRepository):
         """
         Add a new model
         """
+        print("Adding new model")
         dbmodel = self._convert_schema_to_db(model)
         try:
             self.db.add(dbmodel)
             self.db.commit()
             self.db.refresh(dbmodel)
-        except:
+        except IntegrityError:
             self.db.rollback()
             return None
         return self._convert_db_to_schema(dbmodel)

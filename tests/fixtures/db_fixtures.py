@@ -1,10 +1,11 @@
 from typing import Generator
+import uuid as uuid
 
+import fakeredis
 import pytest
 
 import app.repositories.factories
 import app.config.db
-import app.dbs.redis.redis
 
 from tests.utils.mock_repositories import (
     UserRepositoryImpl,
@@ -14,11 +15,6 @@ from tests.utils.mock_repositories import (
     BalanceRepositoryImpl,
 )
 from tests.utils.repositories import Repositories
-import uuid as uuid
-
-
-import pytest
-from pytest_redis import factories
 
 
 @pytest.fixture
@@ -74,7 +70,7 @@ def mock_repositories(
     key_repo = APIKeyRepositoryImpl()
     usage_repo = UsageRepositoryImpl()
     balance_repo = BalanceRepositoryImpl()
-
+    print("Mocking repositories")
     yield Repositories(
         user_repo=user_repo,
         model_repo=model_repo,
@@ -89,20 +85,59 @@ def mock_repositories(
     balance_repo.reset()
 
 
-redis_my_proc = factories.redis_proc(port=6379)
-redis_model_client = factories.redisdb("redis_my_proc", 1)
-redis_key_client = factories.redisdb("redis_my_proc", 2)
-redis_key_quota_month_client = factories.redisdb("redis_my_proc", 3)
-redis_session_client = factories.redisdb("redis_my_proc", 4)
-redis_user_quota_month_client = factories.redisdb("redis_my_proc", 5)
-redis_user_balance_client = factories.redisdb("redis_my_proc", 6)
-redis_key_balance_client = factories.redisdb("redis_my_proc", 7)
+# redis_my_proc = factories.redis_proc(port=6379)
+# redis_model_client = factories.redisdb("redis_my_proc", 1)
+# redis_key_client = factories.redisdb("redis_my_proc", 2)
+# redis_key_quota_month_client = factories.redisdb("redis_my_proc", 3)
+# redis_session_client = factories.redisdb("redis_my_proc", 4)
+# redis_user_quota_month_client = factories.redisdb("redis_my_proc", 5)
+# redis_user_balance_client = factories.redisdb("redis_my_proc", 6)
+# redis_key_balance_client = factories.redisdb("redis_my_proc", 7)
+@pytest.fixture
+def redis_model_client():
+    redis_client = fakeredis.FakeAsyncRedis()
+    return redis_client
+
+
+@pytest.fixture
+def redis_key_client():
+    redis_client = fakeredis.FakeAsyncRedis()
+    return redis_client
+
+
+@pytest.fixture
+def redis_key_quota_month_client():
+    redis_client = fakeredis.FakeAsyncRedis()
+    return redis_client
+
+
+@pytest.fixture
+def redis_session_client():
+    redis_client = fakeredis.FakeAsyncRedis()
+    return redis_client
+
+
+@pytest.fixture
+def redis_user_quota_month_client():
+    redis_client = fakeredis.FakeAsyncRedis()
+    return redis_client
+
+
+@pytest.fixture
+def redis_user_balance_client():
+    redis_client = fakeredis.FakeAsyncRedis()
+    return redis_client
+
+
+@pytest.fixture
+def redis_key_balance_client():
+    redis_client = fakeredis.FakeAsyncRedis()
+    return redis_client
 
 
 @pytest.fixture
 def redis_dbs(
     monkeypatch,
-    redis_my_proc,
     redis_model_client,
     redis_key_client,
     redis_key_quota_month_client,
@@ -111,29 +146,45 @@ def redis_dbs(
     redis_user_balance_client,
     redis_key_balance_client,
 ):
-    print("Redis Clients")
-    monkeypatch.setattr(
-        app.dbs.redis.redis, "get_model_client", lambda: redis_model_client
-    )
-    monkeypatch.setattr(app.dbs.redis.redis, "get_key_client", lambda: redis_key_client)
+    print("Redis DBs")
+    import app.dbs.redis.redis
+
+    async def patch_model_client():
+        yield redis_model_client
+
+    async def patch_key_client():
+        yield redis_key_client
+
+    async def patch_key_quota_client():
+        yield redis_key_quota_month_client
+
+    async def patch_session_client():
+        yield redis_session_client
+
+    async def patch_user_quota_client():
+        yield redis_user_quota_month_client
+
+    async def patch_user_balance_client():
+        yield redis_user_balance_client
+
+    async def patch_key_balance_client():
+        yield redis_key_balance_client
+
+    monkeypatch.setattr(app.dbs.redis.redis, "get_model_client", patch_model_client)
+
+    monkeypatch.setattr(app.dbs.redis.redis, "get_key_client", patch_key_client)
     monkeypatch.setattr(
         app.dbs.redis.redis,
         "get_key_quota_client",
-        lambda: redis_key_quota_month_client,
+        patch_key_quota_client,
+    )
+    monkeypatch.setattr(app.dbs.redis.redis, "get_session_client", patch_session_client)
+    monkeypatch.setattr(
+        app.dbs.redis.redis, "get_user_quota_client", patch_user_quota_client
     )
     monkeypatch.setattr(
-        app.dbs.redis.redis, "get_session_client", lambda: redis_session_client
+        app.dbs.redis.redis, "get_user_balance_client", patch_user_balance_client
     )
     monkeypatch.setattr(
-        app.dbs.redis.redis,
-        "get_user_quota_client",
-        lambda: redis_user_quota_month_client,
-    )
-    monkeypatch.setattr(
-        app.dbs.redis.redis,
-        "get_user_balance_client",
-        lambda: redis_user_balance_client,
-    )
-    monkeypatch.setattr(
-        app.dbs.redis.redis, "get_key_balance_client", lambda: redis_key_balance_client
+        app.dbs.redis.redis, "get_key_balance_client", patch_key_balance_client
     )

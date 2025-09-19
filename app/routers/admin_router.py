@@ -25,35 +25,36 @@ logger = logging.getLogger("admin")
 
 # Admin endpoints
 @router.post("/addmodel", status_code=status.HTTP_201_CREATED)
-def add_model(
+async def add_model(
     modelData: LLMModelData,
     model_handler: Annotated[ModelService, Depends(ModelService)],
 ):
-    model_handler.add_model(modelData)
+    print(modelData)
+    await model_handler.add_model(modelData)
 
 
 @router.post("/removemodel", status_code=status.HTTP_200_OK)
-def remove_model(
+async def remove_model(
     remove: RemoveModelRequest,
     model_handler: Annotated[ModelService, Depends(ModelService)],
 ):
     try:
-        model_handler.remove_model(remove.model)
+        await model_handler.remove_model(remove.model)
     except KeyError as e:
         raise HTTPException(status.HTTP_410_GONE)
 
 
 @router.get("/models", status_code=status.HTTP_200_OK)
-def get_details_for_model(
+async def get_details_for_model(
     model_service: Annotated[ModelService, Depends(ModelService)],
 ) -> List[LLMModelData]:
-    models = model_service.get_models()
+    models = await model_service.get_models()
     logger.debug(models)
     return models
 
 
 @router.post("/update_model", status_code=status.HTTP_200_OK)
-def get_details_for_model(
+async def get_details_for_model(
     modelData: AddAvailableModelRequest,
     model_service: Annotated[ModelService, Depends(ModelService)],
     admin_user: BackendUser = Security(requires_admin),
@@ -71,7 +72,7 @@ def get_details_for_model(
             type=modelData.type,
         ),
     )
-    model_service.update_model(model_to_update)
+    await model_service.update_model(model_to_update)
 
 
 # This resets the given ser to the default status.
@@ -90,12 +91,12 @@ async def reset_user(
 
 @router.get("/listkeys")
 @router.post("/listkeys")
-def list_keys(
+async def list_keys(
     RequestData: Request,
     key_handler: Annotated[KeyService, Depends(KeyService)],
 ) -> List[APIKey]:
     logger.debug("Keys requested")
-    return key_handler.list_keys()
+    return await key_handler.list_keys()
 
 
 @router.post("/list_users", status_code=status.HTTP_200_OK)
@@ -128,10 +129,10 @@ async def get_user_usage(
 
 
 @router.post("/get_usage_for_user", status_code=status.HTTP_200_OK)
-def get_usage_for_user(
+async def get_usage_for_user(
     request: UserUsageRequest,
     usage_service: Annotated[UsageService, Depends(UsageService)],
 ) -> List[APIRequest]:
-    return usage_service.get_usage_for_user(
+    return await usage_service.get_usage_for_user(
         request.user_id, from_time=request.from_time, to_time=request.to_time
     )

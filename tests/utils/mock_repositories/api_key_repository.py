@@ -26,12 +26,16 @@ class KeyRepository(APIKeyRepository):
                 api_key.key = self.generate_api_key()
         return api_key
 
-    async def create_api_key(self, name: str, user_id: str | None = None) -> APIKey:
+    async def create_api_key(
+        self, name: str, user_id: str | None = None, service: str | None = None
+    ) -> APIKey:
         """
         Create a new API key for a user
         """
         key = self.generate_api_key()
-        api_key: APIKey = self.build_new_key_object(key=key, name=name, user_id=user_id)
+        api_key: APIKey = self.build_new_key_object(
+            key=key, name=name, user_id=user_id, service=service
+        )
         return self._create_new_db_key(api_key)
 
     async def update_key(self, updated_key: APIKey) -> APIKey | None:
@@ -59,8 +63,14 @@ class KeyRepository(APIKeyRepository):
         """
         Deactivate a given key. Keys can not be reactivated.
         """
-        update = APIKey(key.key, active=False, name=key.name)
-        res = self.update_key(update)
+        update = APIKey(
+            key=key.key,
+            service=key.service,
+            user_id=key.user_id,
+            active=False,
+            name=key.name,
+        )
+        res = await self.update_key(update)
         if res:
             return True
         else:
@@ -79,6 +89,14 @@ class KeyRepository(APIKeyRepository):
         else:
             keys = [key.model_copy(deep=True) for key in self.__class__.keys.values()]
         return keys
+
+    async def get_key(self, api_key: str) -> APIKey:
+        """
+        Get all keys.
+        """
+        if api_key in self.__class__.keys:
+            return self.__class__.keys[api_key].model_copy()
+        return None
 
     async def deactivate_keys_for_user(self, user_id: str) -> None:
         """
