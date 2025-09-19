@@ -8,20 +8,20 @@ from tests.fixtures.db_fixtures import Repositories
 
 
 normalData = UserBase(
-    auth_id="TestUser",
+    auth_id="user",
     first_name="Test",
     last_name="User",
     admin=False,
-    accepted_agreement_version="1.0",
+    accepted_agreement_version="2.0",
     quota="40",
 )
 
 adminData = UserBase(
-    auth_id="AdminUser",
+    auth_id="admin",
     first_name="Admin",
     last_name="User",
     admin=True,
-    accepted_agreement_version="2.0",
+    accepted_agreement_version="1.0",
     quota="100",
 )
 
@@ -29,7 +29,7 @@ adminData = UserBase(
 @pytest_asyncio.fixture
 async def normal_user(
     mock_repositories: Repositories,
-) -> AsyncGenerator[User, None, None]:
+) -> AsyncGenerator[User, None]:
     """
     Fixture to a normal user in the authentication scheme.
 
@@ -45,10 +45,10 @@ async def normal_user(
     mock_repositories.usage_repo.reset()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def admin_user(
     mock_repositories: Repositories,
-) -> AsyncGenerator[User, None, None]:
+) -> AsyncGenerator[User, None]:
     """
     Fixture to an admin user in the authentication scheme.
 
@@ -59,7 +59,7 @@ async def admin_user(
 
     """
 
-    user = mock_repositories.user_repo.create_new_user(adminData)
+    user = await mock_repositories.user_repo.create_new_user(adminData)
     yield user
     mock_repositories.usage_repo.reset()
 

@@ -1,7 +1,8 @@
 from typing import List, Dict, Literal, Optional
 from pydantic import BaseModel, RootModel, Field
 
-model_type = Literal["chat", "embedding", "responses"]
+model_types = ["chat", "embedding", "responses"]
+model_type = Literal[*model_types]
 
 
 class LLMModelDataDetails(BaseModel):

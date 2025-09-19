@@ -15,6 +15,7 @@ def create_test_model(path="test", host="http://host.svc", id="test", owned_by="
     )
 
 
+@pytest.mark.asyncio
 async def test_init_models(
     model_service: ModelService, mock_repositories: Repositories
 ):
@@ -32,6 +33,7 @@ async def test_init_models(
 
 
 # Testing whether keys are checked correctly
+@pytest.mark.asyncio
 async def test_add_model(model_service: ModelService, mock_repositories: Repositories):
     await model_service.init_models()
     currentModels = model_service.get_api_models()
@@ -53,6 +55,7 @@ async def test_add_model(model_service: ModelService, mock_repositories: Reposit
 
 
 # Testing whether keys are checked correctly
+@pytest.mark.asyncio
 async def test_update_model(
     model_service: ModelService, mock_repositories: Repositories
 ):
@@ -72,6 +75,7 @@ async def test_update_model(
     assert changed_model.model.path == "this/is/the/new/path"
 
 
+@pytest.mark.asyncio
 async def test_get_model_path(
     model_service: ModelService, mock_repositories: Repositories
 ):
@@ -109,6 +113,7 @@ async def test_get_model_path(
     assert len(models) == 3
 
 
+@pytest.mark.asyncio
 async def test_get_model(model_service: ModelService, mock_repositories: Repositories):
     await model_service.init_models()
     currentModels = model_service.get_api_models()
@@ -126,6 +131,7 @@ async def test_get_model(model_service: ModelService, mock_repositories: Reposit
     assert model2_retrieved.model.path == model2.path
 
 
+@pytest.mark.asyncio
 async def test_remove_model(
     model_service: ModelService, mock_repositories: Repositories
 ):

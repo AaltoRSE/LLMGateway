@@ -1,4 +1,4 @@
-from app.repositories.api_key_repository import APIKeyRepository, APIKey, user_id
+from app.repositories.api_key_repository import APIKeyRepository, APIKey
 from fastapi import Depends
 
 # DB Specific imports

@@ -9,7 +9,7 @@ from app.schemas.key_schema import APIKey
 class APIKeyRepository:
     """Repository for User related database operations"""
 
-    async def generate_api_key(self, length: int = 64):
+    def generate_api_key(self, length: int = 64):
         """
         Function to generate an API key.
 

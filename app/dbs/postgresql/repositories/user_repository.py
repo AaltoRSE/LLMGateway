@@ -1,8 +1,10 @@
 """This module provides user repository functionality"""
 
 from typing import Annotated, List
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+
 from app.repositories.user_repository import UserRepository
 from app.schemas.user_schema import User, UserBase
 from ..models.user_model import User as DBUser
@@ -57,9 +59,13 @@ class SQLUserRepository(UserRepository):
             accepted_agreement_version=user.accepted_agreement_version,
             quota=user.quota,
         )
-        self.db.add(db_user)
-        self.db.commit()
-        self.db.refresh(db_user)
+        try:
+            self.db.add(db_user)
+            self.db.commit()
+            self.db.refresh(db_user)
+        except IntegrityError as e:
+            self.db.rollback()
+            raise HTTPException(409, "User already exists")
         return self._convert_model_to_schema(db_user)
 
     async def update_user(self, user: User) -> User | None:

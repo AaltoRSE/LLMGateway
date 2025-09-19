@@ -2,14 +2,7 @@ import os
 import json
 from typing import List, Optional, Dict, TypedDict, Type
 from app import repositories
-
-# Get the directory of the current file
-current_file_directory = os.path.dirname(os.path.abspath(__file__))
-
-# Load the configuration file
-config_file_path = os.path.join(current_file_directory, "config.json")
-with open(config_file_path, "r", encoding="utf-8") as config_file:
-    config = json.load(config_file)
+from app.config import config
 
 
 class DatabaseConfig(TypedDict):
@@ -28,7 +21,7 @@ Databases: Dict[str, DatabaseConfig] = {
     },
     "BalanceDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
     "APIKeyDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
-    "UsageDB": {"options": ["postgresql"], "default": "postgresql", "current": None},    
+    "UsageDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
 }
 
 # Load all options
@@ -45,9 +38,15 @@ model_db = Databases["ModelDB"]["current"]
 usage_db = Databases["UsageDB"]["current"]
 
 UserRepositoryImpl: Type[repositories.UserRepository] = repositories.UserRepository
-LLMModelRepositoryImpl: Type[repositories.LLMModelRepository] = (repositories.LLMModelRepository)
-APIKeyRepositoryImpl: Type[repositories.APIKeyRepository] = (repositories.APIKeyRepository)
-BalanceRepositoryImpl:Type[repositories.BalanceRepository] = (repositories.BalanceRepository)
+LLMModelRepositoryImpl: Type[repositories.LLMModelRepository] = (
+    repositories.LLMModelRepository
+)
+APIKeyRepositoryImpl: Type[repositories.APIKeyRepository] = (
+    repositories.APIKeyRepository
+)
+BalanceRepositoryImpl: Type[repositories.BalanceRepository] = (
+    repositories.BalanceRepository
+)
 UsageRepositoryImpl: Type[repositories.UsageRepository] = repositories.UsageRepository
 
 # Load the correct database

@@ -9,7 +9,7 @@ from app.schemas.key_schema import APIKey
 @pytest_asyncio.fixture
 async def user_key(
     mock_repositories: Repositories, normal_user: User
-) -> AsyncGenerator[APIKey, None, None]:
+) -> AsyncGenerator[APIKey, None]:
     key = await mock_repositories.key_repo.create_api_key(
         name="UserKey", user_id=normal_user.id
     )

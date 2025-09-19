@@ -24,25 +24,42 @@ class UsageService:
             UsageRepository, Depends(get_usage_repository_class())
         ],
         balance_repository: Annotated[
-            BalanceRepository, Depends(get_balance_repository_class)
+            BalanceRepository, Depends(get_balance_repository_class())
         ],
-        user_repository: Annotated[UserRepository, Depends(get_user_repository_class)],
+        user_repository: Annotated[
+            UserRepository, Depends(get_user_repository_class())
+        ],
     ) -> None:
         self.usage_repository = usage_repository
         self.balance_repository = balance_repository
         self.usage_repository = user_repository
 
-    async def get_current_user_balance(self, user: BackendUser) -> Balance:
+    async def get_current_user_balance(self, user_id: str) -> Balance:
         """
         Get the current balance for a user.
 
         Args:
-            user (BackendUser): The user for whom the balance is being retrieved.
+            user (str): The user id for whom the balance is being retrieved.
 
         Returns:
             Balance: The current balance of the user.
         """
-        return self.balance_repository.get_user_balance(user)
+        return self.balance_repository.get_user_balance(user_id)
+
+    async def get_balance_for_request(self, source: RequestSource) -> Balance:
+        """
+        Get the current balance for the given RequestSource
+
+        Args:
+            source (RequestSource): The source for which to obtain a balance
+
+        Returns:
+            Balance: The current balance for the request
+        """
+        if source.is_key_based():
+            return self.balance_repository.get_key_balance(source.key)
+        else:
+            return self.get_current_user_balance(source.user_id)
 
     async def get_current_key_balance(self, key: str) -> Balance:
         """
@@ -69,11 +86,11 @@ class UsageService:
         """
 
         await self.usage_repository.log_usage(
-            user_id=source.user, key=source.key, usage=usage
+            user_id=source.user_id, key=source.key, usage=usage
         )
-        if source.user:
+        if source.user_id:
             await self.balance_repository.add_usage_to_user(
-                user_id=source.user, cost=usage.cost
+                user_id=source.user_id, cost=usage.cost
             )
         if source.key:
             await self.balance_repository.add_usage_to_key(

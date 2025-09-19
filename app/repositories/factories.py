@@ -7,29 +7,31 @@ from app.config.db import (
     UsageRepositoryImpl,
     LLMModelRepositoryImpl,
     APIKeyRepositoryImpl,
-    BalanceRepositoryImpl
+    BalanceRepositoryImpl,
 )
 from app import repositories
 
 
-async def get_user_repository_class() -> Type[repositories.UserRepository]:
+def get_user_repository_class() -> Type[repositories.UserRepository]:
     """Get a user repository"""
     return UserRepositoryImpl
 
 
-async def get_usage_repository_class() -> Type[repositories.UsageRepository]:
+def get_usage_repository_class() -> Type[repositories.UsageRepository]:
     """Get a usage repository"""
     return UsageRepositoryImpl
 
-async def get_balance_repository_class() -> Type[repositories.BalanceRepository]:
+
+def get_balance_repository_class() -> Type[repositories.BalanceRepository]:
     """Get a balance repository"""
     return BalanceRepositoryImpl
 
-async def get_llm_repository_class() -> Type[repositories.LLMModelRepository]:
+
+def get_llm_repository_class() -> Type[repositories.LLMModelRepository]:
     """Get a LLM Repository"""
     return LLMModelRepositoryImpl
 
 
-async def get_key_repository_class() -> Type[repositories.APIKeyRepository]:
+def get_key_repository_class() -> Type[repositories.APIKeyRepository]:
     """Get a apikey Repository"""
     return APIKeyRepositoryImpl

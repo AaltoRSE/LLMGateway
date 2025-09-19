@@ -9,14 +9,16 @@ from requests import PreparedRequest
 
 from typing import Any, List, Dict, Generator, AsyncGenerator
 from httpx import Request, Response, AsyncByteStream
-
 from sse_starlette.sse import EventSourceResponse
 
+from app.services.model_service import ModelService
 from app.utils.llm_model import (
     ChatCompletionResponse,
     ChatCompletionRequest,
     CreateResponse,
+    LLMModel,
 )
+from app.schemas.llmmodel_schema import LLMModelData, LLMModelDataDetails, model_types
 from app.schemas.openai_schemas import (
     OutputMessage,
     Response1 as OpenAIResponse,
@@ -196,7 +198,7 @@ def completions_response(request: PreparedRequest | Request) -> Response:
         body = request.body
         assert isinstance(body, str)
     data = ChatCompletionRequest.model_validate_json(body)
-    model = data.model    
+    model = data.model
     assert isinstance(model, str)
     if data.stream:
         include_stream_usage = (
@@ -231,7 +233,7 @@ def completions_api() -> Generator[respx.MockRouter, Any, Any]:
     Fixture for an LLM endpoint which yields a response with only ones as
     the embedding vector
     """
-    with respx.mock as mock:    
+    with respx.mock as mock:
         call_url = f"http://llm.service.com/chat/completions"
         print(f"Mocking calls to {call_url}")
         mock.post(
@@ -521,16 +523,119 @@ def responses_response(request: PreparedRequest | Request) -> Response:
 
 
 @pytest.fixture
-def responses_api() -> Generator[respx.MockRouter, Any, Any]:
+async def responses_api(
+    response_model: LLMModel,
+) -> AsyncGenerator[LLMModel, Any]:
     """
     Fixture for an LLM endpoint which yields a response with only ones as
     the embedding vector
     """
+
     with respx.mock as mock:
-        
-        call_url = f"http://llm.service.com/responses"
+        call_url = f"{response_model.model.host}{response_model.model.path}"
         print(f"Mocking calls to {call_url}")
         mock.post(
             call_url,
         ).mock(side_effect=responses_response)
-        yield mock
+        yield response_model
+
+
+@pytest.fixture
+async def response_model(
+    model_service: ModelService,
+) -> AsyncGenerator[LLMModel, Any]:
+    model = LLMModelData(
+        cached_token_cost=0.001,
+        prompt_cost=0.001,
+        description="TestModel",
+        completion_cost=0.001,
+        host="http://llm.service.com",
+        path="/responses",
+        name="testmodel",
+        model=LLMModelDataDetails(
+            id="responses", owned_by="Admin", permissions=[], type=["responses"]
+        ),
+    )
+
+    await model_service.add_model(model)
+    yield await model_service.get_model(model.model.id)
+
+
+@pytest.fixture
+async def general_api(general_model: LLMModel) -> AsyncGenerator[LLMModelData, Any]:
+    """
+    Fixture for an LLM endpoint which yields a response with only ones as
+    the embedding vector
+    """
+
+    with respx.mock as mock:
+        call_url = f"{general_model.model.host}{general_model.model.path}"
+        print(f"Mocking calls to {call_url}")
+        mock.post(
+            call_url,
+        ).mock(side_effect=responses_response)
+    yield general_model
+
+
+@pytest.fixture
+async def general_model(
+    model_service: ModelService,
+) -> AsyncGenerator[LLMModel, Any]:
+    model = LLMModel(
+        LLMModelData(
+            cached_token_cost=0.001,
+            prompt_cost=0.001,
+            description="TestModel",
+            completion_cost=0.001,
+            host="http://llm.service.com",
+            path="/general",
+            name="testmodel",
+            model=LLMModelDataDetails(
+                id="general",
+                owned_by="Admin",
+                permissions=[],
+                type=["chat", "responses", "embedding"],
+            ),
+        )
+    )
+    await model_service.add_model(model)
+    yield await model_service.get_model(model.model.id)
+
+
+@pytest.fixture
+async def embedding_api(
+    embedding_model: LLMModel,
+) -> AsyncGenerator[LLMModel, Any]:
+    """
+    Fixture for an LLM endpoint which yields a response with only ones as
+    the embedding vector
+    """
+
+    with respx.mock as mock:
+        call_url = f"{embedding_model.model.host}{embedding_model.model.path}"
+        print(f"Mocking calls to {call_url}")
+        mock.post(
+            call_url,
+        ).mock(side_effect=responses_response)
+    yield embedding_model
+
+
+@pytest.fixture
+async def embedding_model(
+    model_service: ModelService,
+) -> AsyncGenerator[LLMModel, Any]:
+    model = LLMModelData(
+        cached_token_cost=0.001,
+        prompt_cost=0.001,
+        description="TestModel",
+        completion_cost=0.001,
+        host="http://llm.service.com",
+        path="/embedding",
+        name="testmodel",
+        model=LLMModelDataDetails(
+            id="embedding", owned_by="Admin", permissions=[], type=["embedding"]
+        ),
+    )
+
+    await model_service.add_model(model)
+    yield await model_service.get_model(model.model.id)

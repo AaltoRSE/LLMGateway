@@ -192,6 +192,9 @@ Vagrantfile
 # SAML certificates and settings (depend on the actual location)
 app/security/saml_data/certs/*
 
+# Front end code
+dist/**/*
+
 # dev databases
 mongodb/**/*
 data/**/*

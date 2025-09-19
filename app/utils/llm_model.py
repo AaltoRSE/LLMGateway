@@ -25,7 +25,7 @@ from app.schemas.openai_schemas import (
     ResponseUsage,
 )
 from app.schemas.usage_schema import APIRequest
-from gateway.app.schemas.llmmodel_schema import LLMModelData
+from app.schemas.llmmodel_schema import LLMModelData
 from app.security.auth import BackendUser
 from app.utils.stream_handling import process_completion_stream, process_response_stream
 
@@ -167,9 +167,9 @@ class LLMModel:
                 "Host": f"{self.model.host}",
             },  # SECURITY: forwarding authentication token
         )
-        model_response = await self.stream_client.send(httpx_request, stream=True)
+        model_response = await self.client.send(httpx_request, stream=True)
 
-        return self.filter_stream(
+        return self.filter_chat_stream(
             model_response.aiter_text(), usage_callback, filter_usage
         )
 
@@ -205,10 +205,10 @@ class LLMModel:
         usage = return_value.usage
         usage_callback(
             APIRequest(
-                model=self.name,
+                model=self.model.model.id,
                 prompt_tokens=0 if usage is None else usage.prompt_tokens,
                 completion_tokens=0 if usage is None else usage.completion_tokens,
-                cost=0 if usage is None else self.calc_cost_from_usage(usage),
+                cost=0 if usage is None else self.calc_cost_from_response_usage(usage),
                 timestamp=datetime.now(),
             )
         )
@@ -244,9 +244,9 @@ class LLMModel:
             json=request_data,
             headers={"Authorization": f"{inference_key}", "Host": f"{self.model.host}"},
         )
-        model_response = await self.stream_client.send(httpx_request, stream=True)
+        model_response = await self.client.send(httpx_request, stream=True)
 
-        return self.filter_stream(model_response.aiter_text(), usage_callback)
+        return self.filter_response_stream(model_response.aiter_text(), usage_callback)
 
     async def non_stream_response_request(
         self,
@@ -280,7 +280,7 @@ class LLMModel:
         usage = return_value.usage
         usage_callback(
             APIRequest(
-                model=self.name,
+                model=self.model.model.id,
                 prompt_tokens=0 if usage is None else usage.input_tokens,
                 completion_tokens=0 if usage is None else usage.output_tokens,
                 cost=0 if usage is None else self.calc_cost_from_response_usage(usage),
@@ -289,7 +289,7 @@ class LLMModel:
         )
         return return_value
 
-    def embed(
+    async def embed(
         self,
         user: BackendUser,
         request: CreateEmbeddingRequest,
@@ -302,8 +302,8 @@ class LLMModel:
             url=f"{self.model.path}/v1/embeddings",
             json=request_data,
             headers={
-                "Authorization": f"Bearer {user.auth_token}",
-                "Host": self.model.host,
+                "Authorization": f"{inference_key}",
+                "Host": f"{self.model.host}",
             },  # SECURITY: forwarding authentication token
         )
         embeddings = CreateEmbeddingResponse.model_validate(model_response.json())

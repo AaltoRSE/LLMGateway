@@ -40,16 +40,16 @@ async def get_user_for_api_key(
         return None
     key = await key_service.get_user_key_if_active(api_key)
     if key is not None:
-        if key.user is not None:
-            user = await user_service.get_user_by_id(key.user)
+        if key.user_id is not None:
+            user = await user_service.get_user_by_id(key.user_id)
             return BackendUser(
-                username=user.id,
+                user_id=user.id,
                 isadmin=user.admin,
-                request_source=RequestSource(user=user.id, key=api_key),
+                request_source=RequestSource(user_id=user.id, key=api_key),
             )
         else:
             return BackendUser(
-                username=key.service,
+                user_id=key.service,
                 isadmin=False,
                 request_source=RequestSource(key=api_key),
             )
@@ -61,7 +61,7 @@ async def get_user_for_api_key(
     )
 
 
-def get_admin_user(
+def get_admin_user_from_key(
     admin_key_header: str = Security(admin_key_header),
 ) -> BackendUser | None:
     """
@@ -81,7 +81,11 @@ def get_admin_user(
         # This should happen, if there is no API key set.
         return None
     if admin_key_header == os.environ.get("ADMIN_KEY"):
-        return BackendUser(username="Admin", isadmin=True)
+        return BackendUser(
+            user_id="Admin",
+            request_source=RequestSource(key=admin_key_header),
+            isadmin=True,
+        )
     else:
         uvlogger.warning(f"Attempted Admin access with invalid key: {admin_key_header}")
     raise HTTPException(

@@ -9,9 +9,11 @@ from fastapi.responses import RedirectResponse
 from typing import Annotated
 
 
+from app.security.authentication_dependencies import (
+    requires_session,
+    authenticate_request,
+)
 from app.security.auth import (
-    get_user,
-    get_admin_user,
     get_request_source,
     check_auth_response,
     check_logout_response,
@@ -105,7 +107,7 @@ async def metadata():
 async def saml_slo_logout(
     request: Request,
     session_service: Annotated[SessionService, Depends(SessionService)],
-    user: BackendUser = Security(get_user),
+    user: BackendUser = Security(requires_session),
 ):
     """
     Logout endpoint
@@ -119,7 +121,7 @@ async def saml_slo_logout(
 async def saml_sls_logout(
     request: Request,
     session_service: Annotated[SessionService, Depends(SessionService)],
-    user: BackendUser = Security(get_user),
+    user: BackendUser = Security(requires_session),
 ):
     """
     Logout callback. If this is successfull, the users session is removed.
@@ -132,19 +134,42 @@ async def saml_sls_logout(
 
 @router.get("/test_auth")
 @router.post("/test_auth")
-async def test_authentication(request: Request, user: BackendUser = Security(get_user)):
+async def test_authentication(
+    request: Request, user: BackendUser = Depends(authenticate_request)
+):
     """
     Test authentication endpoint
     """
-    if user.is_authenticated:
-        return {"authed": True, "user": request.user.username}
+    if user is not None:
+        return {"authed": True, "user": user.user_id}
+    else:
+        return {"authed": False, "reason": "No Token provided"}
+
+
+@router.get("/test_session")
+@router.post("/test_session")
+async def test_authentication(
+    request: Request, user: BackendUser = Depends(authenticate_request)
+):
+    """
+    Test authentication endpoint
+    """
+    if user is not None:
+        if user.request_source.is_session_based():
+            return {"authed": True, "session_active": True, "user": user.user_id}
+        else:
+            return {"authed": True, "session_active": False, "user": user.user_id}
     else:
         return {"authed": False, "reason": "No Token provided"}
 
 
 @router.get("/test_admin")
-async def test_admin(request: Request, user: BackendUser = Security(get_admin_user)):
+async def test_admin(
+    request: Request, user: BackendUser = Security(authenticate_request)
+):
     """
     Test authentication endpoint
     """
-    return {"user": user.get_user_data()}
+    if user is not None and user.is_admin():
+        return {"admin": user.is_admin()}
+    return {"admin": False}

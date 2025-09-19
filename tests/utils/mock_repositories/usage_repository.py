@@ -31,7 +31,7 @@ class UsageRepositoryImpl(UsageRepository):
     async def log_request(self, usage: APIRequest, source: RequestSource) -> None:
         self.__class__.usage_list.append(
             DataUsage(
-                user_id=source.user,
+                user_id=source.user_id,
                 key=source.key,
                 prompt_tokens=usage.prompt_tokens,
                 completion_tokens=usage.completion_tokens,

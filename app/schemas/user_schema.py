@@ -71,8 +71,8 @@ class InputAcceptAgreement(BaseModel):
 #
 # SECURITY: Logged in user controls the input here, do not add sensitive fields
 class UserUpdate(BaseModel):
-    store_data: Optional[bool] = None
-    selected_language: Optional[possible_languages] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     accepted_agreement_version: Optional[
         Annotated[str, AfterValidator(is_valid_agreement_version)]
     ] = None

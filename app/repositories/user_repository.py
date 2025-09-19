@@ -64,6 +64,10 @@ class UserRepository:
         -------
         User
             The newly created user.
+
+        Raises
+        ------
+        HTTPException: 409 if user exists
         """
         raise NotImplementedError
 

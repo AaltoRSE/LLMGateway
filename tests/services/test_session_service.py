@@ -1,5 +1,6 @@
 import time
 from fastapi import HTTPException
+import pytest
 
 from app.services.session_service import SessionService
 from app.services.user_service import UserService
@@ -14,6 +15,7 @@ def createTestSessionData(auth_id: str, groups: list = ["test"]) -> SessionAuthD
 
 
 # Testing whether keys are checked correctly
+@pytest.mark.asyncio
 async def test_create_session(
     session_service: SessionService, user_service: UserService
 ):
@@ -31,6 +33,7 @@ async def test_create_session(
     assert session2.ip == session.ip
 
 
+@pytest.mark.asyncio
 async def test_expire_session(user_service, redis_dbs):
     # We need a different client, that sets a different expiration time.
     session_service = SessionService(get_session_client(), exp_time=1)
@@ -45,6 +48,7 @@ async def test_expire_session(user_service, redis_dbs):
     assert await session_service.get_session(session.key) is None
 
 
+@pytest.mark.asyncio
 async def test_delete_session(
     session_service: SessionService, user_service: UserService
 ):

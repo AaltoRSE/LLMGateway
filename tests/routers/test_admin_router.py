@@ -9,8 +9,10 @@ from app.services.key_service import KeyService
 from app.services.usage_service import UsageService
 from tests.fixtures.db_fixtures import Repositories
 from app.dbs.redis.redis import get_model_client
+import pytest
 
 
+@pytest.mark.asyncio
 async def test_add_remove_update_and_get_model_admin(
     mock_repositories: Repositories, redis_dbs, admin_key_client: TestClient
 ):
@@ -79,6 +81,7 @@ async def test_add_remove_update_and_get_model_admin(
     assert model_path_2 == "/new/path"
 
 
+@pytest.mark.asyncio
 async def test_reset_user(
     admin_client: TestClient, mock_repositories: Repositories, redis_dbs
 ):
@@ -103,7 +106,8 @@ async def test_reset_user(
     assert response.status_code == 404
 
 
-def test_list_keys(admin_client: TestClient):
+@pytest.mark.asyncio
+async def test_list_keys(admin_client: TestClient):
     user_service = UserService()
     user_service.get_or_create_user_from_auth_data(
         "test", "test", "test", "thi@test.fi", ["employee"]
@@ -125,7 +129,8 @@ def test_list_keys(admin_client: TestClient):
     assert key4.key in [key["key"] for key in response.json()]
 
 
-def test_list_users(admin_client: TestClient):
+@pytest.mark.asyncio
+async def test_list_users(admin_client: TestClient):
     user_service = UserService()
     user_service.get_or_create_user_from_auth_data(
         "test", "test", "test", "thi@test.fi", ["employee"]
@@ -149,7 +154,8 @@ def test_list_users(admin_client: TestClient):
     assert len(listed_users) == 3  # Admin and test user
 
 
-def test_set_admin(admin_client: TestClient):
+@pytest.mark.asyncio
+async def test_set_admin(admin_client: TestClient):
     user_service = UserService()
     user_service.get_or_create_user_from_auth_data(
         "test", "test", "test", "thi@test.fi", ["employee"]
@@ -176,7 +182,8 @@ def test_set_admin(admin_client: TestClient):
     assert response.status_code == 400
 
 
-def test_get_usage_for_user(admin_client: TestClient):
+@pytest.mark.asyncio
+async def test_get_usage_for_user(admin_client: TestClient):
     usage_service = UsageService()
     user_service = UserService()
     key_service = KeyService()
@@ -239,7 +246,8 @@ def test_get_usage_for_user(admin_client: TestClient):
     assert admin_usage.cost == 4
 
 
-def test_no_access_user(user_client: TestClient):
+@pytest.mark.asyncio
+async def test_no_access_user(user_client: TestClient):
     request = admin.AddAvailableModelRequest(
         id="test", path="test", name="test", description="test"
     )
@@ -257,7 +265,8 @@ def test_no_access_user(user_client: TestClient):
     assert response.status_code == 403
 
 
-def test_no_access_no_user(unauthed_client: TestClient):
+@pytest.mark.asyncio
+async def test_no_access_no_user(unauthed_client: TestClient):
     request = admin.AddAvailableModelRequest(
         id="test", path="test", name="test", description="test"
     )

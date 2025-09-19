@@ -24,7 +24,7 @@ dependencies:
   - pytest=8.2.2
   - mock=5.1.0
   - pylint=3.2.7
-  - pytest-asyncio=0.24.0
+  - pytest-asyncio=1.2.0
   - pip-audit
   - dill
   - mypy
@@ -33,6 +33,6 @@ dependencies:
   - responses=0.25.7
   - respx=0.22.0
   - pytest-postgresql=7.0.1
-  - pipenv      
+  - pipenv        
   - pip: 
     - pytest-redis

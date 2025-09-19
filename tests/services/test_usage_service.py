@@ -32,13 +32,14 @@ def create_test_entry(
 
 
 # Testing whether keys are checked correctly
+@pytest.mark.asyncio
 async def test_log_usage(
     usage_service: UsageService,
     key_service: KeyService,
     normal_user: User,
     admin_user: User,
 ):
-    key_service.init_keys()
+    await key_service.init_keys()
     key1 = await key_service.create_key(user_id=normal_user.id, name="Key1")
     key2 = await key_service.create_key(user_id=admin_user.id, name="Key2")
     key3 = await key_service.create_key(name="Key3")
@@ -75,6 +76,7 @@ async def test_log_usage(
     assert user2_balance.balance_used == pytest.approx(1.0)
 
 
+@pytest.mark.asyncio
 async def test_get_usage_for_user(
     usage_service: UsageService,
     key_service: KeyService,

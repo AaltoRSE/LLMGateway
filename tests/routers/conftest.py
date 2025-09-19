@@ -11,3 +11,5 @@ from tests.fixtures.service_fixtures import (
     usage_service,
     model_service,
 )
+
+from tests.fixtures.db_fixtures import *

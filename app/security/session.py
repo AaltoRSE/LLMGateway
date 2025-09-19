@@ -1,19 +1,28 @@
-from starlette.requests import HTTPConnection
-from starlette.authentication import AuthCredentials, BaseUser
-from fastapi import HTTPException, Depends
-import logging
 from typing import Annotated
+import logging
 
-# Unfortunately we need to import the whole stack here, as FastAPI dependency injection
-# does not work with starlette middlewares.
+from starlette.requests import HTTPConnection
+from fastapi import HTTPException, Depends
+
+from app.security.auth import BackendUser, get_request_source, RequestSource
+
 from app.services.session_service import SessionService
-from app.services.key_service import KeyService
 from app.models.session import SESSION_DATA_FIELD, HTTPSession
 
 logger = logging.getLogger(__name__)
 
-from app.security.auth import get_request_source, BackendUser
-from app.security.api_keys import get_user_for_api_key, get_admin_user
+
+def clean_session(session):
+    # Remove the key data from the session.
+    session.pop("key")
+    # and explicitly mark the session as invalid.
+    session["invalid"] = True
+
+
+class SessionBasedAuthScheme:
+    def __init__(self, session_service, user_service):
+        self.session_service = session_service
+        self.user_service = user_service
 
 
 async def get_user_from_session(
@@ -55,34 +64,10 @@ async def get_user_from_session(
         logger.error(e)
         return
     currentUser = BackendUser(
-        username=session.user,
+        user_id=session.user_id,
+        request_source=RequestSource(user_id=session.user_id, has_session=True),
         userdata=session.data,
         roles=session.roles,
         isadmin=session.admin,
-        agreement_ok=session.agreement_ok,
     )
     return currentUser
-
-
-async def authenticate_request(
-    self,
-    conn: HTTPConnection,
-    session_user: BackendUser = Depends(get_user_from_session),
-    api_key_user: BackendUser = Depends(get_user_for_api_key),
-    admin_user: BackendUser = Depends(get_admin_user),
-) -> BackendUser:
-    user = None
-    if session_user is not None:
-        user = session_user
-    if user is None and api_key_user is not None:
-        user = api_key_user
-    if user is None and admin_user is not None:
-        user = admin_user
-    if user is not None:
-        # Potentially the credentials can be improved...
-        conn.scope["auth"], conn.scope["user"] = (
-            AuthCredentials(["authenticated"]),
-            user,
-        )
-        return user
-    raise HTTPException(403, "Invalid or missing credentials")

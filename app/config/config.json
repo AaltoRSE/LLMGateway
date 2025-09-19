@@ -1,10 +1,11 @@
 {
-    "Databases" : {
-        "UserDB" : "postgresql",
-        "ConversationDB" : "postgresql",
-        "DocumentDB" : "postgresql",
-        "DocumentSetDB" : "postgresql",
-        "UsageDB" : "postgresql",
-        "MessageDB" : "postgresql"
-    }
+    "Databases": {
+        "UserDB": "postgresql",
+        "ConversationDB": "postgresql",
+        "DocumentDB": "postgresql",
+        "DocumentSetDB": "postgresql",
+        "UsageDB": "postgresql",
+        "MessageDB": "postgresql"
+    },
+    "baseQuota": 30
 }

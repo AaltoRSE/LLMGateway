@@ -2,7 +2,6 @@ import pytest
 from fastapi import HTTPException
 from app.services.key_service import KeyService
 from app.services.user_service import UserService
-import gateway.app.dbs.redis.redis
 from tests.fixtures.db_fixtures import Repositories
 from app.schemas.key_schema import APIKey
 from app.schemas.user_schema import User
@@ -12,10 +11,10 @@ def create_test_user(username="TestUser"):
     return User(auth_id=username, first_name="Test", last_name="User")
 
 
+@pytest.mark.asyncio
 async def test_init_keys(
     mock_repositories: Repositories, key_service: KeyService, user_key: APIKey
 ):
-
     # Retrieves the keys from the mongo db
     current_keys = await key_service.list_keys()
     assert len(current_keys) == 1
@@ -41,6 +40,7 @@ async def test_init_keys(
 
 
 # Testing whether keys are checked correctly
+@pytest.mark.asyncio
 async def test_check_key(key_service: KeyService, normal_user: User, admin_user: User):
     normal_key = await key_service.create_key(name="test", user_id=normal_user.id)
     admin_key = await key_service.create_key(name="test", user_id=admin_user.id)
@@ -53,6 +53,7 @@ async def test_check_key(key_service: KeyService, normal_user: User, admin_user:
     assert res is None
 
 
+@pytest.mark.asyncio
 async def test_delete_key_for_user(
     mock_respositories: Repositories,
     key_service: KeyService,
@@ -74,6 +75,7 @@ async def test_delete_key_for_user(
     assert mock_respositories.key_repo.__class__.keys[new_key.key].active == False
 
 
+@pytest.mark.asyncio
 async def test_delete_key(
     mock_respositories: Repositories,
     key_service: KeyService,

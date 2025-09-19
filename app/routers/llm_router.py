@@ -21,9 +21,11 @@ from app.schemas.openai_schemas import (
     ChatCompletionStreamOptions,
     CreateResponse,
     CreateEmbeddingRequest,
+    CreateChatCompletionRequest,
 )
-from app.schemas.usage_schema import APIRequest
-from app.security.auth import get_user, BackendUser
+from app.schemas.embeddings_schema import EmbeddingRequest
+from app.schemas.usage_schema import APIRequest, Balance
+from app.security.authentication_dependencies import requires_auth, BackendUser
 
 from app.services.usage_service import UsageService
 from app.services.model_service import ModelService
@@ -40,25 +42,37 @@ router = APIRouter(
 default_model = "gpt-4o"
 
 
+async def out_of_quota(
+    usage_service: Annotated[UsageService, Depends(UsageService)],
+    current_user: BackendUser = Depends(requires_auth),
+) -> bool:
+    balance: Balance = await usage_service.get_balance_for_request(
+        current_user.request_source
+    )
+    return balance.used_up()
+
+
 @router.post("/responses", response_model=None)
 async def create_response(
     request_data: CreateResponse,
     usage_service: Annotated[UsageService, Depends(UsageService)],
     model_service: Annotated[ModelService, Depends(ModelService)],
-    current_user: BackendUser = Security(get_user),
+    current_user: BackendUser = Security(requires_auth),
+    out_of_quota: bool = Depends(out_of_quota),
 ) -> (
     JSONResponse | EventSourceResponse
 ):  # We will not define this further, as it otherwise will get painful, if the API changes.
-    if usage_service.get_current_balance(current_user).used_up():
+
+    if out_of_quota:
         raise HTTPException(402, "User out of Quota")
     try:
-        model = model_service.get_llm_model(
+        model = await model_service.get_model(
             request_data.model if not request_data.model is None else default_model
         )
     except ValueError:
         raise HTTPException(404, "The requested model is not available on the server")
     usage_callback: Callable[[APIRequest], Any] = lambda usage: usage_service.log_usage(
-        user=current_user, usage=usage
+        source=current_user.request_source, usage=usage
     )
     if request_data.stream:
         stream_iterator = await model.stream_response_request(
@@ -76,23 +90,24 @@ async def create_response(
 
 @router.post("/chat/completions", response_model=None)
 async def chat_completion(
-    request_data: ChatCompletionRequest,
+    request_data: CreateChatCompletionRequest,
     usage_service: Annotated[UsageService, Depends(UsageService)],
     model_service: Annotated[ModelService, Depends(ModelService)],
-    current_user: BackendUser = Security(get_user),
+    current_user: BackendUser = Security(requires_auth),
+    out_of_quota: bool = Depends(out_of_quota),
 ) -> (
     JSONResponse | EventSourceResponse
 ):  # We will not define this further, as it otherwise will get painful, if the API changes.
-    if usage_service.get_current_balance(current_user).used_up():
+    if out_of_quota:
         raise HTTPException(402, "User out of Quota")
     try:
-        model = model_service.get_llm_model(
+        model = await model_service.get_model(
             request_data.model if not request_data.model is None else default_model
         )
     except ValueError:
         raise HTTPException(404, "The requested model is not available on the server")
     usage_callback: Callable[[APIRequest], Any] = lambda usage: usage_service.log_usage(
-        user=current_user, usage=usage
+        source=current_user.request_source, usage=usage
     )
     if request_data.stream:
         added_usage = False
@@ -124,17 +139,18 @@ async def embedding(
     request_data: EmbeddingRequest,
     usage_service: Annotated[UsageService, Depends(UsageService)],
     model_service: Annotated[ModelService, Depends(ModelService)],
-    current_user: BackendUser = Security(get_user),
+    current_user: BackendUser = Security(requires_auth),
+    out_of_quota: bool = Depends(out_of_quota),
 ) -> CreateEmbeddingResponse:
 
-    if usage_service.get_current_balance(current_user).used_up():
+    if out_of_quota:
         raise HTTPException(402, "User out of Quota")
     try:
-        model = model_service.get_embedding_model(request_data.model)
+        model = await model_service.get_model(request_data.model)
     except ValueError:
         raise HTTPException(404, "The requested model is not available on the server")
     usage_callback: Callable[[APIRequest], Any] = lambda usage: usage_service.log_usage(
-        user=current_user, usage=usage
+        source=current_user.request_source, usage=usage
     )
     return model.embed(
         user=current_user, request=request_data, usage_callback=usage_callback

@@ -1,7 +1,7 @@
 """This module provides User service functionality"""
 
 from typing import List, Annotated
-from app.schemas.user_schema import User, UserBase, SessionAuthData
+from app.schemas.user_schema import User, UserBase, SessionAuthData, UserUpdate
 from pymongo import MongoClient
 from pymongo import ReturnDocument as Document
 import logging
@@ -37,6 +37,9 @@ class UserService:
     async def get_user_by_id(self, user_id: str) -> User:
         return await self.user_respository.get_user_by_id(user_id)
 
+    async def get_user_by_auth_id(self, auth_id: str) -> User:
+        return await self.user_respository.get_user_by_auth_id(auth_id)
+
     async def get_or_create_user_from_auth_data(
         self, authdata: SessionAuthData
     ) -> User:
@@ -51,7 +54,7 @@ class UserService:
         user = await self.get_user_by_id(authdata.auth_id)
         if not user:
             user = await self.create_new_user(
-                User(
+                UserBase(
                     auth_id=authdata.auth_id,
                     first_name=authdata.first_name,
                     last_name=authdata.last_name,
@@ -60,6 +63,13 @@ class UserService:
                 )
             )
         # TODO: Potentially Update the user data if it is nt what auth provides!
+        if (
+            user.first_name != authdata.first_name
+            or user.last_name != authdata.last_name
+        ):
+            user.first_name = authdata.first_name
+            user.last_name = authdata.last_name
+            user = await self.user_respository.update_user(user)
         return user
 
     async def get_all_users(self) -> List[User]:
@@ -67,10 +77,20 @@ class UserService:
         return await self.user_respository.get_all_users()
 
     async def update_agreement_version(self, user: User, version: str) -> User | None:
-        user.accepted_agreement_version = version
-        updated_user = await self.user_respository.update_user(User)
+        user_to_update = await self.get_user_by_id(user.id)
+        user_to_update.accepted_agreement_version = version
+        updated_user = await self.user_respository.update_user(user_to_update)
         if updated_user is None:
             raise HTTPException(404, "User not found")
+        return updated_user
+
+    async def reset_user(self, user: User):
+        user_to_update = await self.get_user_by_id(user.id)
+        user_to_update.accepted_agreement_version = "0.0"
+        updated_user = await self.user_respository.update_user(user_to_update)
+        if updated_user is None:
+            raise HTTPException(404, "User does not exist")
+        self.key_service.deactivate_keys_for_user(user.id)
         return updated_user
 
     async def reset_user(self, user: User):
@@ -79,6 +99,19 @@ class UserService:
         if updated_user is None:
             raise HTTPException(404, "User does not exist")
         self.key_service.deactivate_keys_for_user(user.id)
+        return updated_user
+
+    async def update_user(self, user_id: str, update: UserUpdate):
+        user_to_update = await self.get_user_by_id(user_id)
+        if user_to_update is None:
+            raise HTTPException(404, "User does not exist")
+        # Get all fields which are set in the update data
+        update_data = update.model_dump(exclude_none=True)
+        # Only update fields that exist in User
+        for field in update_data:
+            if hasattr(user_to_update, field):
+                setattr(user_to_update, field, update_data[field])
+        updated_user = await self.user_respository.update_user(user_to_update)
         return updated_user
 
     async def create_new_user(self, user: UserBase) -> User:

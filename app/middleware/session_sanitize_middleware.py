@@ -1,4 +1,3 @@
-
 from starlette.requests import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from app.services.session_service import SessionService
@@ -12,15 +11,16 @@ def get_session(request: Request) -> HTTPSession:
     else:
         return None
 
+
 class SessionSanitizationMiddleWare(BaseHTTPMiddleware):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.session_service = SessionService()
-    
-    async def dispatch( self, request: Request, call_next: RequestResponseEndpoint)
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
         scope = request.scope
         if "session" in scope:
-            session : dict = scope["session"]
+            session: dict = scope["session"]
 
             key = session.get("key", None)
             if key is not None:
@@ -29,9 +29,9 @@ class SessionSanitizationMiddleWare(BaseHTTPMiddleware):
             else:
                 scope["session"] = {}
         response = await call_next(request)
-        
-        # This feels a bit odd, but I think we just have to 
-        # clean up the scope here... 
+
+        # This feels a bit odd, but I think we just have to
+        # clean up the scope here...
         if SESSION_DATA_FIELD in session:
             session.pop(SESSION_DATA_FIELD)
 

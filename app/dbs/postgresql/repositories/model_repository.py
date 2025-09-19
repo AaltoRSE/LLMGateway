@@ -45,7 +45,6 @@ class SQLModelRepository(LLMModelRepository):
             completion_cost=model.completion_cost,
             cached_token_cost=model.cached_token_cost,
             id=model.model.id,
-            object=model.model.object,
             owned_by=model.model.owned_by,
             object=model.model.object,
             type=model.model.type,

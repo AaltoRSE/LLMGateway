@@ -37,7 +37,7 @@ class SQLUsageRepository(UsageRepository):
 
     async def log_usage(self, usage: APIRequest, source: RequestSource) -> None:
         db_usage = DBUsage(
-            user_id=int(source.user) if source.user is not None else None,
+            user_id=int(source.user_id) if source.user_id is not None else None,
             key=source.key,
             timestamp=usage.timestamp,
             cost=usage.cost,

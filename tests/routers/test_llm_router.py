@@ -1,110 +1,151 @@
-from fastapi import HTTPException
-from app.routers.tests.mocks import mockAdminUserAuth, mockNormalUserAuth
-import app.middleware.authentication_middleware as auth_middleware
-from fastapi.testclient import TestClient
+import re
+from typing import Any, AsyncIterator, List
 import pytest
+from fastapi.testclient import TestClient
 import respx
-import app.requests.admin_requests as admin
-from gateway.app.schemas.llmmodel_schema import LLMModel, LLMModelData
-from app.services.model_service import ModelService
-from app.services.user_service import UserService
-from app.services.key_service import KeyService
+import asyncio
 from app.services.usage_service import UsageService
-import app.db.mongo as mongo
-from app.models.quota import (
-    UsageElements,
-    UsagePerKeyForUser,
-    KeyPerModelUsage,
-    ModelUsage,
-    PerHourUsage,
-    PerUserUsage,
-    PerModelUsage,
-    UsageElements,
-    DEFAULT_USAGE,
-    RequestUsage,
+from app.services.model_service import ModelService
+from tests.fixtures.db_fixtures import Repositories
+from app.security.auth import BackendUser
+from app.schemas.user_schema import User
+from app.utils.llm_model import LLMModel
+from app.schemas.openai_schemas import (
+    PromptTokensDetails,
+    ResponseUsage,
+    InputTokensDetails1,
+    OutputTokensDetails,
+    CreateResponse,
+    CompletionUsage,
 )
-import httpx
-
-default_response = {
-    "id": "chatcmpl-123",
-    "object": "chat.completion",
-    "created": 1677652288,
-    "model": "gpt-4o-mini",
-    "system_fingerprint": "fp_44709d6fcb",
-    "choices": [
-        {
-            "index": 0,
-            "message": {
-                "role": "assistant",
-                "content": "\n\nHello there, how may I assist you today?",
-            },
-            "logprobs": None,
-            "finish_reason": "stop",
-        }
-    ],
-    "usage": {
-        "prompt_tokens": 9,
-        "completion_tokens": 12,
-        "total_tokens": 21,
-        "completion_tokens_details": {"reasoning_tokens": 0},
-    },
-}
 
 
-model_path = "http://llm.model"
-
-chat_path = "/v1/chat/completions"
-completion_path = "/v1/completions"
-embedding_path = "/v1/embeddings"
+async def collect_async_iterator(async_iter: AsyncIterator[Any]) -> List[Any]:
+    return [item async for item in async_iter]
 
 
-@pytest.fixture()
-def unauthed_client() -> TestClient:
-    import app.main
+@pytest.mark.usefixtures("basic_users")
+async def test_completions_endpoint(
+    key_client: TestClient,
+    general_api: LLMModel,
+    usage_service: UsageService,
+    model_service: ModelService,
+    normal_user: User,
+    mock_repositories: Repositories,
+) -> None:
+    request: dict[str, Any] = {
+        "messages": [
+            {"role": "system", "content": "whatever"},
+            {"role": "user", "content": "whatever more"},
+        ],
+        "model": general_api.model.id,
+    }
 
-    return TestClient(app.main.app)
+    # Make sure no usage happened yet
+    balance = await usage_service.get_current_user_balance(normal_user)
+    assert balance.balance_used == 0
+    response = key_client.post("/api/v1/chat/completions", json=request)
+    assert response.status_code == 200
+    result = response.json()
+    assert "choices" in result
+    assert "usage" in result
+    assert result["usage"]["prompt_tokens"] == 1117
+    usage = CompletionUsage.model_validate(result["usage"])
+    balance = await usage_service.get_current_user_balance(normal_user)
+    cost = general_api.calc_cost_from_chat_usage(usage)
+    assert balance.balance_used == cost
+    assert balance.balance_used > 0
+    # use a streamig response
+    request["stream"] = True
+    response = key_client.post("/api/v1/chat/completions", json=request)
+    asyncio.run(collect_async_iterator(response.aiter_text()))
+    new_balance = await usage_service.get_current_user_balance(normal_user)
+    assert new_balance.balance_used > balance.balance_used
+    # TODO: test invalid models
 
 
-@pytest.fixture()
-def api_key(monkeypatch):
-    monkeypatch.setenv("INFERENCE_KEY", "Test_key")
-    yield  # This is the magical bit which restore the environment after
+async def test_embeddings_endpoint(
+    key_client: TestClient,
+    normal_user: BackendUser,
+    general_api: LLMModel,
+    mock_repositories: Repositories,
+    usage_service: UsageService,
+) -> None:
+    request = {"input": "Irrelevant", "model": general_api.model.id}
+    usage_service = UsageService(mock_repositories.usage_repo)
+    # Make sure no usage happened yet
+    balance = await usage_service.get_current_user_balance(normal_user)
+    assert balance.balance_used == 0
+    response = key_client.post("/api/v1/embeddings", json=request)
+
+    assert response.status_code == 200
+    result = response.json()
+    assert "data" in result
+    assert "usage" in result
+    assert result["usage"]["prompt_tokens"] == 1
+    assert len(result["data"][0]["embedding"]) == 512
+    balance = await usage_service.get_current_user_balance(normal_user)
+    assert balance.balance_used > 0
+    request: dict[str, Any] = {
+        "input": "Irrelevant",
+        "model": general_api.model.id,
+        "dimensions": 20,
+    }
+    response = key_client.post("/api/v1/embeddings", json=request)
+    new_balance = await usage_service.get_current_user_balance(normal_user)
+    assert new_balance.balance_used > balance.balance_used
+    assert response.status_code == 200
+    result = response.json()
+    assert "data" in result
+    assert "usage" in result
+    assert result["usage"]["prompt_tokens"] == 1
+    assert len(result["data"][0]["embedding"]) == 20
+    # TODO: test invalid models.
 
 
-def test_chat_completion(
-    unauthed_client: TestClient, respx_mock: respx.MockRouter, api_key
-):
-    llm_chat = respx_mock.post(f"{model_path}{chat_path}").mock(
-        return_value=httpx.Response(200, json=default_response)
-    )
-    key_service = KeyService()
-    key = key_service.create_key(user="Admin", name="test", user_key=False)
-    model_service = ModelService()
-    model_service.add_model(
-        LLMModel(
-            path=model_path,
-            name="Test",
-            description="Test",
-            model=LLMModelData(id="gpt-4o-mini", owned_by="test"),
-        )
-    )
-    unauthed_client.headers["Authorization"] = f"Bearer {key.key}"
-    response = unauthed_client.post(
-        chat_path,
-        json={
-            "messages": [{"role": "user", "content": "Hello"}],
-            "model": "gpt-4o-mini",
-        },
-    )
-    data = response.json()
-    print(data)
-    assert (
-        data["choices"][0]["message"]["content"]
-        == "\n\nHello there, how may I assist you today?"
-    )
-    assert len(data["choices"]) == 1
-    quota_service = UsageService()
-    quota_service.get_usage_for_key(key.key)
-    assert quota_service.get_usage_for_key(key.key).prompt_tokens == 9
-    assert llm_chat.called
-    assert llm_chat.calls[0].request.headers["Authorization"] == f"Bearer Test_key"
+@pytest.mark.usefixtures("basic_users")
+async def test_responses_endpoint(
+    key_client: TestClient,
+    responses_api: LLMModel,
+    normal_user: BackendUser,
+    mock_repositories: Repositories,
+    usage_service: UsageService,
+) -> None:
+    request: dict[str, Any] = {
+        "input": [
+            {"role": "system", "content": "whatever"},
+            {"role": "user", "content": "whatever more"},
+        ],
+        "model": responses_api.model.id,
+    }
+
+    CreateResponse.model_validate(request)
+    # Make sure no usage happened yet
+    balance = await usage_service.get_current_user_balance(normal_user)
+    assert balance.balance_used == 0
+    response = key_client.post("/api/v1/responses", json=request)
+    result = response.json()
+    assert response.status_code == 200
+    assert "output" in result
+    assert "usage" in result
+    assert result["usage"]["input_tokens"] == 36
+    usage = ResponseUsage.model_validate(result["usage"])
+    balance = await usage_service.get_current_user_balance(normal_user)
+    cost = responses_api.calc_cost_from_response_usage(usage)
+    assert balance.balance_used == cost
+    assert balance.balance_used > 0
+    # use a streamig response
+    request["stream"] = True
+    response = key_client.post("/api/v1/responses", json=request)
+    tokens = asyncio.run(collect_async_iterator(response.aiter_text()))
+    for token in tokens:
+        # Lets check, that the format fits.
+        event_match = re.search(r"^event:\s*(\S+)", token, re.MULTILINE)
+        assert not event_match is None
+        # Extract data line
+        data_match = re.search(r"^data:\s*(\{.*\})", token, re.MULTILINE)
+        assert not data_match is None
+
+    new_balance = await usage_service.get_current_user_balance(normal_user)
+    assert new_balance.balance_used > balance.balance_used
+    # TODO: Invalid models and actual stream cost calculation.

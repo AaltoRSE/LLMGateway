@@ -1,17 +1,16 @@
-from starlette.requests import HTTPConnection
-from starlette.authentication import AuthenticationBackend, SimpleUser
-from fastapi import Request, HTTPException, status, Response
-from fastapi.responses import RedirectResponse, HTMLResponse
-
 import logging
 import os
-import json
+
+from starlette.requests import HTTPConnection
+from starlette.authentication import AuthenticationBackend, SimpleUser
+from fastapi import Request, HTTPException, Response
+from fastapi.responses import RedirectResponse, HTMLResponse
+
 
 # Unfortunately we need to import the whole stack here, as FastAPI dependency injection
 # does not work with starlette middlewares.
 
 from app.models.session import HTTPSession
-from app.schemas.user_schema import User
 from app.schemas.usage_schema import RequestSource
 from app.services.session_service import SessionService
 
@@ -46,19 +45,6 @@ def get_request_source(request: HTTPConnection):
         return request.client.host
 
 
-def clean_session(session):
-    # Remove the key data from the session.
-    session.pop("key")
-    # and explicitly mark the session as invalid.
-    session["invalid"] = True
-
-
-class SessionBasedAuthScheme:
-    def __init__(self, session_service, user_service):
-        self.session_service = session_service
-        self.user_service = user_service
-
-
 class AaltoBackendAuthentication:
     def __init__(
         self,
@@ -72,6 +58,9 @@ class AaltoBackendAuthentication:
 class BackendUser(SimpleUser):
     def __init__(
         self,
+        # This is the username, not a user ID! This can e.g. be a service name
+        # or some other form of descriptive name.
+        # A user id must be derived from the RequestSource
         username: str,
         request_source: RequestSource,
         roles: List[str] = None,
@@ -90,7 +79,7 @@ class BackendUser(SimpleUser):
     # This easily checks, whether a User is a service user
     # !No service user is an admin! and there is no user source for the user.
     def is_service(self) -> bool:
-        return not self.is_admin() and self.request_source.user is None
+        return not self.is_admin() and self.request_source.user_id is None
 
 
 class BackendAuthenticator:
@@ -174,60 +163,6 @@ class BackendAuthenticator:
         The actual session will be terminated by the router regardless on the outcomes of this function.
         """
         return HTTPException(status_code=404, detail="Not implemented")
-
-
-def get_user(conn: HTTPConnection) -> BackendUser:
-    """
-    Get the authenticated user from the given HTTPConnection.
-
-    Parameters:
-    - conn (HTTPConnection): The HTTPConnection object representing the current connection.
-
-    Raises:
-    - HTTPException: If no user is authenticated, a 403 Forbidden status is raised with the detail "No user authenticated".
-
-    Returns:
-    - User: The authenticated user object retrieved from the connection.
-    """
-    logger.debug(conn.user)
-    logger.debug(conn.session)
-    if conn.user == None or not conn.user.is_authenticated:
-        credentials_exception = HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No user authenticated",
-        )
-        raise credentials_exception
-
-    return conn.user
-
-
-def get_admin_user(conn: HTTPConnection) -> BackendUser:
-    """
-    Get the admin user from the
-
-    Parameters:
-    - conn (HTTPConnection): The HTTPConnection object representing the current connection.
-
-    Raises:
-    - HTTPException: If no user or the user is not an admin a 403 Forbidden status is raised with the detail "No user authenticated or autheticated use rnot an admin".
-
-    Returns:
-    - User: The authenticated user object retrieved from the connection.
-    """
-    if conn.user == None or not conn.user.is_authenticated:
-        credentials_exception = HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No user authenticated",
-        )
-        raise credentials_exception
-    user: BackendUser = conn.user
-    if not user.is_admin():
-        credentials_exception = HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User not an admin",
-        )
-        raise credentials_exception
-    return conn.user
 
 
 def check_auth_response(
