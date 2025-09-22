@@ -1,7 +1,7 @@
 """This class implements all the different Request handling mechanisms"""
 
 from datetime import datetime
-from typing import Callable, Any, AsyncIterator, Literal, Dict
+from typing import Callable, Any, AsyncIterator, Literal, Dict, Awaitable
 import os
 
 import httpx
@@ -85,7 +85,7 @@ class LLMModel:
     async def filter_response_stream(
         self,
         stream: AsyncIterator[Any],
-        usage_callback: Callable[[APIRequest], Any],
+        usage_callback: Callable[[APIRequest], Awaitable[Any]],
     ) -> AsyncIterator[ServerSentEvent]:
         """
         Yields items from the stream unless check_fn(item) is True, in which case on_match(item) is called instead.
@@ -93,7 +93,7 @@ class LLMModel:
         async for item in stream:
             tokens, event, data = process_response_stream(item)
             if tokens is not None:
-                usage_callback(
+                await usage_callback(
                     APIRequest(
                         model=self.model.model.id,
                         prompt_tokens=tokens.input_tokens,
@@ -107,7 +107,7 @@ class LLMModel:
     async def filter_chat_stream(
         self,
         stream: AsyncIterator[Any],
-        usage_callback: Callable[[APIRequest], Any],
+        usage_callback: Callable[[APIRequest], Awaitable[Any]],
         filter_usage: bool,
     ) -> AsyncIterator[Any]:
         """
@@ -116,7 +116,7 @@ class LLMModel:
         async for item in stream:
             tokens, data = process_completion_stream(item)
             if tokens is not None:
-                usage_callback(
+                await usage_callback(
                     APIRequest(
                         model=self.model.model.id,
                         prompt_tokens=tokens.prompt_tokens,
@@ -133,7 +133,7 @@ class LLMModel:
     async def stream_chat_request(
         self,
         request: ChatCompletionRequest,
-        usage_callback: Callable[[APIRequest], Any],
+        usage_callback: Callable[[APIRequest], Awaitable[Any]],
         filter_usage: bool = False,
     ) -> AsyncIterator[ServerSentEvent]:
         """
@@ -158,9 +158,10 @@ class LLMModel:
                 404, "This model does not offer streamed chat completions"
             )
         request_data = request.model_dump()
+        print(f"Sending request to: {self.model.path}/v1/chat/completions")
         httpx_request = httpx.Request(
             method="POST",
-            url=f"{self.model.path}/v1/chat/completions",
+            url=f"{self.model.host}{self.model.path}/v1/chat/completions",
             json=request_data,
             headers={
                 "Authorization": f"{inference_key}",
@@ -176,7 +177,7 @@ class LLMModel:
     async def non_stream_chat_request(
         self,
         request: ChatCompletionRequest,
-        usage_callback: Callable[[APIRequest], Any],
+        usage_callback: Callable[[APIRequest], Awaitable[Any]],
     ) -> ChatCompletionResponse:
         """
         Function that needs to call the Actual model and return a ChatResponse compatible with openAI responses
@@ -196,27 +197,32 @@ class LLMModel:
         if not "chat" in self.model.model.type:
             raise HTTPException(404, "This model does not offer chat completions")
         request_data = request.model_dump()
+        print(
+            f"Sending request to: {self.model.host}{self.model.path}/v1/chat/completions"
+        )
         model_response = httpx.post(
-            url=f"{self.model.path}/v1/chat/completions",
+            url=f"{self.model.host}{self.model.path}/v1/chat/completions",
             json=request_data,
             headers={"Authorization": f"{inference_key}", "Host": f"{self.model.host}"},
         )
+        print(model_response.json())
         return_value = ChatCompletionResponse.model_validate(model_response.json())
         usage = return_value.usage
-        usage_callback(
+        await usage_callback(
             APIRequest(
                 model=self.model.model.id,
                 prompt_tokens=0 if usage is None else usage.prompt_tokens,
                 completion_tokens=0 if usage is None else usage.completion_tokens,
-                cost=0 if usage is None else self.calc_cost_from_response_usage(usage),
+                cost=0 if usage is None else self.calc_cost_from_chat_usage(usage),
                 timestamp=datetime.now(),
             )
         )
+        return return_value
 
     async def stream_response_request(
         self,
         request: CreateResponse,
-        usage_callback: Callable[[APIRequest], Any],
+        usage_callback: Callable[[APIRequest], Awaitable[Any]],
     ) -> AsyncIterator[ServerSentEvent]:
         """
         Function that needs to call the Actual model and return an Iterator for the responses.
@@ -240,7 +246,7 @@ class LLMModel:
         request_data = request.model_dump()
         httpx_request = httpx.Request(
             method="POST",
-            url=f"{self.model.path}/v1/responses",
+            url=f"{self.model.host}{self.model.path}/v1/responses",
             json=request_data,
             headers={"Authorization": f"{inference_key}", "Host": f"{self.model.host}"},
         )
@@ -251,7 +257,7 @@ class LLMModel:
     async def non_stream_response_request(
         self,
         request: CreateResponse,
-        usage_callback: Callable[[APIRequest], Any],
+        usage_callback: Callable[[APIRequest], Awaitable[Any]],
     ) -> CreateResponseResponse:
         """
         Function that needs to call the Actual model and return a ChatResponse compatible with openAI responses
@@ -272,13 +278,13 @@ class LLMModel:
             raise HTTPException(404, "This model does not offer non streamed responses")
         request_data = request.model_dump()
         model_response = httpx.post(
-            url=f"{self.model.path}/v1/responses",
+            url=f"{self.model.host}{self.model.path}/v1/responses",
             json=request_data,
             headers={"Authorization": f"{inference_key}", "Host": f"{self.model.host}"},
         )
         return_value = CreateResponseResponse.model_validate(model_response.json())
         usage = return_value.usage
-        usage_callback(
+        await usage_callback(
             APIRequest(
                 model=self.model.model.id,
                 prompt_tokens=0 if usage is None else usage.input_tokens,
@@ -291,15 +297,14 @@ class LLMModel:
 
     async def embed(
         self,
-        user: BackendUser,
         request: CreateEmbeddingRequest,
         usage_callback: Callable[[APIRequest], Any],
     ) -> CreateEmbeddingResponse:
-        if not "embdding" in self.model.model.type:
+        if not "embedding" in self.model.model.type:
             raise HTTPException(404, "This model does not offer non streamed responses")
         request_data = request.model_dump()
         model_response = httpx.post(
-            url=f"{self.model.path}/v1/embeddings",
+            url=f"{self.model.host}{self.model.path}/v1/embeddings",
             json=request_data,
             headers={
                 "Authorization": f"{inference_key}",
@@ -307,7 +312,7 @@ class LLMModel:
             },  # SECURITY: forwarding authentication token
         )
         embeddings = CreateEmbeddingResponse.model_validate(model_response.json())
-        usage_callback(
+        await usage_callback(
             APIRequest(
                 model=self.model.model.id,
                 prompt_tokens=embeddings.usage.prompt_tokens,

@@ -90,7 +90,7 @@ class UserService:
         updated_user = await self.user_respository.update_user(user_to_update)
         if updated_user is None:
             raise HTTPException(404, "User does not exist")
-        self.key_service.deactivate_keys_for_user(user.id)
+        self.key_service.deactivate_keys_for_user(user)
         return updated_user
 
     async def reset_user(self, user: User):

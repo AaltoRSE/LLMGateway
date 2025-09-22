@@ -29,6 +29,7 @@ async def get_user_from_session(
     conn: HTTPConnection,
     session_handler: Annotated[SessionService, Depends(SessionService)],
 ) -> BackendUser | None:
+    print("Using original")
     try:
         if conn.session == None:
             logger.debug("No session in connection")

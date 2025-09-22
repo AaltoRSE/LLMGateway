@@ -10,16 +10,11 @@ from .user_fixtures import normal_user
 
 
 async def create_key(
-    mock_repositories: Repositories,
     for_user: User | None,
-    redis_key_quota_month_client,
-    redis_key_client,
+    key_service,
     name: str = "TestKey",
 ):
 
-    key_service = KeyService(
-        mock_repositories.key_repo, redis_key_client, redis_key_quota_month_client
-    )
     key = await key_service.create_key(
         name, for_user.id if for_user is not None else None
     )
@@ -28,15 +23,9 @@ async def create_key(
 
 @pytest_asyncio.fixture
 async def user_api_key(
-    mock_repositories,
-    redis_dbs,
-    setup_repos,
+    key_service: KeyService,
     normal_user,
-    redis_key_quota_month_client,
-    redis_key_client,
 ):
     print("Key Fixture")
-    key = await create_key(
-        mock_repositories, normal_user, redis_key_client, redis_key_quota_month_client
-    )
+    key = await create_key(for_user=normal_user, key_service=key_service)
     return key

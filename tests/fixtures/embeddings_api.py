@@ -145,12 +145,6 @@ def embedding_api() -> Generator[respx.MockRouter, Any, Any]:
 
         call_url = f"http://embedding.host.com/v1/embeddings"
         print(f"Mocking calls to {call_url}")
-        responses.add_callback(
-            responses.POST,
-            call_url,
-            callback=requests_response,
-            content_type="application/json",
-        )
         mock.post(
             call_url,
         ).mock(side_effect=httpx_response)
@@ -163,7 +157,7 @@ def embedding_api_fixed() -> Generator[respx.MockRouter, Any, Any]:
     Fixture for an embedding endpoint which yields a response with only ones as
     the embedding vector
     """
-    with respx.mock as mock:        
+    with respx.mock as mock:
         call_url = f"http://embedding.host.com/v1/embeddings"
         print(f"Mocking calls to {call_url}")
         responses.add_callback(

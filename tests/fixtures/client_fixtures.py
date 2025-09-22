@@ -1,16 +1,17 @@
-from typing import Generator
+from typing import Generator, AsyncGenerator
 import os
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
+from fastapi import FastAPI
 
 import app.main
-import app.security.authentication_dependencies
+from app.security.session import get_user_from_session
 from app.security.auth import BackendUser, RequestSource
-from app.services.user_service import User
+from app.services.user_service import User, UserService
+from app.services.key_service import KeyService
 from app.dbs.redis.redis import get_key_client, get_key_quota_client
 from app.security.api_keys import admin_key_header
-
 from tests.fixtures.app_fixtures import setup_repos
 from .user_fixtures import normal_user, admin_user
 from .key_fixtures import user_api_key
@@ -21,53 +22,50 @@ async def session_auth_mock(arg1, arg2, user: BackendUser) -> BackendUser:
 
 
 def build_backend_user(source: RequestSource, user: User) -> BackendUser:
-    return BackendUser(user_id=user.auth_id, request_source=source, isadmin=user.admin)
+    return BackendUser(username=user.id, request_source=source, isadmin=user.admin)
 
 
 @pytest_asyncio.fixture
-async def normal_session_user(monkeypatch, mock_repositories, setup_repos, normal_user):
-    backend_user = build_backend_user(source=RequestSource(user_id=normal_user.id))
-    monkeypatch.setattr(
-        app.security.authentication_dependencies,
-        "get_user_from_session",
-        lambda arg1, arg2: session_auth_mock(arg1, arg2, backend_user),
+async def normal_session_client(
+    setup_repos: None, llm_gateway: FastAPI, normal_user
+) -> AsyncGenerator[TestClient, None]:
+    backend_user = build_backend_user(
+        source=RequestSource(user_id=normal_user.id), user=normal_user
     )
 
+    async def get_normal_client():
+        return backend_user
 
-@pytest_asyncio.fixture
-async def admin_session_user(monkeypatch, mock_repositories, setup_repos, admin_user):
-    backend_user = build_backend_user(source=RequestSource(user_id=admin_user.id))
-    monkeypatch.setattr(
-        app.security.authentication_dependencies,
-        "get_user_from_session",
-        lambda arg1, arg2: session_auth_mock(arg1, arg2, backend_user),
-    )
-
-
-@pytest.fixture
-def normal_session_client(
-    setup_repos: None, normal_session_user, llm_gateway
-) -> Generator[TestClient, None, None]:
     # By adding the normal user fixture, we make this authed.
+    llm_gateway.dependency_overrides[get_user_from_session] = get_normal_client
+    client = TestClient(llm_gateway)
+
+    yield client
+
+
+@pytest_asyncio.fixture
+async def admin_session_client(
+    setup_repos: None, admin_user, llm_gateway: FastAPI
+) -> AsyncGenerator[TestClient, None]:
+    backend_user = build_backend_user(
+        source=RequestSource(user_id=admin_user.id), user=admin_user
+    )
+
+    async def get_admin_client():
+        return backend_user
+
+    llm_gateway.dependency_overrides[get_user_from_session] = get_admin_client
+
     client = TestClient(llm_gateway)
     yield client
 
 
-@pytest.fixture
-def admin_session_client(
-    setup_repos: None, admin_session_user, llm_gateway
-) -> Generator[TestClient, None, None]:
-    # By adding the normal user fixture, we make this authed.
-    client = TestClient(llm_gateway)
-    yield client
-
-
-@pytest.fixture
-def key_client(
+@pytest_asyncio.fixture
+async def key_client(
     setup_repos: None, user_api_key, llm_gateway
-) -> Generator[TestClient, None, None]:
+) -> AsyncGenerator[TestClient, None]:
     client = TestClient(llm_gateway)
-    client.headers["Authorization"] = f"Bearer: {user_api_key}"
+    client.headers["Authorization"] = f"Bearer {user_api_key.key}"
     yield client
 
 
@@ -82,6 +80,8 @@ def admin_key_client(
 
 
 @pytest.fixture
-def unauthed_client(setup_repos: None) -> Generator[TestClient, None, None]:
-    client = TestClient(app.main.app)
+def unauthed_client(
+    setup_repos: None, llm_gateway
+) -> Generator[TestClient, None, None]:
+    client = TestClient(llm_gateway)
     yield client

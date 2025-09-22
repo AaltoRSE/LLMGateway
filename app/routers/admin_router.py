@@ -7,7 +7,7 @@ from app.security.authentication_dependencies import requires_admin, BackendUser
 from app.services.model_service import ModelService
 from app.services.key_service import KeyService
 from app.services.user_service import UserService
-from app.services.usage_service import UsageService
+from app.services.usage_service import UsageService, Balance
 from app.services.balance_service import BalanceService
 from app.schemas.llmmodel_schema import LLMModelData
 from app.schemas.key_schema import APIKey
@@ -55,24 +55,11 @@ async def get_details_for_model(
 
 @router.post("/update_model", status_code=status.HTTP_200_OK)
 async def get_details_for_model(
-    modelData: AddAvailableModelRequest,
+    modelData: LLMModelData,
     model_service: Annotated[ModelService, Depends(ModelService)],
     admin_user: BackendUser = Security(requires_admin),
 ):
-    model_to_update = LLMModelData(
-        path=modelData.path,
-        prompt_cost=modelData.prompt_cost,
-        completion_cost=modelData.completion_cost,
-        name=modelData.name,
-        description=modelData.description,
-        model=LLMModelData(
-            id=modelData.id,
-            owned_by=admin_user.username,
-            permissions=[],
-            type=modelData.type,
-        ),
-    )
-    await model_service.update_model(model_to_update)
+    await model_service.update_model(modelData)
 
 
 # This resets the given ser to the default status.
@@ -82,7 +69,7 @@ async def reset_user(
     RequestData: UserRequest,
     user_service: Annotated[UserService, Depends(UserService)],
 ) -> None:
-    user = await user_service.get_user_by_id(RequestData.username)
+    user = await user_service.get_user_by_id(RequestData.user_id)
     if user:
         await user_service.reset_user(user)
     else:
@@ -114,17 +101,17 @@ async def set_admin(
     user_service: Annotated[UserService, Depends(UserService)],
     admin: BackendUser = Security(requires_admin),
 ):
-    if admin.username == request.username:
+    if admin.request_source.user_id == request.user_id:
         raise HTTPException(
             status_code=400, detail="Cannot change your own admin status"
         )
-    await user_service.set_admin_status(request.username, request.admin)
+    await user_service.set_admin_status(request.user_id, request.admin)
 
 
-@router.post("/get_usage_per_user", status_code=status.HTTP_200_OK)
+@router.get("/get_balance_per_user", status_code=status.HTTP_200_OK)
 async def get_user_usage(
     balance_service: Annotated[BalanceService, Depends(BalanceService)],
-):
+) -> List[Balance]:
     return await balance_service.get_user_balances()
 
 

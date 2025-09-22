@@ -76,14 +76,13 @@ async def create_response(
     )
     if request_data.stream:
         stream_iterator = await model.stream_response_request(
-            user=current_user,
             request=request_data,
             usage_callback=usage_callback,
         )
         return EventSourceResponse(content=stream_iterator)
     else:
         response_data = await model.non_stream_response_request(
-            user=current_user, request=request_data, usage_callback=usage_callback
+            request=request_data, usage_callback=usage_callback
         )
         return JSONResponse(content=response_data.model_dump())
 
@@ -104,11 +103,13 @@ async def chat_completion(
         model = await model_service.get_model(
             request_data.model if not request_data.model is None else default_model
         )
+
     except ValueError:
         raise HTTPException(404, "The requested model is not available on the server")
-    usage_callback: Callable[[APIRequest], Any] = lambda usage: usage_service.log_usage(
-        source=current_user.request_source, usage=usage
-    )
+
+    async def usage_callback(usage: APIRequest):
+        await usage_service.log_usage(source=current_user.request_source, usage=usage)
+
     if request_data.stream:
         added_usage = False
         if request_data.stream_options is None:
@@ -121,7 +122,6 @@ async def chat_completion(
                 request_data.stream_options.include_usage = True
                 added_usage = True
         stream_iterator = await model.stream_chat_request(
-            user=current_user,
             request=request_data,
             usage_callback=usage_callback,
             filter_usage=added_usage,
@@ -129,14 +129,14 @@ async def chat_completion(
         return EventSourceResponse(content=stream_iterator)
     else:
         response_data = await model.non_stream_chat_request(
-            user=current_user, request=request_data, usage_callback=usage_callback
+            request=request_data, usage_callback=usage_callback
         )
         return JSONResponse(content=response_data.model_dump())
 
 
 @router.post("/embeddings")
 async def embedding(
-    request_data: EmbeddingRequest,
+    request_data: CreateEmbeddingRequest,
     usage_service: Annotated[UsageService, Depends(UsageService)],
     model_service: Annotated[ModelService, Depends(ModelService)],
     current_user: BackendUser = Security(requires_auth),
@@ -152,6 +152,4 @@ async def embedding(
     usage_callback: Callable[[APIRequest], Any] = lambda usage: usage_service.log_usage(
         source=current_user.request_source, usage=usage
     )
-    return model.embed(
-        user=current_user, request=request_data, usage_callback=usage_callback
-    )
+    return await model.embed(request=request_data, usage_callback=usage_callback)

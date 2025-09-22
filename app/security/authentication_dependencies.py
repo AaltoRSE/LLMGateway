@@ -20,15 +20,18 @@ async def authenticate_request(
     user = None
     if session_user is not None:
         user = session_user
+    print(f"Session user is : {user}")
     # We allow combining a key and a session request.
     if user is not None:
         if api_key_user is not None:
             user.request_source.key = api_key_user.request_source.key
     elif api_key_user is not None:
         user = api_key_user
+    print(f"API Key user is : {user}")
     # Mixing sessions and admin API keys is not allowed, admin key will be ignored in this case.
     if user is None and admin_user is not None:
         user = admin_user
+    print(f"Admin key user is : {user}")
     if user is not None:
         # Potentially the credentials can be improved...
         conn.scope["auth"], conn.scope["user"] = (
@@ -45,7 +48,9 @@ async def requires_auth(user: BackendUser | None = Depends(authenticate_request)
     No assumption can be made about the content of the BackendUser.
     Username can e.g. be the name of a service and is NOT the same as the user_id
     """
+    print("Checking authentication")
     if user is None:
+        print("No user")
         raise HTTPException(401, "Unauthenticated")
     return user
 
@@ -90,8 +95,11 @@ async def requires_admin(user: BackendUser | None = Depends(authenticate_request
     Using this dependency secures an endpoint ensuring, that only admin users, or a
     request with the admin key can access this endpoint.
     """
+    print("Checking authentication")
     if user is None:
+        print("No user")
         raise HTTPException(401, "Unauthenticated")
     if not user.is_admin():
+        print("User not admin")
         raise HTTPException(403, "Unauthorized")
     return user

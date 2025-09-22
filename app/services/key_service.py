@@ -33,7 +33,6 @@ class KeyService:
         """
         Initialize keys from the database, and check that indexing is set up properly.
         """
-
         # Load all keys that are active
         all_keys = await self.repository.get_all_keys(active_only=True)
         activeKeys = {x.key: x.model_dump_json() for x in all_keys}
@@ -58,6 +57,7 @@ class KeyService:
         if key_data == None:
             return None
         else:
+            print(f"Got: {APIKey.model_validate(json.loads(key_data))}")
             # There are only active keys in the redis db.
             return APIKey.model_validate(json.loads(key_data))
 

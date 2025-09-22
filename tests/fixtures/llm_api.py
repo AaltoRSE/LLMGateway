@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pytest
+import pytest_asyncio
 import random
 import respx
 import json
@@ -10,7 +11,7 @@ from requests import PreparedRequest
 from typing import Any, List, Dict, Generator, AsyncGenerator
 from httpx import Request, Response, AsyncByteStream
 from sse_starlette.sse import EventSourceResponse
-
+from .embeddings_api import httpx_response
 from app.services.model_service import ModelService
 from app.utils.llm_model import (
     ChatCompletionResponse,
@@ -227,19 +228,42 @@ def completions_response(request: PreparedRequest | Request) -> Response:
         )
 
 
-@pytest.fixture
-def completions_api() -> Generator[respx.MockRouter, Any, Any]:
+@pytest_asyncio.fixture
+async def completions_model(
+    model_service: ModelService,
+) -> AsyncGenerator[LLMModel, Any]:
+    model = LLMModelData(
+        cached_token_cost=0.001,
+        prompt_cost=0.001,
+        description="TestModel",
+        completion_cost=0.001,
+        host="http://llm.service.com",
+        path="/completion",
+        name="completion_model",
+        model=LLMModelDataDetails(
+            id="completion", owned_by="Admin", permissions=[], type=["chat"]
+        ),
+    )
+
+    await model_service.add_model(model)
+    yield await model_service.get_model(model.model.id)
+
+
+@pytest_asyncio.fixture
+async def completions_api(
+    completions_model: LLMModel,
+) -> AsyncGenerator[LLMModel, Any]:
     """
     Fixture for an LLM endpoint which yields a response with only ones as
     the embedding vector
     """
     with respx.mock as mock:
-        call_url = f"http://llm.service.com/chat/completions"
+        call_url = f"{completions_model.model.host}{completions_model.model.path}"
         print(f"Mocking calls to {call_url}")
         mock.post(
-            call_url,
+            f"{call_url}/v1/chat/completions",
         ).mock(side_effect=completions_response)
-        yield mock
+        yield completions_model
 
 
 ### Responses Data ###
@@ -522,7 +546,7 @@ def responses_response(request: PreparedRequest | Request) -> Response:
         )
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def responses_api(
     response_model: LLMModel,
 ) -> AsyncGenerator[LLMModel, Any]:
@@ -535,12 +559,12 @@ async def responses_api(
         call_url = f"{response_model.model.host}{response_model.model.path}"
         print(f"Mocking calls to {call_url}")
         mock.post(
-            call_url,
+            f"{call_url}/v1/responses",
         ).mock(side_effect=responses_response)
         yield response_model
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def response_model(
     model_service: ModelService,
 ) -> AsyncGenerator[LLMModel, Any]:
@@ -561,7 +585,7 @@ async def response_model(
     yield await model_service.get_model(model.model.id)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def general_api(general_model: LLMModel) -> AsyncGenerator[LLMModelData, Any]:
     """
     Fixture for an LLM endpoint which yields a response with only ones as
@@ -572,37 +596,41 @@ async def general_api(general_model: LLMModel) -> AsyncGenerator[LLMModelData, A
         call_url = f"{general_model.model.host}{general_model.model.path}"
         print(f"Mocking calls to {call_url}")
         mock.post(
-            call_url,
+            f"{call_url}/v1/chat/completions",
+        ).mock(side_effect=completions_response)
+        mock.post(
+            f"{call_url}/v1/responses",
         ).mock(side_effect=responses_response)
-    yield general_model
+        mock.post(
+            f"{call_url}/v1/embeddings",
+        ).mock(side_effect=httpx_response)
+        yield general_model
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def general_model(
     model_service: ModelService,
 ) -> AsyncGenerator[LLMModel, Any]:
-    model = LLMModel(
-        LLMModelData(
-            cached_token_cost=0.001,
-            prompt_cost=0.001,
-            description="TestModel",
-            completion_cost=0.001,
-            host="http://llm.service.com",
-            path="/general",
-            name="testmodel",
-            model=LLMModelDataDetails(
-                id="general",
-                owned_by="Admin",
-                permissions=[],
-                type=["chat", "responses", "embedding"],
-            ),
-        )
+    model = LLMModelData(
+        cached_token_cost=0.001,
+        prompt_cost=0.001,
+        description="TestModel",
+        completion_cost=0.001,
+        host="http://llm.service.com",
+        path="/general",
+        name="testmodel",
+        model=LLMModelDataDetails(
+            id="general",
+            owned_by="Admin",
+            permissions=[],
+            type=["chat", "responses", "embedding"],
+        ),
     )
     await model_service.add_model(model)
     yield await model_service.get_model(model.model.id)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def embedding_api(
     embedding_model: LLMModel,
 ) -> AsyncGenerator[LLMModel, Any]:
@@ -615,12 +643,12 @@ async def embedding_api(
         call_url = f"{embedding_model.model.host}{embedding_model.model.path}"
         print(f"Mocking calls to {call_url}")
         mock.post(
-            call_url,
+            f"{call_url}/v1/embeddings",
         ).mock(side_effect=responses_response)
     yield embedding_model
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def embedding_model(
     model_service: ModelService,
 ) -> AsyncGenerator[LLMModel, Any]:

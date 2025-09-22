@@ -17,6 +17,9 @@ async def key_service(
     redis_key_client,
     redis_key_quota_month_client,
 ) -> AsyncGenerator[KeyService, None]:
+    print("Setting up key service")
+    print(f"db = {redis_key_client}")
+    print(f"quota_db = {redis_key_client}")
     service = KeyService(
         key_repository=mock_repositories.key_repo,
         key_db=redis_key_client,

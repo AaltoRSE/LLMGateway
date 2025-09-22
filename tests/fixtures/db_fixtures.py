@@ -96,42 +96,49 @@ def mock_repositories(
 @pytest.fixture
 def redis_model_client():
     redis_client = fakeredis.FakeAsyncRedis()
+    #    print(f"Creating Model client: {redis_client}")
     return redis_client
 
 
 @pytest.fixture
 def redis_key_client():
     redis_client = fakeredis.FakeAsyncRedis()
+    #    print(f"Creating Key client: {redis_client}")
     return redis_client
 
 
 @pytest.fixture
 def redis_key_quota_month_client():
     redis_client = fakeredis.FakeAsyncRedis()
+    #    print(f"Creating Key quota client: {redis_client}")
     return redis_client
 
 
 @pytest.fixture
 def redis_session_client():
     redis_client = fakeredis.FakeAsyncRedis()
+    #    print(f"Creating Session client: {redis_client}")
     return redis_client
 
 
 @pytest.fixture
 def redis_user_quota_month_client():
     redis_client = fakeredis.FakeAsyncRedis()
+    #    print(f"Creating User Quota client: {redis_client}")
     return redis_client
 
 
 @pytest.fixture
 def redis_user_balance_client():
     redis_client = fakeredis.FakeAsyncRedis()
+    #    print(f"Creating user balance client: {redis_client}")
     return redis_client
 
 
 @pytest.fixture
 def redis_key_balance_client():
     redis_client = fakeredis.FakeAsyncRedis()
+    #    print(f"Creating key balance client: {redis_client}")
     return redis_client
 
 

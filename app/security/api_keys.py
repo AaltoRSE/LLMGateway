@@ -34,9 +34,11 @@ async def get_user_for_api_key(
     - HTTPException: If the provided API key is invalid or missing, it raises a 401 status code error
         with the detail "Invalid or missing API Key". Additionally, logs information about the header and key.
     """
+    print("Checking API key")
     if api_key is None or api_key == "":
         return None
     api_key = re.sub("^Bearer ", "", api_key)
+    print(f"API Key is: {api_key}")
     if api_key == "":
         # This should happen, if there is no API key set.
         return None
@@ -57,6 +59,7 @@ async def get_user_for_api_key(
             )
     else:
         uvlogger.warning(f"Attempted usage with invalid key: {api_key}")
+    print("Key could not be verified")
     raise HTTPException(
         status_code=401,
         detail="Invalid API Key",

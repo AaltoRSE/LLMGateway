@@ -87,6 +87,8 @@ class ModelService:
             raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
 
     async def get_model(self, model_id: str) -> LLMModel:
+        print(f"Requestion model: {model_id}")
+        print(self.model_client)
         model_data = await self.model_client.get(model_id)
         print(model_data)
         if model_data:
@@ -102,7 +104,8 @@ class ModelService:
         - list: A list of all models available
         """
         try:
-            print(model)
+            print(f"Adding available model: {model}")
+            print(self.model_client)
             new_model = await self.repository.add_model(model)
             await self.model_client.set(model.model.id, new_model.model_dump_json())
         except ValueError as e:

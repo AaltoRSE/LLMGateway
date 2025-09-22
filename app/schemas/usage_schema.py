@@ -7,8 +7,8 @@ from typing_extensions import Self
 class Balance(BaseModel):
     balance_used: float
     quota: float = 30
-    user_id: Optional[str] = (None,)
-    key: Optional[str] = (None,)
+    user_id: Optional[str] = None
+    key: Optional[str] = None
 
     def used_up(self) -> bool:
         return self.balance_used >= self.quota
