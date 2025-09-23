@@ -72,10 +72,20 @@ if model_db == "postgresql":
 
     LLMModelRepositoryImpl = ModelRepository
 
+
+def get_api_key_repo() -> repositories.APIKeyRepository:
+    raise NotImplementedError
+
+
 if apikey_db == "postgresql":
     from app.dbs.postgresql import APIKeyRepository
 
     APIKeyRepositoryImpl = APIKeyRepository
+    from app.dbs.postgresql.db import db
+
+    def get_api_key_repo() -> repositories.APIKeyRepository:
+        return APIKeyRepository(next(db.get_db()))
+
 
 if usage_db == "postgresql":
     from app.dbs.postgresql import UsageRepository

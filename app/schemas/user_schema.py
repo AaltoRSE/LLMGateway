@@ -4,7 +4,7 @@ The schemas include base, creation, and update models for users.
 """
 
 import re
-from typing import Optional, Literal, List
+from typing import Optional, Literal, List, Dict, Any
 from datetime import datetime
 from pydantic import AfterValidator, BaseModel
 from typing_extensions import Annotated
@@ -21,6 +21,7 @@ class AuthData(BaseModel):
 
 class SessionAuthData(AuthData):
     roles: List[str]
+    additional_data: Optional[Dict[str, Any]] = None
 
 
 # Base schema for users

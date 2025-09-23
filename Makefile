@@ -1,5 +1,5 @@
 # Database name for Aalto AI
-DB_NAME=aalto_llms
+DB_NAME=aaltollms
 
 # PostgreSQL database password
 POSTGRES_PASSWORD=devbackend123
@@ -18,15 +18,15 @@ endef
 
 # Starts the podman stack
 start:
-	$(CONTAINER_ENGINE_COMPOSE) -f podman-compose.dev.yml up --force-recreate
+	$(CONTAINER_ENGINE_COMPOSE) -f docker-compose.yml up --force-recreate
 
 # Just rebuild necessary don't doa  full rebuild
 restart:
-	$(CONTAINER_ENGINE_COMPOSE) -f podman-compose.dev.yml up --build
+	$(CONTAINER_ENGINE_COMPOSE) -f docker-compose.yml up --build
 
 # Shut down the stack
 stop:
-	$(CONTAINER_ENGINE_COMPOSE) -f podman-compose.dev.yml down
+	$(CONTAINER_ENGINE_COMPOSE) -f docker-compose.yml down
 
 # A helper to run tests
 test:
@@ -63,34 +63,34 @@ dev:
 # Migrations
 #
 migrate_head:
-	$(CONTAINER_ENGINE)  exec -it aalto-ai-backend alembic upgrade head
+	$(CONTAINER_ENGINE)  exec -it gateway-server alembic upgrade head
 
 migrate_auto:
 	@echo "Enter migration message: ";
 	@read line; \
-	$(CONTAINER_ENGINE)  exec -u root -it aalto-ai-backend alembic revision --autogenerate -m "$$line"
+	$(CONTAINER_ENGINE)  exec -u root -it gateway-server alembic revision --autogenerate -m "$$line"
 
 migrate_down:
-	$(CONTAINER_ENGINE)  exec -it aalto-ai-backend alembic downgrade base
+	$(CONTAINER_ENGINE)  exec -it gateway-server alembic downgrade base
 
 migrate_plus:
-	$(CONTAINER_ENGINE)  exec -it aalto-ai-backend alembic upgrade +1
+	$(CONTAINER_ENGINE)  exec -it gateway-server alembic upgrade +1
 
 migrate_minus:
-	$(CONTAINER_ENGINE)  exec -it aalto-ai-backend alembic downgrade -1
+	$(CONTAINER_ENGINE)  exec -it gateway-server alembic downgrade -1
 
 migrate_status:
-	$(CONTAINER_ENGINE)  exec -it aalto-ai-backend alembic current
+	$(CONTAINER_ENGINE)  exec -it gateway-server alembic current
 
 # Build a podman image
 build:
-	$(CONTAINER_ENGINE)  build -t aalto-ai-backend-manual .
+	$(CONTAINER_ENGINE)  build -t gateway-server-manual .
 
 setup_dev:
 	@echo "Starting containers to set up database"
-	$(CONTAINER_ENGINE_COMPOSE)  -f podman-compose.dev.yml up --build -d
+	$(CONTAINER_ENGINE_COMPOSE)  -f docker-compose.yml up --build -d
 	@echo "waiting for services to start up"
 	sleep 5
 	$(MAKE) create_db
 	$(MAKE) migrate_head
-	$(CONTAINER_ENGINE_COMPOSE)  -f podman-compose.dev.yml down
+	$(CONTAINER_ENGINE_COMPOSE)  -f docker-compose.yml down

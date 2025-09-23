@@ -5,7 +5,6 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
 
-import app.main
 from app.security.session import get_user_from_session
 from app.security.auth import BackendUser, RequestSource
 from app.services.user_service import User, UserService
@@ -30,7 +29,7 @@ async def normal_session_client(
     setup_repos: None, llm_gateway: FastAPI, normal_user
 ) -> AsyncGenerator[TestClient, None]:
     backend_user = build_backend_user(
-        source=RequestSource(user_id=normal_user.id), user=normal_user
+        source=RequestSource(user_id=normal_user.id, has_session=True), user=normal_user
     )
 
     async def get_normal_client():
@@ -48,7 +47,7 @@ async def admin_session_client(
     setup_repos: None, admin_user, llm_gateway: FastAPI
 ) -> AsyncGenerator[TestClient, None]:
     backend_user = build_backend_user(
-        source=RequestSource(user_id=admin_user.id), user=admin_user
+        source=RequestSource(user_id=admin_user.id, has_session=True), user=admin_user
     )
 
     async def get_admin_client():

@@ -28,10 +28,9 @@ from tests.fixtures.db_fixtures import Repositories
 async def llm_gateway(
     mock_repositories: Repositories, redis_dbs
 ) -> AsyncGenerator[FastAPI, None]:
-    print("Creating app")
     import app.main
 
-    currentapp = app.main.create_app()
+    currentapp = app.main.app
     yield currentapp
 
 

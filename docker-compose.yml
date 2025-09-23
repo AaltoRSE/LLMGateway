@@ -8,6 +8,7 @@ services:
         LOGIN_URL: https://localhost/saml/login
         BUILD: devbuild
     environment:
+      - SQLALCHEMY_DATABASE_URL=${SQLALCHEMY_DATABASE_URL}
       - INFERENCE_KEY=123
       - ADMIN_KEY=321
       - MONGO_SESSION_COLLECTION=sessions
@@ -30,9 +31,10 @@ services:
       - mongo
       - redis
     volumes:
-      - ./app:/app/app
-      - ./dev_data/saml:/app/app/security/saml_data
-      - ./dev_data/certs:/app/app/security/saml_data/certs
+      - ./app:/usr/src/app/app
+      - ./migrations:/usr/src/app/migrations
+      - ./dev_data/saml:/usr/src/app/app/security/saml_data
+      - ./dev_data/certs:/usr/src/app/app/security/saml_data/certs
     command: uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload
 
   nginx:
@@ -40,7 +42,7 @@ services:
     environment:
       - NGINX_HTTPS_PORT=443
       - HOSTNAME=localhost
-      - LLM_HOST=http://llm-host:8080
+      - LLM_HOST=http://backend:8080
     ports:
       - 0.0.0.0:80:80
       - 0.0.0.0:443:443
@@ -52,10 +54,6 @@ services:
     depends_on:
       - backend
     container_name: nginx-server
-  mongo:
-    extends:
-      file: docker_databases.yml
-      service: mongo
   redis:
     extends:
       file: docker_databases.yml

@@ -3,8 +3,9 @@ from onelogin.saml2.auth import OneLogin_Saml2_Auth
 
 from fastapi.responses import RedirectResponse
 from app.security.auth import BackendAuthenticator
+from app.schemas.user_schema import SessionAuthData
 
-from typing import Callable, Dict
+from typing import Callable, Dict, Awaitable
 from fastapi import Request, Response, HTTPException
 import xmlsec
 import os
@@ -41,7 +42,7 @@ class SAMLAuthenticator(BackendAuthenticator):
     async def login(
         self,
         request: Request,
-        create_session: Callable[[Dict], None],
+        create_session: Callable[[Dict], Awaitable],
     ) -> Response:
         """
         Login endpoint
@@ -54,7 +55,7 @@ class SAMLAuthenticator(BackendAuthenticator):
     async def login_callback(
         self,
         request: Request,
-        create_session: Callable[[Dict], None],
+        create_session: Callable[[SessionAuthData], Awaitable],
     ):
         """
         General callback endpoint
@@ -70,50 +71,61 @@ class SAMLAuthenticator(BackendAuthenticator):
                 # This check if the response was ok and the user data retrieved or not (user authenticated)
                 return "User Not authenticated"
             else:
-                session_data = {}
-                session_data["samlUserdata"] = auth.get_attributes()
-                saml_logger.debug(session_data["samlUserdata"])
+                additional_session_data = {}
+                additional_session_data["samlUserdata"] = auth.get_attributes()
+                saml_logger.debug(additional_session_data["samlUserdata"])
                 # This needs to be updated depending on the SAML attributes and what access restrictions
                 # Should be placed. At some point this might become a configuration option or more some
                 # more complex authorization scheme.
                 # Now, we check, whether the user is an employee, and thus eligible to use the service
                 # Log any login attempts
-                saml_logger.debug(session_data)
-                session_data["samlNameId"] = auth.get_nameid()
-                session_data["samlNameIdFormat"] = auth.get_nameid_format()
-                session_data["samlNameIdNameQualifier"] = auth.get_nameid_nq()
-                session_data["samlNameIdSPNameQualifier"] = auth.get_nameid_spnq()
-                session_data["samlSessionIndex"] = auth.get_session_index()
+                additional_session_data["samlNameId"] = auth.get_nameid()
+                additional_session_data["samlNameIdFormat"] = auth.get_nameid_format()
+                additional_session_data["samlNameIdNameQualifier"] = (
+                    auth.get_nameid_nq()
+                )
+                additional_session_data["samlNameIdSPNameQualifier"] = (
+                    auth.get_nameid_spnq()
+                )
+                additional_session_data["samlSessionIndex"] = auth.get_session_index()
                 try:
-                    session_data["auth_groups"] = session_data["samlUserdata"][
+                    auth_groups = additional_session_data["samlUserdata"][
                         "urn:oid:1.3.6.1.4.1.5923.1.1.1.1"
                     ]
-                    session_data["auth_name"] = session_data["samlUserdata"][
+                    auth_name = additional_session_data["samlUserdata"][
                         "urn:oid:1.3.6.1.4.1.5923.1.1.1.6"
                     ][0]
                     try:
-                        session_data["first_name"] = " ".join(
-                            session_data["samlUserdata"]["urn:oid:2.5.4.42"]
+                        first_name = " ".join(
+                            additional_session_data["samlUserdata"]["urn:oid:2.5.4.42"]
                         )
-                        session_data["last_name"] = " ".join(
-                            session_data["samlUserdata"]["urn:oid:2.5.4.4"]
+                        last_name = " ".join(
+                            additional_session_data["samlUserdata"]["urn:oid:2.5.4.4"]
                         )
                     except:
                         # TODO: Better handling of this
-                        session_data["first_name"] = session_data["auth_name"]
-                        session_data["last_name"] = "?"
-                    session_data["email"] = session_data["samlUserdata"][
+                        first_name = auth_name
+                        last_name = "?"
+                    email = additional_session_data["samlUserdata"][
                         "urn:oid:0.9.2342.19200300.100.1.3"
                     ][0]
                 except KeyError as e:
                     saml_logger.error("Necessary Attributes not found")
                     saml_logger.error(e)
-                    saml_logger.error(session_data["samlUserdata"])
+                    saml_logger.error(additional_session_data["samlUserdata"])
                     raise HTTPException(
                         403, "User does not have the necessary attributes"
                     )
-                saml_logger.debug(session_data)
-                session = create_session(session_data)
+                saml_logger.debug(additional_session_data)
+                session_data = SessionAuthData(
+                    auth_id=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    roles=auth_groups,
+                    additional_data=additional_session_data,
+                )
+
+                session = await create_session(session_data)
                 saml_logger.debug("Session key created, adding to request session")
                 # This potentially needs to be updated to a more complex redirect scheme,
                 # we might need to take the information from the session data and redirect
@@ -136,17 +148,17 @@ class SAMLAuthenticator(BackendAuthenticator):
         req = await prepare_from_fastapi_request(request)
         auth = OneLogin_Saml2_Auth(req, saml_settings)
         name_id = session_index = name_id_format = name_id_nq = name_id_spnq = None
-        userData = user.get_user_data()
-        if "samlNameId" in userData:
-            name_id = userData["samlNameId"]
-        if "samlSessionIndex" in userData:
-            session_index = userData["samlSessionIndex"]
-        if "samlNameIdFormat" in userData:
-            name_id_format = userData["samlNameIdFormat"]
-        if "samlNameIdNameQualifier" in userData:
-            name_id_nq = userData["samlNameIdNameQualifier"]
-        if "samlNameIdSPNameQualifier" in userData:
-            name_id_spnq = userData["samlNameIdSPNameQualifier"]
+        user_data = user.userdata
+        if "samlNameId" in user_data:
+            name_id = user_data["samlNameId"]
+        if "samlSessionIndex" in user_data:
+            session_index = user_data["samlSessionIndex"]
+        if "samlNameIdFormat" in user_data:
+            name_id_format = user_data["samlNameIdFormat"]
+        if "samlNameIdNameQualifier" in user_data:
+            name_id_nq = user_data["samlNameIdNameQualifier"]
+        if "samlNameIdSPNameQualifier" in user_data:
+            name_id_spnq = user_data["samlNameIdSPNameQualifier"]
         url = auth.logout(
             name_id=name_id,
             session_index=session_index,
@@ -158,7 +170,9 @@ class SAMLAuthenticator(BackendAuthenticator):
         request.session["LogoutRequestID"] = auth.get_last_request_id()
         return RedirectResponse(url=url)
 
-    async def logout_callback(self, request: Request, user, delete_session_callback):
+    async def logout_callback(
+        self, request: Request, user, delete_session_callback: Callable[[], Awaitable]
+    ):
         """
         Single logout callback endpoint
         """

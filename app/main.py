@@ -31,7 +31,7 @@ from app.security.auth import BackendUser
 from app.services.key_service import KeyService
 
 from app.repositories.factories import get_key_repository_class
-from app.dbs.redis.redis import get_key_client
+from app.dbs.redis.redis import get_key_client, get_key_quota_client
 
 # Initiaize services
 
@@ -45,53 +45,56 @@ uvlogger.info("Starting up the app")
 
 @asynccontextmanager
 async def startup(app: FastAPI):
-    key_repo_class = await get_key_repository_class()
-    key_service = KeyService(key_repo_class(), get_key_client())
+    from app.config.db import get_api_key_repo
+
+    key_service = KeyService(
+        key_repository=get_api_key_repo(),
+        key_db=await anext(get_key_client()),
+        key_quota_db=await anext(get_key_quota_client()),
+    )
     key_service.init_keys()
     yield
 
 
-def create_app():
-    app = FastAPI(lifespan=startup, debug=True)
+app = FastAPI(lifespan=startup, debug=True)
 
-    # Middleware is wrapped "around" existing middleware. i.e. order of execution is done inverse to order of adding.
+# Middleware is wrapped "around" existing middleware. i.e. order of execution is done inverse to order of adding.
 
-    # Set CORS Policy
-    cors_origings = [
-        "https://localhost",
-        "https://localhost:5173",
-        "https://ai.aalto.fi",
-        "https://ai-testing.aalto.fi",
-    ]
+# Set CORS Policy
+cors_origings = [
+    "https://localhost",
+    "https://localhost:5173",
+    "https://ai.aalto.fi",
+    "https://ai-testing.aalto.fi",
+]
 
-    # Add CORS Middleware
+# Add CORS Middleware
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=cors_origings,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origings,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    # Middlewares Order of execution is from last to first for incoming requests
+# Middlewares Order of execution is from last to first for incoming requests
 
-    # This will remove / add the actual session Data
-    app.add_middleware(SessionSanitizationMiddleWare)
+# This will remove / add the actual session Data
+app.add_middleware(SessionSanitizationMiddleWare)
 
-    # Need a fixed session key to work with potentially multiple instances.
-    session_key = os.environ.get("SESSION_KEY")
-    app.add_middleware(SessionMiddleware, secret_key=session_key, max_age=600)
+# Need a fixed session key to work with potentially multiple instances.
+session_key = os.environ.get("SESSION_KEY")
+app.add_middleware(SessionMiddleware, secret_key=session_key, max_age=600)
 
-    # Add Request logging
-    app.add_middleware(RouterLogging, logger=uvlogger, debug=debugging)
+# Add Request logging
+app.add_middleware(RouterLogging, logger=uvlogger, debug=debugging)
 
-    app.include_router(llm_router.router)
-    app.include_router(self_service_router.router)
-    app.include_router(admin_router.router)
-    app.include_router(auth_router.router)
-    app.include_router(user_router.router)
+app.include_router(llm_router.router)
+app.include_router(self_service_router.router)
+app.include_router(admin_router.router)
+app.include_router(auth_router.router)
+app.include_router(user_router.router)
 
-    # This has to be the very last route!!
-    app.mount("/", SPAStaticFiles(directory="dist", html=True), name="FrontEnd")
-    return app
+# This has to be the very last route!!
+app.mount("/", SPAStaticFiles(directory="dist", html=True), name="FrontEnd")

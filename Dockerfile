@@ -67,6 +67,7 @@ COPY migrations ./migrations
 COPY alembic.ini ./alembic.ini
 COPY run.sh ./run.sh
 
+COPY --from=frontend-builder /frontend/dist ./dist
 # Change user
 USER aaltoai
 

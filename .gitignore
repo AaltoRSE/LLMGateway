@@ -198,5 +198,6 @@ dist/**/*
 # dev databases
 mongodb/**/*
 data/**/*
+keycloaksql/**/*
 
 keyfile.key

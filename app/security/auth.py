@@ -15,7 +15,7 @@ from app.schemas.usage_schema import RequestSource
 from app.services.session_service import SessionService
 
 
-from typing import Tuple, Union, Callable, Dict, List
+from typing import Tuple, Union, Callable, Dict, List, Awaitable
 
 logger = logging.getLogger(__name__)
 frontend_url = os.getenv("FRONTEND_URL", "/")
@@ -89,7 +89,7 @@ class BackendAuthenticator:
     def login(
         self,
         request: Request,
-        create_session: Callable[[Dict], None],
+        create_session: Callable[[Dict], Awaitable],
     ) -> Tuple[Response, Union[HTTPSession, None]]:
         """
         Login the user. This can either be a direct login or a redirect.
@@ -112,7 +112,7 @@ class BackendAuthenticator:
     async def login_callback(
         self,
         request: Request,
-        create_session: Callable[[Dict], None],
+        create_session: Callable[[Dict], Awaitable],
     ) -> HTTPSession:
         """
         Callback function for the authentication.
@@ -140,7 +140,7 @@ class BackendAuthenticator:
         self,
         request: Request,
         user: BackendUser,
-        delete_session_callback: Callable,
+        delete_session_callback: Callable[[], Awaitable],
     ) -> Union[RedirectResponse, None]:
         """
         Logout endpoint, either forwards to a single logout service or

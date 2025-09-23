@@ -51,7 +51,7 @@ class UserService:
                 status_code=403,
                 detail="Only Staff is allowed to use this service",
             )
-        user = await self.get_user_by_id(authdata.auth_id)
+        user = await self.get_user_by_auth_id(authdata.auth_id)
         if not user:
             user = await self.create_new_user(
                 UserBase(
