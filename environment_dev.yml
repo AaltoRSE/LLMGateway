@@ -33,6 +33,7 @@ dependencies:
   - responses=0.25.7
   - respx=0.22.0
   - pytest-postgresql=7.0.1
-  - pipenv        
+  - pipenv     
+  - fakeredis   
   - pip: 
     - pytest-redis

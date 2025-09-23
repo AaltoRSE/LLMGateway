@@ -8,7 +8,7 @@ from app.schemas.usage_schema import RequestSource
 import logging
 import re
 import os
-
+from app.config.agreement import check_agreement_version
 
 admin_key_header = APIKeyHeader(name="AdminKey", auto_error=False)
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
@@ -50,12 +50,15 @@ async def get_user_for_api_key(
                 username=user.id,
                 isadmin=user.admin,
                 request_source=RequestSource(user_id=user.id, key=api_key),
+                agreement_ok=check_agreement_version(user.accepted_agreement_version),
             )
         else:
+            # This is a service. Service level we always assume that agreement is accepted.
             return BackendUser(
                 username=key.service,
                 isadmin=False,
                 request_source=RequestSource(key=api_key),
+                agreement_ok=True,
             )
     else:
         uvlogger.warning(f"Attempted usage with invalid key: {api_key}")
@@ -90,6 +93,7 @@ def get_admin_user_from_key(
             username="Admin",
             request_source=RequestSource(key=admin_key_header),
             isadmin=True,
+            agreement_ok=True,
         )
     else:
         uvlogger.warning(f"Attempted Admin access with invalid key: {admin_key_header}")

@@ -1,166 +1,54 @@
+import logging
+from typing import Annotated
 from fastapi import (
     APIRouter,
     Request,
     Security,
     Depends,
-    Query,
 )
-from fastapi.responses import RedirectResponse
-from typing import Annotated
-
 
 from app.security.authentication_dependencies import (
-    requires_session,
     authenticate_request,
 )
-from app.security.auth import (
-    get_request_source,
-    check_auth_response,
-    check_logout_response,
-    sanitize_redirect,
-    clean_session,
-    frontend_url,
-)
+from app.services.user_service import UserService, User
 from app.security.auth import BackendUser
-from app.security.saml import SAMLAuthenticator
-from app.services.session_service import SessionService
-from app.services.user_service import UserService
-import logging
-import os
-
+from app.responses.auth import AuthInfo, SessionAuthData
 
 logger = logging.getLogger("app")
 
-router = APIRouter(prefix="/saml", tags=["saml"])
-
-auth_backend = SAMLAuthenticator()
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.get("/login")
-async def login(
-    request: Request,
-    session_service: Annotated[SessionService, Depends(SessionService)],
-    user_service: Annotated[UserService, Depends(UserService)],
-    redirect_url: str = Query(None, alias="redirect_uri"),
-):
-    """
-    Login endpoint
-    """
-    logger.debug(
-        "Obtained redirect url was : " + ("" if redirect_url == None else redirect_url)
-    )
-    request.session["redirect_url"] = sanitize_redirect(redirect_url)
-    logger.debug("Redirect URL has been set to: " + request.session["redirect_url"])
-    source_ip = get_request_source(request)
-    process_session_data = lambda session_data: session_service.create_session(
-        session_data=session_data, source_ip=source_ip, user_service=user_service
-    )
-    response, session = await auth_backend.login(request, process_session_data)
-    final_response = check_auth_response(request, session, response)
-    return final_response
-
-
-@router.post("/acs")
-async def login_callback(
-    request: Request,
-    session_service: Annotated[SessionService, Depends(SessionService)],
-    user_service: Annotated[UserService, Depends(UserService)],
-):
-    """
-    General callback endpoint
-    """
-    logger.debug("GETTING LOGIN Callback")
-    logger.debug(request.session)
-    source_ip = get_request_source(request)
-    process_session_data = lambda session_data: session_service.create_session(
-        session_data=session_data, source_ip=source_ip, user_service=user_service
-    )
-    session = await auth_backend.login_callback(request, process_session_data)
-    logger.debug("Trying to build the response")
-    if os.getenv("POPUPLOGIN") == "1":
-        response = None
-    else:
-        response = RedirectResponse(
-            url=(
-                request.session["redirect_url"]
-                if "redirect_url" in request.session
-                else frontend_url
-            ),
-            status_code=303,
-        )
-    response = check_auth_response(request, session, response)
-    logger.debug(response)
-    logger.debug(request.session)
-    # This will redirect to the original page.
-    return response
-
-
-@router.get("/metadata")
-async def metadata():
-    """
-    Optional Metadata endpoint. Depends on the auth scheme.
-    """
-    return await auth_backend.metadata()
-
-
-@router.get("/logout")
-async def saml_slo_logout(
-    request: Request,
-    session_service: Annotated[SessionService, Depends(SessionService)],
-    user: BackendUser = Security(requires_session),
-):
-    """
-    Logout endpoint
-    """
-    delete_session = lambda: clean_session(request, session_service)
-    response = await auth_backend.logout(request, user, delete_session)
-    return check_logout_response(request, response, session_service)
-
-
-@router.get("/sls")
-async def saml_sls_logout(
-    request: Request,
-    session_service: Annotated[SessionService, Depends(SessionService)],
-    user: BackendUser = Security(requires_session),
-):
-    """
-    Logout callback. If this is successfull, the users session is removed.
-    """
-    delete_session = lambda: clean_session(request, session_service)
-    await auth_backend.logout_callback(request, user, delete_session)
-    # if it hasn't been cleaned, we will clean the session.
-    return check_logout_response(request, None, session_service)
-
-
-@router.get("/test_auth")
-@router.post("/test_auth")
+@router.get("/test")
+@router.post("/test")
 async def test_authentication(
-    request: Request, user: BackendUser = Depends(authenticate_request)
-):
+    request: Request,
+    user_service: Annotated[UserService, Depends(UserService)],
+    user: BackendUser = Depends(authenticate_request),
+) -> AuthInfo:
     """
     Test authentication endpoint
     """
+    auth_data = AuthInfo(authed=False)
     if user is not None:
-        return {"authed": True, "user": user.user_id}
-    else:
-        return {"authed": False, "reason": "No Token provided"}
-
-
-@router.get("/test_session")
-@router.post("/test_session")
-async def test_authentication(
-    request: Request, user: BackendUser = Depends(authenticate_request)
-):
-    """
-    Test authentication endpoint
-    """
-    if user is not None:
-        if user.request_source.is_session_based():
-            return {"authed": True, "session_active": True, "user": user.user_id}
+        if user.request_source.user_id is not None:
+            system_user: User = await user_service.get_user_by_id(
+                user.request_source.user_id
+            )
+            auth_data.user = SessionAuthData(
+                first_name=system_user.first_name,
+                last_name=system_user.last_name,
+                auth_id=system_user.auth_id,
+                roles=user.roles,
+            )
+            auth_data.authed = True
+            auth_data.admin = user.is_admin()
+            auth_data.agreement_ok = user.agreement_ok
         else:
-            return {"authed": True, "session_active": False, "user": user.user_id}
-    else:
-        return {"authed": False, "reason": "No Token provided"}
+            auth_data.authed = True
+            auth_data.admin = user.is_admin()
+            auth_data.agreement_ok = user.agreement_ok
+    return auth_data
 
 
 @router.get("/test_admin")
@@ -170,6 +58,8 @@ async def test_admin(
     """
     Test authentication endpoint
     """
+    info = AuthInfo(authed=False)
     if user is not None and user.is_admin():
-        return {"admin": user.is_admin()}
-    return {"admin": False}
+        info.admin = True
+        info.authed = True
+    return info

@@ -21,7 +21,10 @@ async def session_auth_mock(arg1, arg2, user: BackendUser) -> BackendUser:
 
 
 def build_backend_user(source: RequestSource, user: User) -> BackendUser:
-    return BackendUser(username=user.id, request_source=source, isadmin=user.admin)
+
+    return BackendUser(
+        username=user.id, request_source=source, agreement_ok=True, isadmin=user.admin
+    )
 
 
 @pytest_asyncio.fixture

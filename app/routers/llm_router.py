@@ -52,6 +52,14 @@ async def out_of_quota(
     return balance.used_up()
 
 
+@router.get("/models")
+async def get_models(
+    model_service: Annotated[ModelService, Depends(ModelService)],
+):
+    models = await model_service.get_api_models()
+    return models
+
+
 @router.post("/responses", response_model=None)
 async def create_response(
     request_data: CreateResponse,

@@ -57,7 +57,6 @@ async def get_details_for_model(
 async def get_details_for_model(
     modelData: LLMModelData,
     model_service: Annotated[ModelService, Depends(ModelService)],
-    admin_user: BackendUser = Security(requires_admin),
 ):
     await model_service.update_model(modelData)
 
@@ -71,7 +70,7 @@ async def reset_user(
 ) -> None:
     user = await user_service.get_user_by_id(RequestData.user_id)
     if user:
-        await user_service.reset_user(user)
+        await user_service.reset_user(user.id)
     else:
         raise HTTPException(404, "User not found")
 

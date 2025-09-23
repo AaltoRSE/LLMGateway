@@ -35,17 +35,22 @@ inference_key = os.environ.get("INFERENCE_KEY")
 class LLMModel:
     def __init__(self, model: LLMModelData):
         self.model: LLMModelData = model
-        # Need to figure out, whether this is the correct approach here.
-        self.client: httpx.AsyncClient = (
-            httpx.AsyncClient()
-        )  # Initialize the HTTP client
 
-    def __del__(self):
-        # Ensure the client is closed when the object is garbage collected
-        if not self.client.is_closed:
-            import asyncio
-
-            asyncio.run(self.client.aclose())  # Close the client asynchronously
+    def build_request(
+        self,
+        request: ChatCompletionRequest | CreateResponse | CreateEmbeddingRequest,
+        path: str,
+    ) -> httpx.Request:
+        request_data = request.model_dump()
+        return httpx.Request(
+            method="POST",
+            url=f"{self.model.host}{self.model.path}{path}",
+            json=request_data,
+            headers={
+                "Authorization": f"Bearer {inference_key}",
+                "Host": f"{self.model.host}",
+            },  # SECURITY: forwarding authentication token
+        )
 
     def calc_cost_from_chat_usage(self, usage: CompletionUsage) -> float:
         completion_tokens = usage.completion_tokens
@@ -157,22 +162,13 @@ class LLMModel:
             raise HTTPException(
                 404, "This model does not offer streamed chat completions"
             )
-        request_data = request.model_dump()
-        print(f"Sending request to: {self.model.path}/v1/chat/completions")
-        httpx_request = httpx.Request(
-            method="POST",
-            url=f"{self.model.host}{self.model.path}/v1/chat/completions",
-            json=request_data,
-            headers={
-                "Authorization": f"{inference_key}",
-                "Host": f"{self.model.host}",
-            },  # SECURITY: forwarding authentication token
-        )
-        model_response = await self.client.send(httpx_request, stream=True)
+        httpx_request = self.build_request(request=request, path="/v1/chat/completions")
+        async with httpx.AsyncClient() as client:
+            model_response = await client.send(httpx_request, stream=True)
 
-        return self.filter_chat_stream(
-            model_response.aiter_text(), usage_callback, filter_usage
-        )
+            return self.filter_chat_stream(
+                model_response.aiter_text(), usage_callback, filter_usage
+            )
 
     async def non_stream_chat_request(
         self,
@@ -196,28 +192,22 @@ class LLMModel:
         """
         if not "chat" in self.model.model.type:
             raise HTTPException(404, "This model does not offer chat completions")
-        request_data = request.model_dump()
-        print(
-            f"Sending request to: {self.model.host}{self.model.path}/v1/chat/completions"
-        )
-        model_response = httpx.post(
-            url=f"{self.model.host}{self.model.path}/v1/chat/completions",
-            json=request_data,
-            headers={"Authorization": f"{inference_key}", "Host": f"{self.model.host}"},
-        )
-        print(model_response.json())
-        return_value = ChatCompletionResponse.model_validate(model_response.json())
-        usage = return_value.usage
-        await usage_callback(
-            APIRequest(
-                model=self.model.model.id,
-                prompt_tokens=0 if usage is None else usage.prompt_tokens,
-                completion_tokens=0 if usage is None else usage.completion_tokens,
-                cost=0 if usage is None else self.calc_cost_from_chat_usage(usage),
-                timestamp=datetime.now(),
+
+        httpx_request = self.build_request(request=request, path="/v1/chat/completions")
+        async with httpx.AsyncClient() as client:
+            model_response = await client.send(httpx_request)
+            return_value = ChatCompletionResponse.model_validate(model_response.json())
+            usage = return_value.usage
+            await usage_callback(
+                APIRequest(
+                    model=self.model.model.id,
+                    prompt_tokens=0 if usage is None else usage.prompt_tokens,
+                    completion_tokens=0 if usage is None else usage.completion_tokens,
+                    cost=0 if usage is None else self.calc_cost_from_chat_usage(usage),
+                    timestamp=datetime.now(),
+                )
             )
-        )
-        return return_value
+            return return_value
 
     async def stream_response_request(
         self,
@@ -243,16 +233,12 @@ class LLMModel:
         """
         if not "responses" in self.model.model.type:
             raise HTTPException(404, "This model does not offer response backend")
-        request_data = request.model_dump()
-        httpx_request = httpx.Request(
-            method="POST",
-            url=f"{self.model.host}{self.model.path}/v1/responses",
-            json=request_data,
-            headers={"Authorization": f"{inference_key}", "Host": f"{self.model.host}"},
-        )
-        model_response = await self.client.send(httpx_request, stream=True)
-
-        return self.filter_response_stream(model_response.aiter_text(), usage_callback)
+        httpx_request = self.build_request(request=request, path="/v1/responses")
+        async with httpx.AsyncClient() as client:
+            model_response = await client.send(httpx_request, stream=True)
+            return self.filter_response_stream(
+                model_response.aiter_text(), usage_callback
+            )
 
     async def non_stream_response_request(
         self,
@@ -276,24 +262,25 @@ class LLMModel:
         """
         if not "responses" in self.model.model.type:
             raise HTTPException(404, "This model does not offer non streamed responses")
-        request_data = request.model_dump()
-        model_response = httpx.post(
-            url=f"{self.model.host}{self.model.path}/v1/responses",
-            json=request_data,
-            headers={"Authorization": f"{inference_key}", "Host": f"{self.model.host}"},
-        )
-        return_value = CreateResponseResponse.model_validate(model_response.json())
-        usage = return_value.usage
-        await usage_callback(
-            APIRequest(
-                model=self.model.model.id,
-                prompt_tokens=0 if usage is None else usage.input_tokens,
-                completion_tokens=0 if usage is None else usage.output_tokens,
-                cost=0 if usage is None else self.calc_cost_from_response_usage(usage),
-                timestamp=datetime.now(),
+        httpx_request = self.build_request(request=request, path="/v1/responses")
+        async with httpx.AsyncClient() as client:
+            model_response = await client.send(httpx_request)
+            return_value = CreateResponseResponse.model_validate(model_response.json())
+            usage = return_value.usage
+            await usage_callback(
+                APIRequest(
+                    model=self.model.model.id,
+                    prompt_tokens=0 if usage is None else usage.input_tokens,
+                    completion_tokens=0 if usage is None else usage.output_tokens,
+                    cost=(
+                        0
+                        if usage is None
+                        else self.calc_cost_from_response_usage(usage)
+                    ),
+                    timestamp=datetime.now(),
+                )
             )
-        )
-        return return_value
+            return return_value
 
     async def embed(
         self,
@@ -302,24 +289,20 @@ class LLMModel:
     ) -> CreateEmbeddingResponse:
         if not "embedding" in self.model.model.type:
             raise HTTPException(404, "This model does not offer non streamed responses")
-        request_data = request.model_dump()
-        model_response = httpx.post(
-            url=f"{self.model.host}{self.model.path}/v1/embeddings",
-            json=request_data,
-            headers={
-                "Authorization": f"{inference_key}",
-                "Host": f"{self.model.host}",
-            },  # SECURITY: forwarding authentication token
-        )
-        embeddings = CreateEmbeddingResponse.model_validate(model_response.json())
-        await usage_callback(
-            APIRequest(
-                model=self.model.model.id,
-                prompt_tokens=embeddings.usage.prompt_tokens,
-                completion_tokens=embeddings.usage.total_tokens
-                - embeddings.usage.prompt_tokens,
-                cost=embeddings.usage.total_tokens * self.model.prompt_cost / 1000000,
-                timestamp=datetime.now(),
+        httpx_request = self.build_request(request=request, path="/v1/embeddings")
+        async with httpx.AsyncClient() as client:
+            model_response = await client.send(httpx_request)
+            embeddings = CreateEmbeddingResponse.model_validate(model_response.json())
+            await usage_callback(
+                APIRequest(
+                    model=self.model.model.id,
+                    prompt_tokens=embeddings.usage.prompt_tokens,
+                    completion_tokens=embeddings.usage.total_tokens
+                    - embeddings.usage.prompt_tokens,
+                    cost=embeddings.usage.total_tokens
+                    * self.model.prompt_cost
+                    / 1000000,
+                    timestamp=datetime.now(),
+                )
             )
-        )
-        return embeddings
+            return embeddings

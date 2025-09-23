@@ -32,3 +32,4 @@ class LLMModel(BaseModelClass):
     prompt_cost = mapped_column(Float, nullable=False)
     completion_cost = mapped_column(Float, nullable=False)
     cached_token_cost = mapped_column(Float, nullable=False)
+    protocol = mapped_column(String, nullable=False, default="http")

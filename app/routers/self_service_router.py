@@ -27,7 +27,7 @@ async def create_key(
     user: BackendUser = Security(requires_session),
 ):
     if not user == None:
-        new_key = key_handler.create_key(
+        new_key = await key_handler.create_key(
             user=user.request_source.user_id, name=createRequest.name
         )
     else:
@@ -48,7 +48,7 @@ async def delete_key(
     user: BackendUser = Security(requires_session),
 ):
     if not user == None:
-        key_handler.delete_key_for_user(
+        await key_handler.delete_key_for_user(
             user=user.request_source.user_id, key=deleteRequest.key
         )
     else:
@@ -64,7 +64,7 @@ async def get_keys(
     key_handler: Annotated[KeyService, Depends(KeyService)],
     user: BackendUser = Security(requires_session),
 ):
-    keys = key_handler.list_keys(user=user.request_source.user_id)
+    keys = await key_handler.list_keys(user=user.request_source.user_id)
     return keys
 
 
@@ -74,8 +74,8 @@ async def get_usage(
     usage_service: Annotated[UsageService, Depends(UsageService)],
     user: BackendUser = Security(requires_session),
 ):
-    usage = usage_service.get_usage_for_user(
-        user=user.request_source.user_id,
+    usage = await usage_service.get_usage_for_user(
+        user_id=user.request_source.user_id,
         from_time=request.from_time,
         to_time=request.to_time,
     )
@@ -90,7 +90,7 @@ async def accept_agreement(
     session: HTTPSession = Depends(get_session),
     user: BackendUser = Security(requires_session),
 ):
-    user_service.update_agreement_version(
+    await user_service.update_agreement_version(
         user.request_source.user_id, agreement.version
     )
-    session_service.update_session_agreement(session, agreement.version)
+    await session_service.update_session_agreement(session, agreement.version)

@@ -55,25 +55,33 @@ async def requires_auth(user: BackendUser | None = Depends(authenticate_request)
     return user
 
 
-async def requires_key(user: BackendUser | None = Depends(authenticate_request)):
+async def requires_agreement(user: BackendUser | None = Depends(authenticate_request)):
+    """
+    This dependency secures endpoints that necessarily require some form of authentication
+    No assumption can be made about the content of the BackendUser.
+    Username can e.g. be the name of a service and is NOT the same as the user_id
+    """
+    user = await requires_auth(user)
+    if not user.agreement_ok:
+        raise HTTPException(403, "Need to accept current agreement")
+    return user
+
+
+async def requires_key(user: BackendUser = Depends(requires_agreement)):
     """
     This dependency secures endpoints that necessarily require a key
     An endpoint using this dependency, can rely on user.request_source.key to be not None
     """
-    if user is None:
-        raise HTTPException(401, "Unauthenticated")
     if user.request_source.has_key():
         return user
     raise HTTPException(403, "Endpint requires key authentication")
 
 
-async def requires_user(user: BackendUser | None = Depends(authenticate_request)):
+async def requires_user(user: BackendUser = Depends(requires_agreement)):
     """
     This dependency secures endpoints and ensures, that a user_id is associated with
     the request, i.e. the user.request_source.user_id field is set and valid.
     """
-    if user is None:
-        raise HTTPException(401, "Unauthenticated")
     if user.request_source.user_id is not None:
         return user
     raise HTTPException(403, "Endpoint cannot be used with a service key")
@@ -82,6 +90,7 @@ async def requires_user(user: BackendUser | None = Depends(authenticate_request)
 async def requires_session(user: BackendUser | None = Depends(authenticate_request)):
     """
     This dependency secures endpoints that require an active session.
+    requires_session allows for a agreement that is not accepted, sinceit assumes UI interaction
     """
     if user is None:
         raise HTTPException(401, "Unauthenticated")

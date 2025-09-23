@@ -102,6 +102,9 @@ class KeyRepository(APIKeyRepository):
         """
         Deactivate all keys of a user
         """
+        keys = []
         for key in self.__class__.keys.values():
-            if key.user_id == user_id:
+            if key.user_id == user_id and key.active:
                 key.active = False
+                keys.append(key.model_copy(deep=True))
+        return keys

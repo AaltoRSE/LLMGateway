@@ -40,6 +40,15 @@ class User(UserBase):
     id: str
 
 
+class UserUpdate(BaseModel):
+    auth_id: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    admin: Optional[bool] = None
+    accepted_agreement_version: Optional[str] = None
+    quota: Optional[float] = None
+
+
 class LanguageUpdate(BaseModel):
     selected_language: possible_languages
 

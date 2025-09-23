@@ -19,6 +19,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.routers import (
     llm_router,
+    saml_router,
     self_service_router,
     admin_router,
     user_router,
@@ -27,10 +28,8 @@ from app.routers import (
 from app.utils.serverlogging import RouterLogging
 from app.middleware.session_sanitize_middleware import SessionSanitizationMiddleWare
 from app.static_files import SPAStaticFiles
-from app.security.auth import BackendUser
 from app.services.key_service import KeyService
 
-from app.repositories.factories import get_key_repository_class
 from app.dbs.redis.redis import get_key_client, get_key_quota_client
 
 # Initiaize services
@@ -52,7 +51,7 @@ async def startup(app: FastAPI):
         key_db=await anext(get_key_client()),
         key_quota_db=await anext(get_key_quota_client()),
     )
-    key_service.init_keys()
+    await key_service.init_keys()
     yield
 
 
@@ -93,8 +92,9 @@ app.add_middleware(RouterLogging, logger=uvlogger, debug=debugging)
 app.include_router(llm_router.router)
 app.include_router(self_service_router.router)
 app.include_router(admin_router.router)
-app.include_router(auth_router.router)
+app.include_router(saml_router.router)
 app.include_router(user_router.router)
+app.include_router(auth_router.router)
 
 # This has to be the very last route!!
-app.mount("/", SPAStaticFiles(directory="dist", html=True), name="FrontEnd")
+app.mount("/", SPAStaticFiles(directory="frontend/dist", html=True), name="FrontEnd")

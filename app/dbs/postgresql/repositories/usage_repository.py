@@ -98,7 +98,7 @@ class SQLUsageRepository(UsageRepository):
         self,
         from_time: datetime | None = None,
         to_time: datetime | None = None,
-        user_id: str | None = None,
+        user_id: str | None = None,  # We will have to convert this to int for the query
         key: str | None = None,
     ) -> List[Usage]:
         conditions = []
@@ -107,7 +107,7 @@ class SQLUsageRepository(UsageRepository):
         if key is not None:
             conditions.append(DBUsage.api_key == key)
         if user_id is not None:
-            conditions.append(DBUsage.user_id == user_id)
+            conditions.append(DBUsage.user_id == int(user_id))
         if from_time is None:
             from_time = datetime.fromtimestamp(0)
         if to_time is None:

@@ -1,7 +1,7 @@
 """This module provides User repository functionality"""
 
 from typing import List
-from app.schemas.user_schema import User, UserBase
+from app.schemas.user_schema import User, UserBase, UserUpdate
 
 
 class UserRepository:
@@ -71,7 +71,7 @@ class UserRepository:
         """
         raise NotImplementedError
 
-    async def update_user(self, user: User) -> User | None:
+    async def update_user(self, user_id: str, update: UserUpdate) -> User | None:
         """
         Update an existing user.
 

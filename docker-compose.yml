@@ -32,6 +32,7 @@ services:
       - redis
     volumes:
       - ./app:/usr/src/app/app
+      - ./frontend/dist:/usr/src/app/frontend/dist
       - ./migrations:/usr/src/app/migrations
       - ./dev_data/saml:/usr/src/app/app/security/saml_data
       - ./dev_data/certs:/usr/src/app/app/security/saml_data/certs

@@ -22,6 +22,7 @@ class LLMModelData(BaseModel):
     prompt_cost: float = 0.0001
     completion_cost: float = 0.0001
     cached_token_cost: float = 0.00001
+    protocol: Optional[str] = "html"
 
 
 class LLMModelDict(RootModel):

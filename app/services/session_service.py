@@ -10,6 +10,7 @@ import os
 import redis.asyncio as redis
 from fastapi import Depends
 from app.dbs.redis.redis import get_session_client
+from app.config.agreement import check_agreement_version
 from app.services.user_service import UserService, User
 from app.models.session import HTTPSession
 from app.schemas.user_schema import SessionAuthData
@@ -48,7 +49,7 @@ class SessionService:
         Returns:
             str: The session key.
         """
-
+        print(session_data)
         if session_key == None:
             # Should be the case in most instances.
             session_key = self.generate_session_key()
@@ -69,9 +70,7 @@ class SessionService:
                 auth_id=user.auth_id,
                 roles=session_data.roles,
                 admin=user.admin,
-                agreement_ok=self.check_agreement_version(
-                    user.accepted_agreement_version
-                ),
+                agreement_ok=check_agreement_version(user.accepted_agreement_version),
             )
             await self.session_client.setex(
                 session_key, self.expire_time, json.dumps(session.model_dump())
@@ -122,18 +121,14 @@ class SessionService:
         """
         await self.session_client.delete(session_key)
 
-    def check_agreement_version(self, agreement_version: str):
-        return agreement_version == os.environ.get("AGREEMENT_VERSION", "1.0")
-
     async def update_session_agreement(
         self, session: HTTPSession, agreement_version: str
     ):
 
-        session.agreement_ok = self.check_agreement_version(agreement_version)
+        session.agreement_ok = check_agreement_version(agreement_version)
         serialized_data = await self.session_client.get(session.key)
         if serialized_data is None:
             raise ValueError("Session does not exist")
-        session.data["agreement_ok"] = session.agreement_ok
         await self.session_client.setex(
             session.key, self.expire_time, json.dumps(session.model_dump())
         )

@@ -64,10 +64,11 @@ async def get_user_from_session(
         logger.error(e)
         return
     currentUser = BackendUser(
-        user_id=session.user_id,
+        username=session.user_id,
         request_source=RequestSource(user_id=session.user_id, has_session=True),
         userdata=session.data,
         roles=session.roles,
         isadmin=session.admin,
+        agreement_ok=session.agreement_ok,
     )
     return currentUser

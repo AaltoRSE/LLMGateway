@@ -67,51 +67,40 @@ class UserService:
             user.first_name != authdata.first_name
             or user.last_name != authdata.last_name
         ):
-            user.first_name = authdata.first_name
-            user.last_name = authdata.last_name
-            user = await self.user_respository.update_user(user)
+            update = UserUpdate(
+                last_name=authdata.last_name, first_name=authdata.first_name
+            )
+            user = await self.user_respository.update_user(
+                user_id=user.id, update=update
+            )
         return user
 
     async def get_all_users(self) -> List[User]:
 
         return await self.user_respository.get_all_users()
 
-    async def update_agreement_version(self, user: User, version: str) -> User | None:
-        user_to_update = await self.get_user_by_id(user.id)
-        user_to_update.accepted_agreement_version = version
-        updated_user = await self.user_respository.update_user(user_to_update)
+    async def update_agreement_version(self, user_id: str, version: str) -> User | None:
+        update = UserUpdate(accepted_agreement_version=version)
+        updated_user = await self.user_respository.update_user(
+            user_id=user_id, update=update
+        )
         if updated_user is None:
             raise HTTPException(404, "User not found")
         return updated_user
 
-    async def reset_user(self, user: User):
-        user_to_update = await self.get_user_by_id(user.id)
-        user_to_update.accepted_agreement_version = "0.0"
-        updated_user = await self.user_respository.update_user(user_to_update)
+    async def reset_user(self, user_id: str):
+        update = UserUpdate(accepted_agreement_version="0.0")
+        updated_user = await self.user_respository.update_user(user_id, update)
         if updated_user is None:
             raise HTTPException(404, "User does not exist")
-        self.key_service.deactivate_keys_for_user(user)
-        return updated_user
-
-    async def reset_user(self, user: User):
-        user.accepted_agreement_version = "0.0"
-        updated_user = await self.user_respository.update_user(user)
-        if updated_user is None:
-            raise HTTPException(404, "User does not exist")
-        self.key_service.deactivate_keys_for_user(user.id)
+        await self.key_service.deactivate_keys_for_user(user_id)
         return updated_user
 
     async def update_user(self, user_id: str, update: UserUpdate):
         user_to_update = await self.get_user_by_id(user_id)
         if user_to_update is None:
             raise HTTPException(404, "User does not exist")
-        # Get all fields which are set in the update data
-        update_data = update.model_dump(exclude_none=True)
-        # Only update fields that exist in User
-        for field in update_data:
-            if hasattr(user_to_update, field):
-                setattr(user_to_update, field, update_data[field])
-        updated_user = await self.user_respository.update_user(user_to_update)
+        updated_user = await self.user_respository.update_user(user_id, update)
         return updated_user
 
     async def create_new_user(self, user: UserBase) -> User:

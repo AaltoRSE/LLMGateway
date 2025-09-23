@@ -96,15 +96,15 @@ async def test_reset_user(
             auth_id="test", first_name="test", last_name="test", roles=["employee"]
         )
     )
-    await user_service.update_agreement_version(user, "1.0")
+    await user_service.update_agreement_version(user.id, "1.0")
     # Also manual set a key, which will be removed by the reset
-    request = UserRequest(user_id="test")
-    user = await user_service.get_user_by_id("test")
+    request = UserRequest(user_id=user.id)
+    user = await user_service.get_user_by_auth_id("test")
     assert user.accepted_agreement_version == "1.0"
     response = admin_session_client.post("/admin/reset_user", json=request.model_dump())
     print(response.json())
     assert response.status_code == 200
-    user = await user_service.get_user_by_id("test")
+    user = await user_service.get_user_by_auth_id("test")
     assert user.accepted_agreement_version == "0.0"
     request = UserRequest(user_id="test2")
     response = admin_key_client.post("/admin/reset_user", json=request.model_dump())

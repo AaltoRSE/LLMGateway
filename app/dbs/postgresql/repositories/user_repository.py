@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.repositories.user_repository import UserRepository
-from app.schemas.user_schema import User, UserBase
+from app.schemas.user_schema import User, UserBase, UserUpdate
 from ..models.user_model import User as DBUser
 from ..db import db as db_dependency
 
@@ -68,16 +68,15 @@ class SQLUserRepository(UserRepository):
             raise HTTPException(409, "User already exists")
         return self._convert_model_to_schema(db_user)
 
-    async def update_user(self, user: User) -> User | None:
-        db_user = self._get_db_user_by_auth_id(user.auth_id)
+    async def update_user(self, user_id: str, update: UserUpdate) -> User | None:
+        db_user = self._get_dbuser_by_id(int(user_id))
         if db_user is None:
             return None
-        db_user.auth_id = user.auth_id
-        db_user.first_name = user.first_name
-        db_user.last_name = user.last_name
-        db_user.admin = user.admin
-        db_user.accepted_agreement_version = user.accepted_agreement_version
-        db_user.quota = (user.quota,)
+        update_data = update.model_dump(exclude_none=True)
+        # Only update fields that exist in User
+        for field in update_data:
+            if hasattr(db_user, field):
+                setattr(db_user, field, update_data[field])
         self.db.commit()
         self.db.refresh(db_user)
         return self._convert_model_to_schema(db_user)

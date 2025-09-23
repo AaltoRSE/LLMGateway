@@ -63,12 +63,14 @@ class BackendUser(SimpleUser):
         # A user id must be derived from the RequestSource
         username: str,
         request_source: RequestSource,
+        agreement_ok: bool,
         roles: List[str] = None,
         isadmin: bool = False,
         userdata: dict[str, any] = None,
     ):
         super().__init__(username)
         self.admin: bool = isadmin
+        self.agreement_ok = agreement_ok
         self.roles = roles
         self.userdata = userdata
         self.request_source = request_source
