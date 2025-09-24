@@ -40,8 +40,12 @@ class UserRepositoryImpl(UserRepository):
         db_user = self.__class__.users[user_id]
         update_data = update.model_dump(exclude_none=True)
         # Only update fields that exist in User
+        print(update_data)
+        print(update)
         for field in update_data:
+            print(f"Updating field {field}")
             if hasattr(db_user, field):
+                print(f"Setting {field} to {update_data[field]}")
                 setattr(db_user, field, update_data[field])
         return db_user.model_copy(deep=True)
 

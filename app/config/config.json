@@ -1,5 +1,5 @@
 {
-    "Databases": {
+    "databases": {
         "UserDB": "postgresql",
         "ConversationDB": "postgresql",
         "DocumentDB": "postgresql",
@@ -7,5 +7,7 @@
         "UsageDB": "postgresql",
         "MessageDB": "postgresql"
     },
-    "baseQuota": 30
+    "base_quota": 30,
+    "current_agreement_version": "1.0",
+    "session_expiration_time": 600
 }

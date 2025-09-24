@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Boolean, Integer, String, DateTime, Float
 from sqlalchemy.orm import mapped_column
 from .base_model import BaseModelClass
-from app.config import base_quota
+from app.config import app_configuration
 
 
 class User(BaseModelClass):
@@ -36,4 +36,4 @@ class User(BaseModelClass):
     last_name = mapped_column(String(60), nullable=False)
     admin = mapped_column(Boolean, nullable=False, default=False)
     accepted_agreement_version = mapped_column(String, nullable=False, default=False)
-    quota = mapped_column(Float, default=base_quota, nullable=False)
+    quota = mapped_column(Float, default=app_configuration.base_quota, nullable=False)

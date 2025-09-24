@@ -79,9 +79,12 @@ class KeyService:
             if db_key is None:
                 raise HTTPException(404, "Key does not exist")
             else:
+                logger.warning(
+                    f"User {user_id} tried to delete key of a different user"
+                )
                 raise HTTPException(
-                    400,
-                    "Requested deletion of a key that does not belong to the indicated user",
+                    404,
+                    "Key not found",
                 )
 
     async def delete_key(self, key: str, user_id: str = None):

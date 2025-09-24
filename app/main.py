@@ -22,7 +22,6 @@ from app.routers import (
     saml_router,
     self_service_router,
     admin_router,
-    user_router,
     auth_router,
 )
 from app.utils.serverlogging import RouterLogging
@@ -93,7 +92,6 @@ app.include_router(llm_router.router)
 app.include_router(self_service_router.router)
 app.include_router(admin_router.router)
 app.include_router(saml_router.router)
-app.include_router(user_router.router)
 app.include_router(auth_router.router)
 
 # This has to be the very last route!!

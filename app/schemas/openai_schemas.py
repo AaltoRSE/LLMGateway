@@ -15,7 +15,6 @@ from pydantic import (
     PositiveFloat,
     RootModel
 )
-
 class MyEnum(str, Enum):
     def toJSON(self) -> str:
         return self.value

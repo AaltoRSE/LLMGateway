@@ -5,14 +5,6 @@ from app.models.session import HTTPSession, SESSION_DATA_FIELD
 import app.dbs.redis.redis
 
 
-def get_session(request: Request) -> HTTPSession:
-    session = request.scope["session"]
-    if SESSION_DATA_FIELD in session:
-        return session[SESSION_DATA_FIELD]
-    else:
-        return None
-
-
 class SessionSanitizationMiddleWare(BaseHTTPMiddleware):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

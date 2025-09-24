@@ -8,7 +8,7 @@ from typing import Optional, Literal, List, Dict, Any
 from datetime import datetime
 from pydantic import AfterValidator, BaseModel
 from typing_extensions import Annotated
-from app.config import base_quota
+from app.config import app_configuration
 
 possible_languages = Literal["en", "fi", "sv"]
 
@@ -30,7 +30,7 @@ class SessionAuthData(AuthData):
 class UserBase(AuthData):
     admin: bool
     accepted_agreement_version: str
-    quota: float = base_quota
+    quota: float = app_configuration.base_quota
 
 
 # User schema
@@ -80,7 +80,7 @@ class InputAcceptAgreement(BaseModel):
 # Schema for updating user details
 #
 # SECURITY: Logged in user controls the input here, do not add sensitive fields
-class UserUpdate(BaseModel):
+class ExternalUserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     accepted_agreement_version: Optional[

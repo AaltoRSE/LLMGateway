@@ -2,7 +2,7 @@ import os
 import json
 from typing import List, Optional, Dict, TypedDict, Type
 from app import repositories
-from app.config import config
+from app.config import app_configuration
 
 
 class DatabaseConfig(TypedDict):
@@ -26,16 +26,16 @@ Databases: Dict[str, DatabaseConfig] = {
 
 # Load all options
 for db in Databases:
-    if db in config and [db] in Databases[db]["options"]:
-        Databases[db]["current"] = config[db]
+    if db in app_configuration and [db] in Databases[db]["options"]:
+        Databases[db]["current"] = app_configuration[db]
     else:
         Databases[db]["current"] = Databases[db]["default"]
 
-user_db = Databases["UserDB"]["current"]
-balance_db = Databases["BalanceDB"]["current"]
-apikey_db = Databases["APIKeyDB"]["current"]
-model_db = Databases["ModelDB"]["current"]
-usage_db = Databases["UsageDB"]["current"]
+user_db = app_configuration.databases.user_db.value
+balance_db = app_configuration.databases.balance_db.value
+apikey_db = app_configuration.databases.api_key_db.value
+model_db = app_configuration.databases.model_db.value
+usage_db = app_configuration.databases.usage_db.value
 
 UserRepositoryImpl: Type[repositories.UserRepository] = repositories.UserRepository
 LLMModelRepositoryImpl: Type[repositories.LLMModelRepository] = (

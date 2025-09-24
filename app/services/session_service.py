@@ -22,10 +22,12 @@ class SessionService:
     def __init__(
         self,
         session_client: Annotated[redis.StrictRedis, Depends(get_session_client)],
-        exp_time: int = 12 * 3600,
     ):  # 12 hours
         self.session_client = session_client
-        self.expire_time = exp_time
+        self.expire_time = 600
+
+    def set_session_expiration_time(self, time: int):
+        self.expire_time = time
 
     async def create_session(
         self,

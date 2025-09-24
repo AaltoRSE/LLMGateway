@@ -113,5 +113,6 @@ class UserService:
         user = await self.user_respository.get_user_by_id(user_id)
         if user is None:
             raise HTTPException(404, "User does not exist")
-        user.admin = admin
-        await self.user_respository.update_user(user)
+        update = UserUpdate(admin=admin)
+        print(update)
+        await self.user_respository.update_user(user_id=user_id, update=update)

@@ -64,7 +64,8 @@ async def test_delete_key_for_user(
     assert len(mock_repositories.key_repo.__class__.keys.values()) == 1
     with pytest.raises(HTTPException) as execinfo:
         await key_service.delete_key_for_user(new_key.key, admin_user.id)
-    assert execinfo.value.status_code == 400
+    # This gives 404 as to not expose keys of other users.
+    assert execinfo.value.status_code == 404
     key = await key_service.get_user_key_if_active(new_key.key)
     assert key is not None
     # now delete it for real

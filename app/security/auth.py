@@ -71,7 +71,7 @@ class BackendUser(SimpleUser):
         super().__init__(username)
         self.admin: bool = isadmin
         self.agreement_ok = agreement_ok
-        self.roles = roles
+        self.roles = [] if roles is None else roles
         self.userdata = userdata
         self.request_source = request_source
 
