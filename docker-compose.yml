@@ -23,6 +23,7 @@ services:
       - FRONTEND_URL=https://localhost
       - POPUPLOGIN=1
       - DEV_MODE=1
+      - SESSION_KEY=12354
 
     container_name: gateway-server
     ports:
