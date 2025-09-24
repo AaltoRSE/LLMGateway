@@ -11,7 +11,7 @@ from ..db import db as db_dependency
 
 # App imports
 from app.repositories.usage_repository import UsageRepository
-from app.schemas.usage_schema import Usage, Balance, APIRequest, RequestSource
+from app.schemas.usage_schema import Usage, APIRequest, RequestSource
 from datetime import datetime, date
 
 
@@ -26,13 +26,6 @@ class SQLUsageRepository(UsageRepository):
             prompt_tokens=db_usage.prompt_tokens,
             completion_tokens=db_usage.completion_tokens,
             model=db_usage.model,
-        )
-
-    def _convert_balance_to_schema(self, db_balance: DBBalance) -> Balance:
-        return Balance(
-            period=db_balance.period,
-            balance_used=db_balance.balance_used,
-            total_balance=db_balance.total_balance,
         )
 
     async def log_usage(self, usage: APIRequest, source: RequestSource) -> None:
@@ -100,7 +93,7 @@ class SQLUsageRepository(UsageRepository):
         to_time: datetime | None = None,
         user_id: str | None = None,  # We will have to convert this to int for the query
         key: str | None = None,
-    ) -> List[Usage]:
+    ) -> List[APIRequest]:
         conditions = []
         if key is None and user_id is None:
             raise ValueError("Need either user id or key id for query")
@@ -124,9 +117,7 @@ class SQLUsageRepository(UsageRepository):
         to_time: datetime | None = None,
     ) -> List[APIRequest]:
 
-        return [
-            self._query_usage(user_id=user_id, from_time=from_time, to_time=to_time)
-        ]
+        return self._query_usage(user_id=user_id, from_time=from_time, to_time=to_time)
 
     async def get_usage_details_for_key(
         self,
@@ -135,7 +126,7 @@ class SQLUsageRepository(UsageRepository):
         to_time: datetime | None = None,
     ) -> List[APIRequest]:
 
-        return [self._query_usage(key=key, from_time=from_time, to_time=to_time)]
+        return self._query_usage(key=key, from_time=from_time, to_time=to_time)
 
     def _get_db_balance(self, user_id: int, period: datetime) -> tuple[DBBalance, bool]:
         requestedDate = date(period.year, period.month, 1)
@@ -153,12 +144,3 @@ class SQLUsageRepository(UsageRepository):
                 total_balance=30,  # FIXME: This needs to be set by some variable.
             )
         return balance, new
-
-    async def get_balance(self, user_id: int, period: datetime) -> Balance:
-        balance, new = self._get_db_balance(user_id=user_id, period=period)
-
-        if new:
-            self.db.add(balance)
-            self.db.commit()
-
-        return self._convert_balance_to_schema(balance)

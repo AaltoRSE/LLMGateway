@@ -16,17 +16,17 @@ class SQLAPIKeyRepositry(APIKeyRepository):
     def __init__(self, db: Annotated[Session, Depends(db_dependency.get_db)]):
         self.db = db
 
-    def _convert_to_db_model(key: APIKey) -> DBAPIKey:
+    def _convert_to_db_model(self, key: APIKey) -> DBAPIKey:
         return DBAPIKey(
             key=key.key,
-            user_id=int(key.user_id),
+            user_id=int(key.user_id) if key.user_id is not None else None,
             service=key.service,
             active=key.active,
             name=key.name,
             quota=key.quota,
         )
 
-    def _convert_to_api_model(key: DBAPIKey) -> APIKey:
+    def _convert_to_api_model(self, key: DBAPIKey) -> APIKey:
         return APIKey(
             key=key.key,
             user_id=str(key.user_id),
@@ -79,7 +79,7 @@ class SQLAPIKeyRepositry(APIKeyRepository):
         self.db.refresh(db_key)
         return self._convert_to_api_model(db_key)
 
-    async def get_active_api_keys_for_user(self, user_id: str) -> List[APIKey] | None:
+    async def get_active_api_keys_for_user(self, user_id: str) -> List[APIKey]:
         """
         Get all Keys for a user
         """
@@ -94,14 +94,14 @@ class SQLAPIKeyRepositry(APIKeyRepository):
         """
         Deactivate a given key. Keys can not be reactivated.
         """
-        update = APIKey(key.key, active=False, name=key.name)
+        update = APIKey(key=key.key, active=False, name=key.name, quota=0)
         res = self.update_key(update)
         if res:
             return True
         else:
             return None
 
-    async def get_all_keys(self, active_only=False) -> List[APIKey]:
+    async def get_all_keys(self, active_only: bool = False) -> List[APIKey]:
         """
         Get all keys.
         """

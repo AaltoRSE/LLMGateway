@@ -1,26 +1,31 @@
+"""
+Service for Model administration interaction and model access checks
+"""
+
+from typing import List, Annotated, Tuple
 import json
 import logging
-from typing import List, Annotated, Tuple
+
 import redis.asyncio as redis
 from fastapi import HTTPException, Depends
 
 from app.schemas.llmmodel_schema import (
-    LLMModelDict,
     LLMModelData,
     LLMModelDataDetails,
-    model_types,
 )
 from app.utils.llm_model import LLMModel
 from app.repositories import LLMModelRepository
 from app.repositories.factories import get_llm_repository_class
 from app.dbs.redis.redis import get_model_client
-import app.dbs.redis.redis
-import app.config.db
 
 modelLogger = logging.getLogger("app")
 
 
 class ModelService:
+    """
+    Service for Model related actions
+    """
+
     def __init__(
         self,
         llm_repository: Annotated[
@@ -28,6 +33,9 @@ class ModelService:
         ],
         model_client: Annotated[redis.StrictRedis, Depends(get_model_client)],
     ):
+        """
+        Init function
+        """
         self.repository: LLMModelRepository = llm_repository
         self.model_client: redis.StrictRedis = model_client
 
@@ -47,6 +55,9 @@ class ModelService:
             await self.model_client.flushdb()
 
     async def get_models(self) -> List[LLMModelData]:
+        """
+        Get all models
+        """
         models = await self.repository.get_models()
         return models
 
@@ -59,7 +70,9 @@ class ModelService:
         models = await self.get_models()
         return [model.model for model in models]
 
-    async def get_model_location(self, model_id: str, type: str) -> Tuple[str, str]:
+    async def get_model_location(
+        self, model_id: str, model_type: str
+    ) -> Tuple[str, str]:
         """
         Retrieve the path and host for a specific model and type.
 
@@ -80,27 +93,26 @@ class ModelService:
             )
             if (
                 requested_model.model.type is not None
-                and type in requested_model.model.type
+                and model_type in requested_model.model.type
             ):
                 return requested_model.path, requested_model.host
-            else:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Model {model_id} cannot be used for {type}",
-                )
-        else:
-            raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
+
+            raise HTTPException(
+                status_code=404,
+                detail=f"Model {model_id} cannot be used for {model_type}",
+            )
+        raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
 
     async def get_model(self, model_id: str) -> LLMModel:
-        print(f"Requestion model: {model_id}")
-        print(self.model_client)
+        """
+        Get the model instance for a specific model
+        """
         model_data = await self.model_client.get(model_id)
-        print(model_data)
         if model_data:
             model_data = LLMModelData.model_validate(json.loads(model_data))
             return LLMModel(model=model_data)
-        else:
-            raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
+
+        raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
 
     async def add_model(self, model: LLMModelData) -> None:
         """
@@ -112,12 +124,13 @@ class ModelService:
             print(f"Adding available model: {model}")
             print(self.model_client)
             new_model = await self.repository.add_model(model)
+            assert new_model is not None
             await self.model_client.set(model.model.id, new_model.model_dump_json())
         except ValueError as e:
             print(e)
             raise HTTPException(
                 status_code=409, detail=f"Model {model.model.id} already exists"
-            )
+            ) from e
 
     async def update_model(self, model: LLMModelData) -> None:
         """

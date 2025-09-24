@@ -43,7 +43,7 @@ class SAMLAuthenticator(BackendAuthenticator):
     async def login(
         self,
         request: Request,
-        create_session: Callable[[Dict], Awaitable],
+        create_session: Callable[[SessionAuthData], Awaitable],
     ) -> Tuple[Response, Union[HTTPSession, None]]:
         """
         Login endpoint

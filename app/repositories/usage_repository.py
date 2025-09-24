@@ -9,10 +9,14 @@ datetimes month.
 
 from typing import List
 from datetime import datetime
-from app.schemas.usage_schema import APIRequest, Usage, Balance, RequestSource
+from app.schemas.usage_schema import APIRequest, Usage, RequestSource
 
 
+# pylint: disable=duplicate-code
 class UsageRepository:
+    """
+    Base class for any implementation of a Usage Repository connecting to a specific db type
+    """
 
     async def log_usage(self, usage: APIRequest, source: RequestSource) -> None:
         """

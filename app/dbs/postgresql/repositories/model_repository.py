@@ -63,7 +63,7 @@ class SQLModelRepository(LLMModelRepository):
     def _get_db_model_by_id(self, id: str) -> DBLLMModel | None:
         return self.db.query(DBLLMModel).filter(DBLLMModel.id == id).first()
 
-    async def get_model(self, id: str) -> LLMModelData:
+    async def get_model(self, id: str) -> LLMModelData | None:
         """
         Get the mode with the given ID
         """
@@ -89,7 +89,7 @@ class SQLModelRepository(LLMModelRepository):
         """
         Update a model, returns the updated model
         """
-        db_model: DBLLMModel | None = await self._get_db_model_by_id(model.model.id)
+        db_model: DBLLMModel | None = self._get_db_model_by_id(model.model.id)
         if db_model is None:
             return None
         db_model.path = model.path

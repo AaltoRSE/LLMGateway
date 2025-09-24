@@ -2,18 +2,13 @@
 A placeholder hello world app.
 """
 
-import logging
 import os
+import logging
 import logging.config
-from typing import Any, AsyncGenerator
-
-logging.config.fileConfig("app/logging.conf", disable_existing_loggers=False)
-uvlogger = logging.getLogger("app")
-
-
-from fastapi import FastAPI, Request, Security
 from contextlib import asynccontextmanager
 
+from typing import Any, AsyncGenerator
+from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.cors import CORSMiddleware
 
@@ -31,33 +26,37 @@ from app.static_files import SPAStaticFiles
 from app.services.key_service import KeyService
 
 from app.dbs.redis.redis import get_key_client, get_key_quota_client
+from app.config.db import get_api_key_repo
 
-# Initiaize services
-
+# Initiaize Logging
+logging.config.fileConfig("app/logging.conf", disable_existing_loggers=False)
+uvlogger = logging.getLogger("app")
 # Initialize keys for use in the app
 
 
-debugging = True
+DEBUGGING = int(os.environ.get("DEV_MODE", "0")) == 1
 
 uvlogger.info("Starting up the app")
 
 
 @asynccontextmanager
-async def startup(app: FastAPI) -> AsyncGenerator[None, Any]:
-    from app.config.db import get_api_key_repo
-
+async def startup(  # pylint: disable=unused-argument
+    app_instance: FastAPI,
+) -> AsyncGenerator[None, Any]:
+    """
+    Initialize keys at startup
+    """
     key_service = KeyService(
         key_repository=get_api_key_repo(),
         key_db=await anext(get_key_client()),
         key_quota_db=await anext(get_key_quota_client()),
     )
     await key_service.init_keys()
+    # TODO: possibly also do this for the models.
     yield
 
 
-app = FastAPI(lifespan=startup, debug=True)
-
-# Middleware is wrapped "around" existing middleware. i.e. order of execution is done inverse to order of adding.
+app = FastAPI(lifespan=startup, debug=DEBUGGING)
 
 # Set CORS Policy
 cors_origings = [
@@ -66,6 +65,9 @@ cors_origings = [
     "https://ai.aalto.fi",
     "https://ai-testing.aalto.fi",
 ]
+
+# Middleware is wrapped "around" existing middleware. i.e. order
+# of execution is done inverse to order of adding.
 
 # Add CORS Middleware
 

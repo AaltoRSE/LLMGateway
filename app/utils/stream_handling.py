@@ -1,3 +1,7 @@
+"""
+Utility functions for stream response processing
+"""
+
 import logging
 from typing import Tuple
 
@@ -14,6 +18,9 @@ logger = logging.getLogger("app")
 def process_completion_stream(
     stream_chunk: str,
 ) -> Tuple[CompletionUsage | None, str | None]:
+    """
+    Function to process a completion stream chunk, returning usage, if it's there
+    """
     data_match = re.search(r"^data\s*:\s*(.*)", stream_chunk, re.MULTILINE)
     data = None
     if data_match:
@@ -25,12 +32,13 @@ def process_completion_stream(
                 pass
             else:
                 parsed_json = json.loads(data)
-                # choices has to be empty in the usage chunk. This ensures, that this works with kubeai/openwebui
+                # choices has to be empty in the usage chunk. This ensures,
+                # that this works with kubeai/openwebui
                 if parsed_json["usage"] and len(parsed_json["choices"]) == 0:
                     usage_info = CompletionUsage.model_validate(parsed_json["usage"])
                 # dataChoices = parsed_json["choices"]
                 # completion_tokens = completion_tokens + len(dataChoices)
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         # FIXME This needs proper logging to see if there are some errors
         logger.warning("Issue in processing tokens")
         logger.warning(e)
@@ -40,6 +48,9 @@ def process_completion_stream(
 def process_response_stream(
     stream_chunk: str,
 ) -> Tuple[ResponseUsage | None, str | None, str | None]:
+    """
+    Function to process a response stream chunk, returning usage, if it's there
+    """
     usage_info = None
     event = None
     # Extract event line
@@ -65,5 +76,5 @@ def process_response_stream(
     except json.JSONDecodeError as e:
         logger.warning("Issue in processing tokens")
         logger.warning(e)
-        pass
+
     return usage_info, event, data

@@ -1,35 +1,10 @@
-import os
-import json
-from typing import List, Optional, Dict, TypedDict, Type
+"""
+Database related configuration properties
+"""
+
+from typing import Type
 from app import repositories
 from app.config import app_configuration
-
-
-class DatabaseConfig(TypedDict):
-    options: List[str]
-    default: str
-    current: Optional[str]
-
-
-# We will need a bunch of potential environment variables to check on what services to use for which type of data.
-Databases: Dict[str, DatabaseConfig] = {
-    "UserDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
-    "ModelDB": {
-        "options": ["postgresql"],
-        "default": "postgresql",
-        "current": None,
-    },
-    "BalanceDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
-    "APIKeyDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
-    "UsageDB": {"options": ["postgresql"], "default": "postgresql", "current": None},
-}
-
-# Load all options
-for db in Databases:
-    if db in app_configuration and [db] in Databases[db]["options"]:
-        Databases[db]["current"] = app_configuration[db]
-    else:
-        Databases[db]["current"] = Databases[db]["default"]
 
 user_db = app_configuration.databases.user_db.value
 balance_db = app_configuration.databases.balance_db.value
@@ -60,20 +35,27 @@ if user_db == "postgresql":
 #    from app.dbs.mongodb import UserRepository
 #    UserRepositoryImpl = UserRepository
 else:
-    raise Exception("No valid user database found")
+    raise ValueError("No valid user database found")
 
 if balance_db == "postgresql":
     from app.dbs.postgresql import BalanceRepository
 
     BalanceRepositoryImpl = BalanceRepository
+else:
+    raise ValueError("No valid balance database found")
 
 if model_db == "postgresql":
     from app.dbs.postgresql import ModelRepository
 
     LLMModelRepositoryImpl = ModelRepository
+else:
+    raise ValueError("No valid model database found")
 
 
 def get_api_key_repo() -> repositories.APIKeyRepository:
+    """
+    Convenience function to retrieve the api_key_repo for key init
+    """
     raise NotImplementedError
 
 
@@ -83,11 +65,21 @@ if apikey_db == "postgresql":
     APIKeyRepositoryImpl = APIKeyRepository
     from app.dbs.postgresql.db import db
 
-    def get_api_key_repo() -> repositories.APIKeyRepository:
+    # This needs to be done to be able to properly start up the system.
+    def get_api_key_repo() -> (
+        repositories.APIKeyRepository
+    ):  # pylint: disable=function-redefined
+        """
+        Function implementation for postgresql
+        """
         return APIKeyRepository(next(db.get_db()))
 
+else:
+    raise ValueError("No valid key database found")
 
 if usage_db == "postgresql":
     from app.dbs.postgresql import UsageRepository
 
     UsageRepositoryImpl = UsageRepository
+else:
+    raise ValueError("No valid usage database found")

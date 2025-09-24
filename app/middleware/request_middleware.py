@@ -22,6 +22,9 @@ CORRELATION_ID_HEADER = "X-Correlation-Id"
 
 
 class RequestContextLogMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware for Context logging.
+    """
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
@@ -38,7 +41,8 @@ class RequestContextLogMiddleware(BaseHTTPMiddleware):
                     status_code=e.status_code, content={"detail": e.detail}
                 )
             else:
-                # Newlines added here, since the traceback will automatically insert newlines anyways.
+                # Newlines added here, since the traceback will
+                # automatically insert newlines anyways.
                 logger.exception(
                     "Issue with id %s \n %s",
                     request.state.correlation_id,
@@ -48,8 +52,10 @@ class RequestContextLogMiddleware(BaseHTTPMiddleware):
                 response = JSONResponse(
                     status_code=500,
                     content={
-                        "detail": f"Internal server error, request correlation ID: '{request.state.correlation_id}'. "
-                        + "Please contact support with the correlation ID, if the problems persists."
+                        "detail": "Internal server error, request correlation"
+                        + f" ID: '{request.state.correlation_id}'. "
+                        + "Please contact support with the correlation ID,"
+                        + "if the problems persists."
                     },
                 )
 

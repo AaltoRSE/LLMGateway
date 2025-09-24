@@ -19,11 +19,8 @@ class User(BaseModelClass):
          first_name (str): The user's first name.
          last_name (str): The user's last name.
          admin (bool): Indicates whether the user has administrative privileges. Not used currently (2025-06)
-         store_data (bool): Indicates whether the user has accepted that their conversation data can be stored to a database.
          accepted_agreement_version (bool): Indicates whether the user has accepted the latest agreement version.
-         created_at (datetime): The timestamp when the user was created.
-         last_active (datetime): The timestamp for the user's last login.
-         seen_tiptour (bool): Indicates whether the user has seen the tiptour as a whole
+         quota(float): The users monthly quota
     """
 
     __tablename__ = "users"

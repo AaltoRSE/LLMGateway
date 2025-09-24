@@ -1,12 +1,15 @@
-from app.schemas.llmmodel_schema import LLMModelData
+"""
+Model Repository Specification
+"""
 
 from typing import List
-from app.schemas.key_schema import APIKey
-from app.schemas.user_schema import User
+
+from app.schemas.llmmodel_schema import LLMModelData
 
 
+# pylint: disable=duplicate-code
 class LLMModelRepository:
-    """Repository for User related database operations"""
+    """Repository for Model related database operations"""
 
     async def get_models(self) -> List[LLMModelData]:
         """
@@ -14,7 +17,7 @@ class LLMModelRepository:
         """
         raise NotImplementedError
 
-    async def get_model(self, id: str) -> LLMModelData | None:
+    async def get_model(self, model_id: str) -> LLMModelData | None:
         """
         Get the mode with the given ID
         """
@@ -35,7 +38,7 @@ class LLMModelRepository:
         """
         raise NotImplementedError
 
-    async def remove_model(self, id: str) -> bool:
+    async def remove_model(self, model_id: str) -> bool:
         """
         Remove a model based on its id
         """

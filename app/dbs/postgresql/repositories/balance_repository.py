@@ -7,6 +7,8 @@ from sqlalchemy import func, update
 
 from ..models.usage_model import Usage as DBUsage
 from ..models.balance_model import Balance as DBBalance
+from ..models.key_model import APIKey as DBAPIKey
+from ..models.user_model import User as DBUser
 from ..db import db as db_dependency
 
 # App imports
@@ -21,17 +23,15 @@ class SQLBalanceRepository(BalanceRepository):
 
     def _convert_balance_to_schema(self, db_balance: DBBalance) -> Balance:
         return Balance(
-            period=db_balance.period,
             balance_used=db_balance.balance_used,
             quota=db_balance.quota,
             key=db_balance.key,
-            user_id=str(db_balance.key),
+            user_id=str(db_balance.user_id) if db_balance.user_id is not None else None,
         )
 
     def _convert_balance_to_key_schema(self, db_balance: DBBalance) -> KeyBalance:
         assert db_balance.key is not None
         return KeyBalance(
-            period=db_balance.period,
             balance_used=db_balance.balance_used,
             quota=db_balance.quota,
             key=db_balance.key,
@@ -40,13 +40,12 @@ class SQLBalanceRepository(BalanceRepository):
     def _convert_balance_to_user_schema(self, db_balance: DBBalance) -> UserBalance:
         assert db_balance.user_id is not None
         return UserBalance(
-            period=db_balance.period,
             balance_used=db_balance.balance_used,
             quota=db_balance.quota,
-            user_id=str(db_balance.key),
+            user_id=str(db_balance.user_id),
         )
 
-    async def get_key_balance(self, key: str) -> Balance:
+    async def get_key_balance(self, key: str) -> KeyBalance:
         """
         Retrieve the current balance associated with a specific API key.
 
@@ -64,11 +63,15 @@ class SQLBalanceRepository(BalanceRepository):
             .first()
         )
         if result is None:
-            return Balance(balance_used=0)
+            key_result: DBAPIKey | None = (
+                self.db.query(DBAPIKey).filter(DBAPIKey.key == key).first()
+            )
+            assert key_result is not None
+            return KeyBalance(key=key, balance_used=0, quota=key_result.quota)
         else:
-            return self._convert_balance_to_schema(result)
+            return self._convert_balance_to_key_schema(result)
 
-    async def get_user_balance(self, user_id: str) -> Balance:
+    async def get_user_balance(self, user_id: str) -> UserBalance:
         """
         Retrieve the balance associated with a specific user.
 
@@ -82,13 +85,20 @@ class SQLBalanceRepository(BalanceRepository):
         requestedDate = date(current_time.year, current_time.month, 1)
         result = (
             self.db.query(DBBalance)
-            .filter(DBBalance.user_id == user_id, DBBalance.period == requestedDate)
+            .filter(
+                DBBalance.user_id == int(user_id), DBBalance.period == requestedDate
+            )
             .first()
         )
         if result is None:
-            return Balance(balance_used=0)
+            user_result: DBUser | None = (
+                self.db.query(DBUser).filter(DBUser.id == int(user_id)).first()
+            )
+            assert user_result is not None
+            return UserBalance(user_id=user_id, balance_used=0, quota=user_result.quota)
+
         else:
-            return self._convert_balance_to_schema(result)
+            return self._convert_balance_to_user_schema(result)
 
     async def get_user_balances(self, month: datetime) -> List[UserBalance]:
         """
@@ -141,9 +151,13 @@ class SQLBalanceRepository(BalanceRepository):
         """
         current_time = datetime.now()
         requestedDate = date(current_time.year, current_time.month, 1)
-        stmt = (update(DBBalance).where(DBBalance.user_id == int(user_id), DBBalance.period == requestedDate).values(balance_used = DBBalance.balance_used + cost))
+        stmt = (
+            update(DBBalance)
+            .where(DBBalance.user_id == int(user_id), DBBalance.period == requestedDate)
+            .values(balance_used=DBBalance.balance_used + cost)
+        )
         self.db.execute(stmt)
-        self.db.commit()        
+        self.db.commit()
 
     async def add_usage_to_key(self, key: str, cost: float) -> None:
         """
@@ -158,7 +172,11 @@ class SQLBalanceRepository(BalanceRepository):
         """
         current_time = datetime.now()
         requestedDate = date(current_time.year, current_time.month, 1)
-        stmt = (update(DBBalance).where(DBBalance.key == key, DBBalance.period == requestedDate).values(balance_used = DBBalance.balance_used + cost))
+        stmt = (
+            update(DBBalance)
+            .where(DBBalance.key == key, DBBalance.period == requestedDate)
+            .values(balance_used=DBBalance.balance_used + cost)
+        )
         self.db.execute(stmt)
         self.db.commit()
 
@@ -174,8 +192,12 @@ class SQLBalanceRepository(BalanceRepository):
             None
         """
         current_time = datetime.now()
-        requestedDate = date(current_time.year, current_time.month, 1)        
-        stmt = (update(DBBalance).where(DBBalance.key == key, DBBalance.period == requestedDate).values(quota = quota))
+        requestedDate = date(current_time.year, current_time.month, 1)
+        stmt = (
+            update(DBBalance)
+            .where(DBBalance.key == key, DBBalance.period == requestedDate)
+            .values(quota=quota)
+        )
         self.db.execute(stmt)
         self.db.commit()
 
@@ -191,7 +213,11 @@ class SQLBalanceRepository(BalanceRepository):
             None
         """
         current_time = datetime.now()
-        requestedDate = date(current_time.year, current_time.month, 1)        
-        stmt = (update(DBBalance).where(DBBalance.user_id == int(user_id), DBBalance.period == requestedDate).values(quota = quota))
+        requestedDate = date(current_time.year, current_time.month, 1)
+        stmt = (
+            update(DBBalance)
+            .where(DBBalance.user_id == int(user_id), DBBalance.period == requestedDate)
+            .values(quota=quota)
+        )
         self.db.execute(stmt)
         self.db.commit()

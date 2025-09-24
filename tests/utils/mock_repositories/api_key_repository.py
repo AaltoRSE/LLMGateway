@@ -49,7 +49,7 @@ class KeyRepository(APIKeyRepository):
         else:
             return None
 
-    async def get_active_api_keys_for_user(self, user_id: str) -> List[APIKey] | None:
+    async def get_active_api_keys_for_user(self, user_id: str) -> List[APIKey]:
         """
         Get all Keys for a user
         """

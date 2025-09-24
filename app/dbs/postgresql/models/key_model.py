@@ -10,13 +10,11 @@ class APIKey(BaseModelClass):
 
     Attributes:
         key (str): The API key string.
-        user (str): The user associated with the API key.
+        user_id (int): The user associated with the API key.
         active (bool): Whether the API key is active.
         name (str): The name of the API key.
-        user_key (bool): Whether this is a user-specific key.
-        has_quota (bool): Whether the API key has a quota.
-        day_quota (int): The daily quota for the API key.
-        week_quota (int): The weekly quota for the API key.
+        service (str): A service this key is for
+        quota (int): The monthly quota for the key.
     """
 
     __tablename__ = "api_keys"

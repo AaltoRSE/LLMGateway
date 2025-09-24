@@ -1,12 +1,14 @@
-import secrets
-import json
-import redis.asyncio as redis
-import pymongo
-from pymongo.errors import DuplicateKeyError
+"""
+Service for API key related actions
+"""
 
-from fastapi import HTTPException, Depends
+import json
 import logging
 from typing import Union, Annotated, List
+
+import redis.asyncio as redis
+from fastapi import HTTPException, Depends
+
 from app.repositories import APIKeyRepository
 from app.repositories.factories import get_key_repository_class
 from app.dbs.redis.redis import get_key_client, get_key_quota_client
@@ -17,6 +19,10 @@ logger = logging.getLogger("app")
 
 
 class KeyService:
+    """
+    Service for API key related actions
+    """
+
     def __init__(
         self,
         key_repository: Annotated[
@@ -25,6 +31,9 @@ class KeyService:
         key_db: Annotated[redis.StrictRedis, Depends(get_key_client)],
         key_quota_db: Annotated[redis.StrictRedis, Depends(get_key_quota_client)],
     ):
+        """
+        init function
+        """
         self.repository = key_repository
         self.key_client: redis.StrictRedis = key_db
         self.quota_client = key_quota_db
@@ -35,12 +44,12 @@ class KeyService:
         """
         # Load all keys that are active
         all_keys = await self.repository.get_all_keys(active_only=True)
-        activeKeys = {x.key: x.model_dump_json() for x in all_keys}
+        active_keys = {x.key: x.model_dump_json() for x in all_keys}
         # Clear the current db
         await self.key_client.flushdb()
         # Set up the new one.
-        if len(activeKeys) > 0:
-            await self.key_client.mset(activeKeys)
+        if len(active_keys) > 0:
+            await self.key_client.mset(active_keys)
 
     async def get_user_key_if_active(self, key: str) -> Union[APIKey, None]:
         """
@@ -54,14 +63,12 @@ class KeyService:
         - UserKey: A UserKey Object if this key exists, None otherwise
         """
         key_data = await self.key_client.get(key)
-        if key_data == None:
+        if key_data is None:
             return None
-        else:
-            print(f"Got: {APIKey.model_validate(json.loads(key_data))}")
-            # There are only active keys in the redis db.
-            return APIKey.model_validate(json.loads(key_data))
+        # There are only active keys in the redis db.
+        return APIKey.model_validate(json.loads(key_data))
 
-    async def delete_key_for_user(self, key: str, user_id: str):
+    async def delete_key_for_user(self, key: str, user_id: str) -> None:
         """
         Function to delete an existing key for agiven user. only delete
         the key if it exists for this user.
@@ -78,16 +85,14 @@ class KeyService:
         else:
             if db_key is None:
                 raise HTTPException(404, "Key does not exist")
-            else:
-                logger.warning(
-                    f"User {user_id} tried to delete key of a different user"
-                )
-                raise HTTPException(
-                    404,
-                    "Key not found",
-                )
+            # Someone tried to access anothers key..
+            logger.warning("User %s tried to delete key of a different user", user_id)
+            raise HTTPException(
+                404,
+                "Key not found",
+            )
 
-    async def delete_key(self, key: str, user_id: str = None):
+    async def delete_key(self, key: str, user_id: str | None = None) -> None:
         """
         Function to delete an existing key irrespective of who had that key
 
@@ -95,7 +100,7 @@ class KeyService:
         - key (str): The key to check.
 
         """
-        if user_id == None:
+        if user_id is None:
             db_key = await self.repository.get_key(key)
             if db_key is not None:
                 await self.repository.deactivate_key(db_key)
@@ -139,9 +144,7 @@ class KeyService:
 
         if user_id is None:
             return await self.repository.get_all_keys()
-
-        else:
-            return await self.repository.get_active_api_keys_for_user(user_id)
+        return await self.repository.get_active_api_keys_for_user(user_id)
 
     async def set_key_quota(self, key: str, quota: float) -> None:
         """
@@ -156,7 +159,7 @@ class KeyService:
         if api_key is not None:
             await self.repository.update_key(api_key)
             await self.quota_client.set(key, quota)
-            await self._set_key_in_redis(key)
+            await self._set_key_in_redis(api_key)
 
     async def deactivate_keys_for_user(self, user_id: str) -> None:
         """

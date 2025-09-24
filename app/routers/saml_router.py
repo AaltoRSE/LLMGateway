@@ -1,3 +1,9 @@
+"""SAML Authentication Router"""
+
+import logging
+import os
+from typing import Annotated
+
 from fastapi import (
     APIRouter,
     Request,
@@ -5,13 +11,11 @@ from fastapi import (
     Depends,
     Query,
 )
-from fastapi.responses import RedirectResponse, Response, HTMLResponse
-from typing import Annotated
+from fastapi.responses import RedirectResponse, Response
 
 
 from app.security.authentication_dependencies import (
     requires_session,
-    authenticate_request,
 )
 from app.security.auth import (
     get_request_source,
@@ -25,8 +29,6 @@ from app.security.auth import BackendUser
 from app.security.saml import SAMLAuthenticator, HTTPSession
 from app.services.session_service import SessionService, SessionAuthData
 from app.services.user_service import UserService
-import logging
-import os
 
 
 logger = logging.getLogger("app")
@@ -42,19 +44,23 @@ async def login(
     session_service: Annotated[SessionService, Depends(SessionService)],
     user_service: Annotated[UserService, Depends(UserService)],
     redirect_url: str = Query(None, alias="redirect_uri"),
-) -> Response | HTMLResponse:
+) -> Response:
     """
     Login endpoint
     """
     logger.debug(
-        "Obtained redirect url was : " + ("" if redirect_url == None else redirect_url)
+        "Obtained redirect url was : %s ",
+        ("" if redirect_url is None else redirect_url),
     )
     request.session["redirect_url"] = sanitize_redirect(redirect_url)
-    logger.debug("Redirect URL has been set to: " + request.session["redirect_url"])
+    logger.debug("Redirect URL has been set to: %s", request.session["redirect_url"])
     source_ip = get_request_source(request)
-    process_session_data = lambda session_data: session_service.create_session(
-        session_data=session_data, source_ip=source_ip, user_service=user_service
-    )
+
+    async def process_session_data(session_data: SessionAuthData) -> HTTPSession:
+        return await session_service.create_session(
+            session_data=session_data, source_ip=source_ip, user_service=user_service
+        )
+
     response, session = await auth_backend.login(request, process_session_data)
     final_response = check_auth_response(request, session, response)
     return final_response
@@ -65,7 +71,7 @@ async def login_callback(
     request: Request,
     session_service: Annotated[SessionService, Depends(SessionService)],
     user_service: Annotated[UserService, Depends(UserService)],
-) -> Response | HTMLResponse:
+) -> Response:
     """
     General callback endpoint
     """
@@ -111,7 +117,7 @@ async def saml_slo_logout(
     request: Request,
     session_service: Annotated[SessionService, Depends(SessionService)],
     user: BackendUser = Security(requires_session),
-) -> Response | HTMLResponse:
+) -> Response:
     """
     Logout endpoint
     """
@@ -128,7 +134,7 @@ async def saml_sls_logout(
     request: Request,
     session_service: Annotated[SessionService, Depends(SessionService)],
     user: BackendUser = Security(requires_session),
-) -> Response | HTMLResponse:
+) -> Response:
     """
     Logout callback. If this is successfull, the users session is removed.
     """

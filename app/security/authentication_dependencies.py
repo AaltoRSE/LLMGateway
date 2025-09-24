@@ -36,7 +36,9 @@ async def authenticate_request(
             user,
         )
         return user
-    return None
+    else:
+        conn.scope["auth"], conn.scope["user"] = (None, None)
+        return None
 
 
 async def requires_auth(

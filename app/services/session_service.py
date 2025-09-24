@@ -1,11 +1,12 @@
-# This is code for a session handling interface using redis for storage.
+"""
+This is code for a session handling interface using redis for storage.
+"""
 
 from typing import Annotated
 import json
 import secrets
 import string
 import logging
-import os
 
 import redis.asyncio as redis
 from fastapi import Depends
@@ -19,14 +20,24 @@ logger = logging.getLogger("app")
 
 
 class SessionService:
+    """
+    Service for session related things and interaction with redis
+    """
+
     def __init__(
         self,
         session_client: Annotated[redis.StrictRedis, Depends(get_session_client)],
-    ):  # 12 hours
+    ):
+        """
+        Constructor
+        """
         self.session_client = session_client
         self.expire_time = 600
 
     def set_session_expiration_time(self, time: int) -> None:
+        """
+        Set the expiration time of sessions
+        """
         self.expire_time = time
 
     async def create_session(
@@ -40,14 +51,16 @@ class SessionService:
         Create a new session or update an existing session in Redis.
 
         Args:
-            session_data (dict): A dictionary of information on the session. Must contain the following fields:
+            session_data (dict): A dictionary of information on the session.
+                                 Must contain the following fields:
                 - auth_name (str): The name of the authentication provider.
                 - first_name (str): The user's first name.
                 - last_name (str): The user's last name.
                 - groups (list): A list of the user's roles.
 
             sourceIP (str): The IP address of the user.
-            session_key (str, optional): The session key. If None, a new key is generated. Defaults to None.
+            session_key (str, optional): The session key. If None, a new key
+                                         is generated. Defaults to None.
         Returns:
             str: The session key.
         """
@@ -77,7 +90,7 @@ class SessionService:
         )
         return session
 
-    async def get_session(self, session_key: str) -> HTTPSession:
+    async def get_session(self, session_key: str) -> HTTPSession | None:
         """
         Retrieve session data from Redis.
 
@@ -89,7 +102,7 @@ class SessionService:
         """
 
         serialized_data = await self.session_client.get(session_key)
-        logger.debug(f"Session data: {serialized_data}")
+        logger.debug("Session data: %s", serialized_data)
         if serialized_data is None:
             return None
         # Deserialize the JSON string back to a dictionary
@@ -124,7 +137,9 @@ class SessionService:
     async def update_session_agreement(
         self, session: HTTPSession, agreement_version: str
     ) -> None:
-
+        """
+        Update the user agreement setting in a given session.
+        """
         session.agreement_ok = check_agreement_version(agreement_version)
         serialized_data = await self.session_client.get(session.key)
         if serialized_data is None:

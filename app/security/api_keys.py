@@ -46,6 +46,7 @@ async def get_user_for_api_key(
     if key is not None:
         if key.user_id is not None:
             user = await user_service.get_user_by_id(key.user_id)
+            assert user is not None
             return BackendUser(
                 username=user.id,
                 isadmin=user.admin,

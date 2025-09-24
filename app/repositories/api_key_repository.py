@@ -1,4 +1,4 @@
-"""This module provides User repository functionality"""
+"""APIKey Repsitory specification"""
 
 import string
 import secrets
@@ -6,6 +6,7 @@ from typing import List
 from app.schemas.key_schema import APIKey
 
 
+# pylint: disable=duplicate-code
 class APIKeyRepository:
     """Repository for User related database operations"""
 
@@ -52,7 +53,7 @@ class APIKeyRepository:
         """
         raise NotImplementedError
 
-    async def get_active_api_keys_for_user(self, user_id: str) -> List[APIKey] | None:
+    async def get_active_api_keys_for_user(self, user_id: str) -> List[APIKey]:
         """
         Get all Keys for a user
         """

@@ -69,7 +69,7 @@ class SQLUserRepository(UserRepository):
         return self._convert_model_to_schema(db_user)
 
     async def update_user(self, user_id: str, update: UserUpdate) -> User | None:
-        db_user = self._get_dbuser_by_id(int(user_id))
+        db_user = self._get_dbuser_by_id(user_id)
         if db_user is None:
             return None
         update_data = update.model_dump(exclude_none=True)

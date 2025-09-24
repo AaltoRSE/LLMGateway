@@ -11,8 +11,7 @@ from app.repositories.factories import (
 )
 from app.repositories.balance_repository import BalanceRepository
 from app.repositories.user_repository import UserRepository
-from app.schemas.usage_schema import Balance, APIRequest, RequestSource, Usage
-from app.security.auth import BackendUser
+from app.schemas.usage_schema import Balance, APIRequest, RequestSource
 
 
 class UsageService:
@@ -59,9 +58,9 @@ class UsageService:
         if source.has_key():
             assert source.key is not None
             return await self.balance_repository.get_key_balance(source.key)
-        else:
-            assert source.user_id is not None
-            return await self.get_current_user_balance(source.user_id)
+
+        assert source.user_id is not None
+        return await self.get_current_user_balance(source.user_id)
 
     async def get_current_key_balance(self, key: str) -> Balance:
         """
@@ -106,7 +105,8 @@ class UsageService:
         Retrieve usage records for a specific user within an optional time range.
         Args:
             user_id (str): The ID of the user.
-            from_time (datetime, optional): Start of the time range for usage records. Defaults to None.
+            from_time (datetime, optional): Start of the time range for usage records.
+                                            Defaults to None.
             to_time (datetime, optional): End of the time range for usage records. Defaults to None.
 
         Returns:

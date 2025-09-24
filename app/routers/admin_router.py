@@ -1,7 +1,13 @@
-from typing import Annotated, List
-from fastapi import APIRouter, Request, Security, HTTPException, status, Depends
+"""
+Administrative Router
+"""
 
-from app.requests.admin_requests import *
+import logging
+
+from typing import Annotated, List
+from fastapi import APIRouter, Security, HTTPException, status, Depends
+
+from app.requests.admin_requests import RemoveModelRequest, SetAdminRequest
 from app.requests.general_requests import UserRequest, UserUsageRequest
 from app.security.authentication_dependencies import requires_admin, BackendUser
 from app.services.model_service import ModelService
@@ -14,7 +20,6 @@ from app.schemas.key_schema import APIKey
 from app.schemas.usage_schema import APIRequest
 from app.schemas.user_schema import User
 
-import logging
 
 router = APIRouter(
     prefix="/admin", tags=["admin"], dependencies=[Depends(requires_admin)]
@@ -26,11 +31,14 @@ logger = logging.getLogger("admin")
 # Admin endpoints
 @router.post("/addmodel", status_code=status.HTTP_201_CREATED)
 async def add_model(
-    modelData: LLMModelData,
+    model_data: LLMModelData,
     model_handler: Annotated[ModelService, Depends(ModelService)],
 ) -> None:
-    print(modelData)
-    await model_handler.add_model(modelData)
+    """
+    Route for adding models
+    """
+    print(model_data)
+    await model_handler.add_model(model_data)
 
 
 @router.post("/removemodel", status_code=status.HTTP_200_OK)
@@ -38,16 +46,22 @@ async def remove_model(
     remove: RemoveModelRequest,
     model_handler: Annotated[ModelService, Depends(ModelService)],
 ) -> None:
+    """
+    Route for removing models
+    """
     try:
         await model_handler.remove_model(remove.model)
     except KeyError as e:
-        raise HTTPException(status.HTTP_410_GONE)
+        raise HTTPException(status.HTTP_410_GONE) from e
 
 
 @router.get("/models", status_code=status.HTTP_200_OK)
 async def get_details_for_model(
     model_service: Annotated[ModelService, Depends(ModelService)],
 ) -> List[LLMModelData]:
+    """
+    Route to list admin models
+    """
     models = await model_service.get_models()
     logger.debug(models)
     return models
@@ -55,20 +69,26 @@ async def get_details_for_model(
 
 @router.post("/update_model", status_code=status.HTTP_200_OK)
 async def update_model(
-    modelData: LLMModelData,
+    model_data: LLMModelData,
     model_service: Annotated[ModelService, Depends(ModelService)],
 ) -> None:
-    await model_service.update_model(modelData)
+    """
+    Route to update model data
+    """
+    await model_service.update_model(model_data)
 
 
 # This resets the given ser to the default status.
 # This is mostly for testing purposes....
 @router.post("/reset_user", status_code=status.HTTP_200_OK)
 async def reset_user(
-    RequestData: UserRequest,
+    request_data: UserRequest,
     user_service: Annotated[UserService, Depends(UserService)],
 ) -> None:
-    user = await user_service.get_user_by_id(RequestData.user_id)
+    """
+    Route to reset a user (mainly reset their Agreement setting)
+    """
+    user = await user_service.get_user_by_id(request_data.user_id)
     if user:
         await user_service.reset_user(user.id)
     else:
@@ -78,18 +98,22 @@ async def reset_user(
 @router.get("/listkeys")
 @router.post("/listkeys")
 async def list_keys(
-    RequestData: Request,
     key_handler: Annotated[KeyService, Depends(KeyService)],
 ) -> List[APIKey]:
+    """
+    List all keys available.
+    """
     logger.debug("Keys requested")
     return await key_handler.list_keys()
 
 
 @router.post("/list_users", status_code=status.HTTP_200_OK)
 async def list_users(
-    RequestData: Request,
     user_service: Annotated[UserService, Depends(UserService)],
 ) -> List[User]:
+    """
+    List users
+    """
     users = await user_service.get_all_users()
     return users
 
@@ -100,6 +124,9 @@ async def set_admin(
     user_service: Annotated[UserService, Depends(UserService)],
     admin: BackendUser = Security(requires_admin),
 ) -> None:
+    """
+    Set the admin setting for another user
+    """
     if admin.request_source.user_id == request.user_id:
         raise HTTPException(
             status_code=400, detail="Cannot change your own admin status"
@@ -111,6 +138,9 @@ async def set_admin(
 async def get_user_usage(
     balance_service: Annotated[BalanceService, Depends(BalanceService)],
 ) -> List[Balance]:
+    """
+    Get the current balance of all users (this month)
+    """
     return await balance_service.get_user_balances()
 
 
@@ -119,6 +149,9 @@ async def get_usage_for_user(
     request: UserUsageRequest,
     usage_service: Annotated[UsageService, Depends(UsageService)],
 ) -> List[APIRequest]:
+    """
+    Get the detailed usage for a user in the provided time
+    """
     return await usage_service.get_usage_for_user(
         request.user_id, from_time=request.from_time, to_time=request.to_time
     )

@@ -91,7 +91,7 @@ class BackendAuthenticator:
     async def login(
         self,
         request: Request,
-        create_session: Callable[[Dict], Awaitable],
+        create_session: Callable[[SessionAuthData], Awaitable],
     ) -> Tuple[Response, Union[HTTPSession, None]]:
         """
         Login the user. This can either be a direct login or a redirect.

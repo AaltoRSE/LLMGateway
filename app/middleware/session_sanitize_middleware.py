@@ -1,3 +1,7 @@
+"""
+Middleware that cleans up and fills the Session information into the generated session.
+"""
+
 from starlette.requests import Request
 from starlette.middleware.base import (
     BaseHTTPMiddleware,
@@ -5,13 +9,19 @@ from starlette.middleware.base import (
     Response,
 )
 from app.services.session_service import SessionService
-from app.schemas.session_schema import HTTPSession, SESSION_DATA_FIELD
+from app.schemas.session_schema import SESSION_DATA_FIELD
 import app.dbs.redis.redis
-from typing import Any
 
 
 class SessionSanitizationMiddleWare(BaseHTTPMiddleware):
+    """
+    Middleware that cleans up and fills the Session information into the generated session.
+    """
+
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
+        """
+        Constructor
+        """
         super().__init__(*args, **kwargs)
 
     async def dispatch(

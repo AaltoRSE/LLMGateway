@@ -1,12 +1,19 @@
-# This will directly depend on
+"""
+Balance Repository specification
+"""
 
 from datetime import datetime
 from typing import List
 
-from app.schemas.usage_schema import Balance, UserBalance, KeyBalance
+from app.schemas.usage_schema import UserBalance, KeyBalance
+
+# pylint: disable=duplicate-code
 
 
 class BalanceRepository:
+    """
+    This class is the base for all implementations of Balance repositories
+    """
 
     async def get_key_balance(self, key: str) -> KeyBalance:
         """
@@ -16,7 +23,7 @@ class BalanceRepository:
             key (str): The API key for which the balance is to be retrieved.
 
         Returns:
-            Balance: The balance information for the given API key.
+            KeyBalance: The balance information for the given API key.
         """
         raise NotImplementedError
 
@@ -28,7 +35,7 @@ class BalanceRepository:
             user_id (str): The user ID for which the balance is to be retrieved.
 
         Returns:
-            Balance: The balance information for the given user.
+            UserBalance: The balance information for the given user.
         """
         raise NotImplementedError
 
@@ -40,7 +47,7 @@ class BalanceRepository:
         Args:
             month (str): a datetime with the month set to the current month
         Returns:
-            List[Balance]: The balances for all users
+            List[UserBalance]: The balances for all users
         """
         raise NotImplementedError
 
@@ -52,7 +59,7 @@ class BalanceRepository:
         Args:
             month (str): a datetime with the month set to the current month
         Returns:
-            List[Balance]: The balances for all keys
+            List[KeyBalance]: The balances for all keys
         """
         raise NotImplementedError
 

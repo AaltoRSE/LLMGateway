@@ -1,8 +1,8 @@
-from typing import List, Dict, Literal, Optional, Iterator
+from typing import List, Dict, Literal, Optional, Generator, Any
 from pydantic import BaseModel, RootModel, Field
 
 model_types = ["chat", "embedding", "responses"]
-model_type = Literal[*model_types]
+model_type = Literal[*model_types]  # type: ignore[valid-type]
 
 
 class LLMModelDataDetails(BaseModel):
@@ -28,10 +28,12 @@ class LLMModelData(BaseModel):
 class LLMModelDict(RootModel):
     root: Dict[str, LLMModelData]
 
-    def __iter__(self) -> Iterator:
-        return iter(self.root)
+    def __iter__(
+        self,
+    ) -> Generator[tuple[str, Any], None, None]:
+        return iter(self.root)  # type: ignore[arg-type]
 
-    def __getitem__(self, item) -> LLMModelData:
+    def __getitem__(self, item: str) -> LLMModelData:
         return self.root[item]
 
     def __len__(self) -> int:

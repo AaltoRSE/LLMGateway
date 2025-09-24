@@ -1,9 +1,12 @@
-"""This module provides User repository functionality"""
+"""
+User Repository specification
+"""
 
 from typing import List
 from app.schemas.user_schema import User, UserBase, UserUpdate
 
 
+# pylint: disable=duplicate-code
 class UserRepository:
     """Repository for User related database operations"""
 
@@ -14,8 +17,9 @@ class UserRepository:
         Parameters
         ----------
         user_id : str
-            The ID of the user to retrieve. Internally we use a str, since this is the only way we can
-            make sure, that different db formats are supported equally.
+            The ID of the user to retrieve. Internally we use a str,
+            since this is the only way we can make sure, that different
+            db formats are supported equally.
 
         Returns
         -------

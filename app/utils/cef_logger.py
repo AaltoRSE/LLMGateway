@@ -9,7 +9,7 @@ from fastapi import Request, Response
 from app.security.auth import BackendUser
 
 
-def format_cef_message(
+def format_cef_message(  # pylint: disable=too-many-arguments,too-many-locals
     correlation_id: str | None,
     request: Request,
     response: Response,
@@ -18,7 +18,7 @@ def format_cef_message(
     authenticated_user: BackendUser | None,
     is_debug: bool = False,
 ) -> str:
-
+    """Format data into a cefcompliant message"""
     # Header details
     vendor = "Aalto"
     product = "AI Assistant"
@@ -82,7 +82,8 @@ def format_cef_message(
             # The request URL
             (
                 "request",
-                f"{request.scope['scheme']}://{request.headers.get('host', 'unknown')}{request.url.path}{request.url.query}",
+                f"{request.scope['scheme']}://{request.headers.get('host', 'unknown')}"
+                + f"{request.url.path}{request.url.query}",
             ),
         ]
     )
@@ -103,10 +104,13 @@ def format_cef_message(
 
 
 class CEFRequestLogger:
+    """Logger for CEF requests"""
+
     def __init__(self) -> None:
+        """Constructor"""
         self.logger = logging.getLogger("cef_request_logger")
 
-    def log(
+    def log(  # pylint: disable=too-many-arguments
         self,
         correlation_id: str | None,
         request: Request,
@@ -115,6 +119,9 @@ class CEFRequestLogger:
         end_time: datetime,
         authenticated_user: BackendUser | None,
     ) -> None:
+        """
+        Log a new CEF message
+        """
         cef_message = format_cef_message(
             correlation_id=correlation_id,
             request=request,
