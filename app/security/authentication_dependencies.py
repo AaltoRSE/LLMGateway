@@ -20,18 +20,15 @@ async def authenticate_request(
     user = None
     if session_user is not None:
         user = session_user
-    print(f"Session user is : {user}")
     # We allow combining a key and a session request.
     if user is not None:
         if api_key_user is not None:
             user.request_source.key = api_key_user.request_source.key
     elif api_key_user is not None:
         user = api_key_user
-    print(f"API Key user is : {user}")
     # Mixing sessions and admin API keys is not allowed, admin key will be ignored in this case.
     if user is None and admin_user is not None:
         user = admin_user
-    print(f"Admin key user is : {user}")
     if user is not None:
         # Potentially the credentials can be improved...
         conn.scope["auth"], conn.scope["user"] = (
@@ -42,7 +39,9 @@ async def authenticate_request(
     return None
 
 
-async def requires_auth(user: BackendUser | None = Depends(authenticate_request)):
+async def requires_auth(
+    user: BackendUser | None = Depends(authenticate_request),
+) -> BackendUser:
     """
     This dependency secures endpoints that necessarily require some form of authentication
     No assumption can be made about the content of the BackendUser.
@@ -55,7 +54,9 @@ async def requires_auth(user: BackendUser | None = Depends(authenticate_request)
     return user
 
 
-async def requires_agreement(user: BackendUser | None = Depends(authenticate_request)):
+async def requires_agreement(
+    user: BackendUser | None = Depends(authenticate_request),
+) -> BackendUser:
     """
     This dependency secures endpoints that necessarily require some form of authentication
     No assumption can be made about the content of the BackendUser.
@@ -67,7 +68,7 @@ async def requires_agreement(user: BackendUser | None = Depends(authenticate_req
     return user
 
 
-async def requires_key(user: BackendUser = Depends(requires_agreement)):
+async def requires_key(user: BackendUser = Depends(requires_agreement)) -> BackendUser:
     """
     This dependency secures endpoints that necessarily require a key
     An endpoint using this dependency, can rely on user.request_source.key to be not None
@@ -77,7 +78,7 @@ async def requires_key(user: BackendUser = Depends(requires_agreement)):
     raise HTTPException(403, "Endpint requires key authentication")
 
 
-async def requires_user(user: BackendUser = Depends(requires_agreement)):
+async def requires_user(user: BackendUser = Depends(requires_agreement)) -> BackendUser:
     """
     This dependency secures endpoints and ensures, that a user_id is associated with
     the request, i.e. the user.request_source.user_id field is set and valid.
@@ -87,7 +88,9 @@ async def requires_user(user: BackendUser = Depends(requires_agreement)):
     raise HTTPException(403, "Endpoint cannot be used with a service key")
 
 
-async def requires_session(user: BackendUser | None = Depends(authenticate_request)):
+async def requires_session(
+    user: BackendUser | None = Depends(authenticate_request),
+) -> BackendUser:
     """
     This dependency secures endpoints that require an active session.
     requires_session allows for a agreement that is not accepted, sinceit assumes UI interaction
@@ -99,7 +102,9 @@ async def requires_session(user: BackendUser | None = Depends(authenticate_reque
     raise HTTPException(403, "Endpoint requires a valid session")
 
 
-async def requires_admin(user: BackendUser | None = Depends(authenticate_request)):
+async def requires_admin(
+    user: BackendUser | None = Depends(authenticate_request),
+) -> BackendUser:
     """
     Using this dependency secures an endpoint ensuring, that only admin users, or a
     request with the admin key can access this endpoint.

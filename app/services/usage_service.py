@@ -57,8 +57,10 @@ class UsageService:
             Balance: The current balance for the request
         """
         if source.has_key():
+            assert source.key is not None
             return await self.balance_repository.get_key_balance(source.key)
         else:
+            assert source.user_id is not None
             return await self.get_current_user_balance(source.user_id)
 
     async def get_current_key_balance(self, key: str) -> Balance:

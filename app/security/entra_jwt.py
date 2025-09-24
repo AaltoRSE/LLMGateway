@@ -13,9 +13,10 @@ from jwt.algorithms import RSAAlgorithm
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from fastapi import Request, HTTPException
 import requests
-from app.security.auth_types import BackendUser
+from app.security.auth import BackendUser, RequestSource
 from app.services.user_service import UserService
-from app.schemas.user_schema import User
+from app.schemas.user_schema import User, SessionAuthData
+from app.config.agreement import check_agreement_version
 
 if TYPE_CHECKING:
     # This is necessary, as AllowedRSAKeys is only created, when TYPE_CHECK is enabled, but we need it for the type hint
@@ -223,7 +224,7 @@ class EntraJWTAuthService:
 
         jwt_logger.info("Key refresh thread stopped")
 
-    def verify_authorization(
+    async def verify_authorization(
         self, request: Request, user_service: UserService
     ) -> BackendUser:
         """Authorization and authentication logic for Aalto AI"""
@@ -237,13 +238,17 @@ class EntraJWTAuthService:
                     AuthenticationExceptionType.AUTHORIZATION_HEADER_MISSING
                 )
 
-            current_user = self._verify_token(token, user_service)
+            current_user = await self._verify_token(token, user_service)
 
             return current_user
 
         except AuthenticationException as error:
             if error.ty != AuthenticationExceptionType.AUTHORIZATION_HEADER_MISSING:
-                jwt_logger.error("correlation_id=%s - error during token validation: %s", request.state.correlation_id, error)
+                jwt_logger.error(
+                    "correlation_id=%s - error during token validation: %s",
+                    request.state.correlation_id,
+                    error,
+                )
 
             raise HTTPException(401, "Authentication error") from error
         except (
@@ -253,19 +258,25 @@ class EntraJWTAuthService:
             jwt.InvalidSignatureError,
             ValueError,
         ) as error:
-            jwt_logger.error("correlation_id=%s - error during authentication: %s", request.state.correlation_id, error)
+            jwt_logger.error(
+                "correlation_id=%s - error during authentication: %s",
+                request.state.correlation_id,
+                error,
+            )
             raise HTTPException(401, "Authentication error") from error
 
-    def _verify_token(self, token: str, user_service: UserService) -> BackendUser:
+    async def _verify_token(self, token: str, user_service: UserService) -> BackendUser:
         # Validate the JWT token, and return the payload
         payload = self._validate_and_decode_jwt_token(token)
 
         # Map the payload into Aalto AI authenticated user, create if not exists
-        current_user = self._validate_authenticated_user(payload, token, user_service)
+        current_user = await self._validate_authenticated_user(
+            payload, token, user_service
+        )
 
         return current_user
 
-    def _validate_authenticated_user(
+    async def _validate_authenticated_user(
         self, payload: dict[str, Any], token: str, user_service: UserService
     ) -> BackendUser:
         """Return the backend user for a decoded JWT payload"""
@@ -282,20 +293,26 @@ class EntraJWTAuthService:
             raise AuthenticationException(AuthenticationExceptionType.NO_NAME)
 
         # Construct DB user either by creating a new user or fetching existing one
-        user: User = user_service.get_or_create_user_from_auth_data(
-            auth_id=unique_name,  # Here we need to check for the auth ID
-            first_name=first_name,
-            last_name=last_name,
+        user: User = await user_service.get_or_create_user_from_auth_data(
+            SessionAuthData(
+                auth_id=unique_name,  # Here we need to check for the auth ID
+                first_name=first_name,
+                last_name=last_name,
+                roles=groups,
+            )
         )
 
         # Map entra id groups to roles
         roles = self._map_entra_group_ids_into_user_roles(groups)
 
         # Construct a backend user from the user data
-        current_user = BackendUser(roles=roles, user=user, auth_token=token)
-
-        # Update the user's last_activity flag
-        user_service.update_user_last_active(user)
+        current_user = BackendUser(
+            roles=roles,
+            username=user.auth_id,
+            request_source=RequestSource(user_id=user.id),
+            isadmin=user.admin,
+            agreement_ok=check_agreement_version(user.accepted_agreement_version),
+        )
 
         return current_user
 

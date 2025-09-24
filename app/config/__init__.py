@@ -27,6 +27,8 @@ class Configuration(BaseModel):
     base_quota: float
     current_agreement_version: str
     session_expiration_time: int
+    default_embedding_model: str
+    default_chat_model: str
 
 
 current_dir = os.path.dirname(__file__)

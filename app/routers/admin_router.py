@@ -28,7 +28,7 @@ logger = logging.getLogger("admin")
 async def add_model(
     modelData: LLMModelData,
     model_handler: Annotated[ModelService, Depends(ModelService)],
-):
+) -> None:
     print(modelData)
     await model_handler.add_model(modelData)
 
@@ -37,7 +37,7 @@ async def add_model(
 async def remove_model(
     remove: RemoveModelRequest,
     model_handler: Annotated[ModelService, Depends(ModelService)],
-):
+) -> None:
     try:
         await model_handler.remove_model(remove.model)
     except KeyError as e:
@@ -54,10 +54,10 @@ async def get_details_for_model(
 
 
 @router.post("/update_model", status_code=status.HTTP_200_OK)
-async def get_details_for_model(
+async def update_model(
     modelData: LLMModelData,
     model_service: Annotated[ModelService, Depends(ModelService)],
-):
+) -> None:
     await model_service.update_model(modelData)
 
 
@@ -99,7 +99,7 @@ async def set_admin(
     request: SetAdminRequest,
     user_service: Annotated[UserService, Depends(UserService)],
     admin: BackendUser = Security(requires_admin),
-):
+) -> None:
     if admin.request_source.user_id == request.user_id:
         raise HTTPException(
             status_code=400, detail="Cannot change your own admin status"

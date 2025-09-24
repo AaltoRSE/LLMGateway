@@ -6,8 +6,8 @@ from app.services.user_service import UserService
 from app.services.session_service import SessionService
 from app.requests.self_service_requests import *
 from app.security.authentication_dependencies import requires_session, BackendUser
-from app.middleware.session_middleware import get_session
-from app.models.session import HTTPSession
+from app.security.session import get_session
+from app.schemas.session_schema import HTTPSession
 from app.responses.self_service import *
 from app.config import app_configuration
 
@@ -25,13 +25,14 @@ async def create_key(
     createRequest: CreateKeyRequest,
     key_handler: Annotated[KeyService, Depends(KeyService)],
     user: BackendUser = Security(requires_session),
-):
+) -> APIKey:
     new_key = await key_handler.create_key(
         user_id=user.request_source.user_id, name=createRequest.name
     )
     if new_key == None:
         raise HTTPException(
-            status=status.HTTP_400_BAD_REQUEST, detail="Maximum number of keys reached"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Maximum number of keys reached",
         )
     return new_key
 
@@ -41,16 +42,16 @@ async def delete_key(
     deleteRequest: DeleteKeyRequest,
     key_handler: Annotated[KeyService, Depends(KeyService)],
     user: BackendUser = Security(requires_session),
-):
-    if not user == None:
+) -> None:
+    if user is not None and user.request_source.user_id is not None:
         await key_handler.delete_key_for_user(
             user_id=user.request_source.user_id, key=deleteRequest.key
         )
     else:
         raise HTTPException(
-            status=status.HTTP_400_BAD_REQUEST, detail="Authenticated but no user name"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Authenticated but no user name",
         )
-    return
 
 
 @router.post("/getkeys")
@@ -69,6 +70,7 @@ async def get_usage(
     usage_service: Annotated[UsageService, Depends(UsageService)],
     user: BackendUser = Security(requires_session),
 ) -> List[APIRequest]:
+    assert user is not None and user.request_source.user_id is not None
     usage = await usage_service.get_usage_for_user(
         user_id=user.request_source.user_id,
         from_time=request.from_time,
@@ -83,7 +85,8 @@ async def accept_agreement(
     session_service: Annotated[SessionService, Depends(SessionService)],
     session: HTTPSession = Depends(get_session),
     user: BackendUser = Security(requires_session),
-):
+) -> None:
+    assert user is not None and user.request_source.user_id is not None
     await user_service.update_agreement_version(
         user_id=user.request_source.user_id,
         version=app_configuration.current_agreement_version,

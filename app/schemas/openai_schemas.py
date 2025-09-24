@@ -1573,8 +1573,8 @@ class CreateEmbeddingRequest(BaseModel):
         ...,
         examples=['The quick brown fox jumped over the lazy dog'],
     )
-    model: Optional[Union[str, Model1]] = Field(
-        None,
+    model: Optional[str] = Field(
+        "llama-2",
         description='ID of the model to use. You can use the [List models](/docs/api-reference/models/list) API to see all of your available models, or see our [Model overview](/docs/models) for descriptions of them.\n',
         examples=['text-embedding-3-small'],
     )

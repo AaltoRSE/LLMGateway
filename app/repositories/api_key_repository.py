@@ -9,7 +9,7 @@ from app.schemas.key_schema import APIKey
 class APIKeyRepository:
     """Repository for User related database operations"""
 
-    def generate_api_key(self, length: int = 64):
+    def generate_api_key(self, length: int = 64) -> str:
         """
         Function to generate an API key.
 
@@ -76,7 +76,7 @@ class APIKeyRepository:
         """
         raise NotImplementedError
 
-    async def get_all_keys(self, active_only=False) -> List[APIKey]:
+    async def get_all_keys(self, active_only: bool = False) -> List[APIKey]:
         """
         Get all keys.
         """

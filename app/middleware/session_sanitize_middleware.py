@@ -1,15 +1,22 @@
 from starlette.requests import Request
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.middleware.base import (
+    BaseHTTPMiddleware,
+    RequestResponseEndpoint,
+    Response,
+)
 from app.services.session_service import SessionService
-from app.models.session import HTTPSession, SESSION_DATA_FIELD
+from app.schemas.session_schema import HTTPSession, SESSION_DATA_FIELD
 import app.dbs.redis.redis
+from typing import Any
 
 
 class SessionSanitizationMiddleWare(BaseHTTPMiddleware):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         # load a session service to interact with the redis db.
         session_service = SessionService(
             await anext(app.dbs.redis.redis.get_session_client())

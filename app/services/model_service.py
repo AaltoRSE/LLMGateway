@@ -31,7 +31,7 @@ class ModelService:
         self.repository: LLMModelRepository = llm_repository
         self.model_client: redis.StrictRedis = model_client
 
-    async def init_models(self):
+    async def init_models(self) -> None:
         """
         Initialize models from the database, should be called at startup of the server.
         """
@@ -59,7 +59,7 @@ class ModelService:
         models = await self.get_models()
         return [model.model for model in models]
 
-    async def get_model_location(self, model_id, type: str) -> Tuple[str, str]:
+    async def get_model_location(self, model_id: str, type: str) -> Tuple[str, str]:
         """
         Retrieve the path and host for a specific model and type.
 
@@ -75,8 +75,13 @@ class ModelService:
         """
         model_data = await self.model_client.get(model_id)
         if model_data:
-            requested_model = LLMModelData.model_validate(json.loads(model_data))
-            if type in requested_model.model.type:
+            requested_model: LLMModelData = LLMModelData.model_validate(
+                json.loads(model_data)
+            )
+            if (
+                requested_model.model.type is not None
+                and type in requested_model.model.type
+            ):
                 return requested_model.path, requested_model.host
             else:
                 raise HTTPException(
@@ -97,7 +102,7 @@ class ModelService:
         else:
             raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
 
-    async def add_model(self, model: LLMModelData):
+    async def add_model(self, model: LLMModelData) -> None:
         """
         Function to add a model to the served models
         Returns:
@@ -114,7 +119,7 @@ class ModelService:
                 status_code=409, detail=f"Model {model.model.id} already exists"
             )
 
-    async def update_model(self, model: LLMModelData):
+    async def update_model(self, model: LLMModelData) -> None:
         """
         Function to add a model to the served models
         Returns:
@@ -129,7 +134,7 @@ class ModelService:
                 status_code=410, detail=f"Model {model.model.id} does not exist"
             )
 
-    async def remove_model(self, model: str):
+    async def remove_model(self, model: str) -> None:
         """
         Function to remove a model to the served models
         Returns:

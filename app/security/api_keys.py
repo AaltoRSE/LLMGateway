@@ -20,7 +20,7 @@ async def get_user_for_api_key(
     key_service: Annotated[KeyService, Depends(KeyService)],
     user_service: Annotated[UserService, Depends(UserService)],
     api_key: str = Security(api_key_header),
-) -> BackendUser:
+) -> BackendUser | None:
     """
     Retrieves and validates the API key from the header.
 
@@ -54,6 +54,7 @@ async def get_user_for_api_key(
             )
         else:
             # This is a service. Service level we always assume that agreement is accepted.
+            assert key.service is not None
             return BackendUser(
                 username=key.service,
                 isadmin=False,

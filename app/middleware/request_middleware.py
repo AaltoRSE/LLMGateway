@@ -1,4 +1,4 @@
-""" This module contains middleware for correlation ID logging """
+"""This module contains middleware for correlation ID logging"""
 
 from __future__ import annotations
 import logging
@@ -11,7 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
-from app.util.cef_logger import CEFRequestLogger
+from app.utils.cef_logger import CEFRequestLogger
 
 
 logger = logging.getLogger("app")
@@ -20,14 +20,13 @@ cef_logger = CEFRequestLogger()
 
 CORRELATION_ID_HEADER = "X-Correlation-Id"
 
+
 class RequestContextLogMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         request.state.correlation_id = str(uuid4())
-        # might have no effect, but for extra security it can't be injected from outside
-        request.scope["user"] = None
         start_time = datetime.now()
 
         try:
@@ -64,7 +63,7 @@ class RequestContextLogMiddleware(BaseHTTPMiddleware):
             response=response,
             start_time=start_time,
             end_time=end_time,
-            authenticated_user=request.user
+            authenticated_user=request.user,
         )
 
         # Set response headers

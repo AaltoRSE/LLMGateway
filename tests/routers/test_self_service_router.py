@@ -190,7 +190,7 @@ async def test_accept_agreement(
         source_ip="test",
         user_service=user_service,
     )
-    from app.middleware.session_middleware import get_session
+    from app.security.session import get_session
 
     def return_session():
         return session

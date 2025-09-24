@@ -7,6 +7,7 @@ import os
 os.environ["SQLALCHEMY_DATABASE_URL"] = (
     "postgresql+psycopg://postgres:bogus@localhost/aaltoai"
 )
+os.environ["SESSION_KEY"] = "testkey"
 
 from tests.fixtures.user_fixtures import normal_user, admin_user
 from tests.fixtures.db_fixtures import mock_repositories

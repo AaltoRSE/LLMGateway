@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from datetime import date
+from datetime import datetime
 
 
 class CreateKeyRequest(BaseModel):
@@ -11,8 +11,12 @@ class DeleteKeyRequest(BaseModel):
 
 
 class ObtainUsageRequest(BaseModel):
-    from_time: date = Field(description="The oldest time to check", default=None)
-    to_time: date = Field(description="The latest time to check", default=None)
+    from_time: datetime | None = Field(
+        description="The oldest time to check", default=None
+    )
+    to_time: datetime | None = Field(
+        description="The latest time to check", default=None
+    )
 
 
 class AcceptAgreement(BaseModel):

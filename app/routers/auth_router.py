@@ -54,7 +54,7 @@ async def test_authentication(
 @router.get("/test_admin")
 async def test_admin(
     request: Request, user: BackendUser = Security(authenticate_request)
-):
+) -> AuthInfo:
     """
     Test authentication endpoint
     """

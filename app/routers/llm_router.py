@@ -14,21 +14,22 @@ import logging
 # These are essentially the llama_cpp classes except, that they have a default value for the model
 
 
-from typing import Annotated, Any
-from openai.types.create_embedding_response import CreateEmbeddingResponse
+from typing import Annotated, Any, List
 from fastapi import APIRouter, Depends, HTTPException, Security
 from app.schemas.openai_schemas import (
     ChatCompletionStreamOptions,
     CreateResponse,
     CreateEmbeddingRequest,
     CreateChatCompletionRequest,
+    CreateEmbeddingResponse,
 )
-from app.schemas.embeddings_schema import EmbeddingRequest
 from app.schemas.usage_schema import APIRequest, Balance
+from app.schemas.llmmodel_schema import LLMModelDataDetails
 from app.security.authentication_dependencies import requires_auth, BackendUser
 
 from app.services.usage_service import UsageService
 from app.services.model_service import ModelService
+from app.config import app_configuration
 
 llm_logger = logging.getLogger("app")
 
@@ -55,7 +56,7 @@ async def out_of_quota(
 @router.get("/models")
 async def get_models(
     model_service: Annotated[ModelService, Depends(ModelService)],
-):
+) -> List[LLMModelDataDetails]:
     models = await model_service.get_api_models()
     return models
 
@@ -75,7 +76,9 @@ async def create_response(
         raise HTTPException(402, "User out of Quota")
     try:
         model = await model_service.get_model(
-            request_data.model if not request_data.model is None else default_model
+            request_data.model
+            if not request_data.model is None
+            else app_configuration.default_chat_model
         )
     except ValueError:
         raise HTTPException(404, "The requested model is not available on the server")
@@ -109,13 +112,15 @@ async def chat_completion(
         raise HTTPException(402, "User out of Quota")
     try:
         model = await model_service.get_model(
-            request_data.model if not request_data.model is None else default_model
+            request_data.model
+            if not request_data.model is None
+            else app_configuration.default_chat_model
         )
 
     except ValueError:
         raise HTTPException(404, "The requested model is not available on the server")
 
-    async def usage_callback(usage: APIRequest):
+    async def usage_callback(usage: APIRequest) -> None:
         await usage_service.log_usage(source=current_user.request_source, usage=usage)
 
     if request_data.stream:
@@ -154,7 +159,11 @@ async def embedding(
     if out_of_quota:
         raise HTTPException(402, "User out of Quota")
     try:
-        model = await model_service.get_model(request_data.model)
+        model = await model_service.get_model(
+            request_data.model
+            if request_data.model is not None
+            else app_configuration.default_embedding_model
+        )
     except ValueError:
         raise HTTPException(404, "The requested model is not available on the server")
     usage_callback: Callable[[APIRequest], Any] = lambda usage: usage_service.log_usage(

@@ -29,7 +29,7 @@ class KeyService:
         self.key_client: redis.StrictRedis = key_db
         self.quota_client = key_quota_db
 
-    async def init_keys(self):
+    async def init_keys(self) -> None:
         """
         Initialize keys from the database, and check that indexing is set up properly.
         """

@@ -2,10 +2,11 @@ from onelogin.saml2.settings import OneLogin_Saml2_Settings
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 
 from fastapi.responses import RedirectResponse
-from app.security.auth import BackendAuthenticator
+from app.security.auth import BackendAuthenticator, BackendUser
+from app.schemas.session_schema import HTTPSession
 from app.schemas.user_schema import SessionAuthData
 
-from typing import Callable, Dict, Awaitable
+from typing import Callable, Dict, Awaitable, Tuple, Union, Any
 from fastapi import Request, Response, HTTPException
 import xmlsec
 import os
@@ -31,19 +32,19 @@ manager.add_key(private_key)
 enc_ctx = xmlsec.EncryptionContext(manager)
 
 
-def decrypt_name_id(encrypted_name_id: str):
+def decrypt_name_id(encrypted_name_id: str) -> Any:
     return enc_ctx.decrypt(encrypted_name_id)
 
 
 class SAMLAuthenticator(BackendAuthenticator):
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     async def login(
         self,
         request: Request,
         create_session: Callable[[Dict], Awaitable],
-    ) -> Response:
+    ) -> Tuple[Response, Union[HTTPSession, None]]:
         """
         Login endpoint
         """
@@ -56,7 +57,7 @@ class SAMLAuthenticator(BackendAuthenticator):
         self,
         request: Request,
         create_session: Callable[[SessionAuthData], Awaitable],
-    ):
+    ) -> HTTPSession:
         """
         General callback endpoint
         """
@@ -69,7 +70,7 @@ class SAMLAuthenticator(BackendAuthenticator):
         if len(errors) == 0:
             if not auth.is_authenticated():
                 # This check if the response was ok and the user data retrieved or not (user authenticated)
-                return "User Not authenticated"
+                raise HTTPException(401, "User not authenticated")
             else:
                 additional_session_data = {}
                 additional_session_data["samlUserdata"] = auth.get_attributes()
@@ -137,18 +138,25 @@ class SAMLAuthenticator(BackendAuthenticator):
             )
             raise HTTPException(403, "Error in callback")
 
-    async def metadata(self):
+    async def metadata(self) -> Response:
         metadata = saml_settings.get_sp_metadata()
         return Response(content=metadata, media_type="text/xml")
 
-    async def logout(self, request: Request, user, delete_session_callback):
+    async def logout(
+        self,
+        request: Request,
+        user: BackendUser,
+        delete_session_callback: Callable[[], Awaitable],
+    ) -> Union[RedirectResponse, None]:
         """
         Logout endpoint
         """
         req = await prepare_from_fastapi_request(request)
         auth = OneLogin_Saml2_Auth(req, saml_settings)
         name_id = session_index = name_id_format = name_id_nq = name_id_spnq = None
-        user_data = user.userdata
+        assert user.userdata is not None
+        user_data = user.userdata.additional_data
+        assert user_data is not None
         if "samlNameId" in user_data:
             name_id = user_data["samlNameId"]
         if "samlSessionIndex" in user_data:
@@ -171,8 +179,11 @@ class SAMLAuthenticator(BackendAuthenticator):
         return RedirectResponse(url=url)
 
     async def logout_callback(
-        self, request: Request, user, delete_session_callback: Callable[[], Awaitable]
-    ):
+        self,
+        request: Request,
+        user: BackendUser,
+        delete_session_callback: Callable[[], Awaitable],
+    ) -> RedirectResponse | None:
         """
         Single logout callback endpoint
         """
@@ -213,7 +224,7 @@ class SAMLAuthenticator(BackendAuthenticator):
             return RedirectResponse(url="/", status_code=303)
 
 
-async def prepare_from_fastapi_request(request: Request):
+async def prepare_from_fastapi_request(request: Request) -> dict[str, Any]:
     """
     Prepare and extract relevant information from a FastAPI Request object.
 
@@ -234,7 +245,7 @@ async def prepare_from_fastapi_request(request: Request):
     - If "SAMLResponse" or "RelayState" is present in the form data, they are included in the "post_data" dictionary.
     - If debug is set to True, additional advanced request options may be included in the result.
     """
-    rv = {
+    rv: dict[str, Any] = {
         "http_host": request.url.hostname,
         "server_port": request.url.port,
         "script_name": request.url.path,

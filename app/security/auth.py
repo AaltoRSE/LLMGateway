@@ -10,8 +10,9 @@ from fastapi.responses import RedirectResponse, HTMLResponse
 # Unfortunately we need to import the whole stack here, as FastAPI dependency injection
 # does not work with starlette middlewares.
 
-from app.models.session import HTTPSession
+from app.schemas.session_schema import HTTPSession
 from app.schemas.usage_schema import RequestSource
+from app.schemas.user_schema import SessionAuthData
 from app.services.session_service import SessionService
 
 
@@ -36,19 +37,18 @@ close_logout_popup = f"""
         </script>"""
 
 
-def get_request_source(request: HTTPConnection):
+def get_request_source(request: HTTPConnection) -> str:
     # We asume, that we can either be only reached via proxy ( first option ), or are directly accessed from clients.
     if is_proxied:
         # This assumes that our proxy has set this header
         return request.headers["x-forwarded-for"]
     else:
+        assert request.client is not None
         return request.client.host
 
 
 class AaltoBackendAuthentication:
-    def __init__(
-        self,
-    ):
+    def __init__(self) -> None:
         pass
 
     def getAuthenticationBackend(self) -> AuthenticationBackend:
@@ -64,18 +64,18 @@ class BackendUser(SimpleUser):
         username: str,
         request_source: RequestSource,
         agreement_ok: bool,
-        roles: List[str] = None,
+        roles: List[str] | None = None,
         isadmin: bool = False,
-        userdata: dict[str, any] = None,
+        userdata: SessionAuthData | None = None,
     ):
         super().__init__(username)
         self.admin: bool = isadmin
         self.agreement_ok = agreement_ok
-        self.roles = [] if roles is None else roles
+        self.roles: List[str] = [] if roles is None else roles
         self.userdata = userdata
         self.request_source = request_source
 
-    def is_admin(self):
+    def is_admin(self) -> bool:
         return self.admin
 
     # This easily checks, whether a User is a service user
@@ -85,10 +85,10 @@ class BackendUser(SimpleUser):
 
 
 class BackendAuthenticator:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def login(
+    async def login(
         self,
         request: Request,
         create_session: Callable[[Dict], Awaitable],
@@ -109,12 +109,12 @@ class BackendAuthenticator:
               - 'last_name', the last name of the user
               These fields will be used to compare against the user database and fill in permissions and user information.
         """
-        return HTTPException(status_code=404, detail="Not implemented")
+        raise HTTPException(status_code=404, detail="Not implemented")
 
     async def login_callback(
         self,
         request: Request,
-        create_session: Callable[[Dict], Awaitable],
+        create_session: Callable[[SessionAuthData], Awaitable],
     ) -> HTTPSession:
         """
         Callback function for the authentication.
@@ -130,13 +130,13 @@ class BackendAuthenticator:
               - 'last_name', the last name of the user
               These fields will be used to compare against the user database and fill in permissions and user information.
         """
-        return HTTPException(status_code=404, detail="Not implemented")
+        raise HTTPException(status_code=404, detail="Not implemented")
 
-    async def metadata() -> Response:
+    async def metadata(self) -> Response:
         """
         Optional Metadata endpoint. Depends on the auth scheme.
         """
-        return HTTPException(status_code=404, detail="Not implemented")
+        raise HTTPException(status_code=404, detail="Not implemented")
 
     async def logout(
         self,
@@ -151,27 +151,28 @@ class BackendAuthenticator:
         up by the router. Make sure, that the auth scheme doesn't keep any data
         in the session.
         """
-        return HTTPException(status_code=404, detail="Not implemented")
+        raise HTTPException(status_code=404, detail="Not implemented")
 
     async def logout_callback(
+        self,
         request: Request,
         user: BackendUser,
-        delete_session_callback: Callable,
-    ):
+        delete_session_callback: Callable[[], Awaitable],
+    ) -> RedirectResponse | None:
         """
         Logout callback endpoint, for callbacks from a single logout scheme.
         This function only needs to clean up anything that's inherent for the used authentication scheme.
         The user data (i.e. the data stored in the session) is available through user.get_user_data().
         The actual session will be terminated by the router regardless on the outcomes of this function.
         """
-        return HTTPException(status_code=404, detail="Not implemented")
+        raise HTTPException(status_code=404, detail="Not implemented")
 
 
 def check_auth_response(
     request: Request,
     session: Union[HTTPSession, None],
-    response: Union[Response, None],
-):
+    response: Union[RedirectResponse, Response, None],
+) -> Response:
     """
     Check, whether the request is a SAML request.
     """
@@ -193,7 +194,7 @@ def check_auth_response(
         return response
 
 
-def check_auth_session(request: Request, session: Union[HTTPSession, None]):
+def check_auth_session(request: Request, session: Union[HTTPSession, None]) -> None:
     logger.debug(request.session)
     if session == None:
         logger.debug("No session provided")
@@ -204,21 +205,21 @@ def check_auth_session(request: Request, session: Union[HTTPSession, None]):
     request.session["key"] = session.key
 
 
-def check_logout_response(
+async def check_logout_response(
     request: Request, response: Union[Response, None], session_service: SessionService
-):
+) -> Response:
     """
     Check, whether the logout was successful, or if this is a redirect.
     """
     if response == None:
         # We will clean up the session.
-        clean_session(request, session_service)
+        await clean_session(request, session_service)
         return HTMLResponse(close_logout_popup)
     else:
         return response
 
 
-def clean_session(request: Request, session_service: SessionService):
+async def clean_session(request: Request, session_service: SessionService) -> None:
     """
     Clean the session
     """
@@ -226,7 +227,7 @@ def clean_session(request: Request, session_service: SessionService):
     request.session["invalid"] = True
     if not session_key == None:
         request.session["key"] == None
-        session_service.delete_session(session_key)
+        await session_service.delete_session(session_key)
 
 
 def sanitize_redirect(redirect: Union[str, None]) -> str:

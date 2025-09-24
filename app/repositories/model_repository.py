@@ -20,7 +20,7 @@ class LLMModelRepository:
         """
         raise NotImplementedError
 
-    async def add_model(self, model: LLMModelData) -> LLMModelData:
+    async def add_model(self, model: LLMModelData) -> LLMModelData | None:
         """
         Add a new model
 

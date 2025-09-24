@@ -43,9 +43,5 @@ class LoginRequest(BaseModel):
     key: str = Field(description="The key to add.")
 
 
-class LoginRequest(BaseModel):
-    key: str = Field(description="The key to add.")
-
-
 class SetAdminRequest(UserRequest):
     admin: bool = Field(description="Whether the user should be an admin or not")

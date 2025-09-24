@@ -12,7 +12,7 @@ from fastapi import Depends
 from app.dbs.redis.redis import get_session_client
 from app.config.agreement import check_agreement_version
 from app.services.user_service import UserService, User
-from app.models.session import HTTPSession
+from app.schemas.session_schema import HTTPSession
 from app.schemas.user_schema import SessionAuthData
 
 logger = logging.getLogger("app")
@@ -26,7 +26,7 @@ class SessionService:
         self.session_client = session_client
         self.expire_time = 600
 
-    def set_session_expiration_time(self, time: int):
+    def set_session_expiration_time(self, time: int) -> None:
         self.expire_time = time
 
     async def create_session(
@@ -34,7 +34,7 @@ class SessionService:
         session_data: SessionAuthData,
         source_ip: str,
         user_service: UserService,
-        session_key: str = None,
+        session_key: str | None = None,
     ) -> HTTPSession:
         """
         Create a new session or update an existing session in Redis.
@@ -52,7 +52,7 @@ class SessionService:
             str: The session key.
         """
         print(session_data)
-        if session_key == None:
+        if session_key is None:
             # Should be the case in most instances.
             session_key = self.generate_session_key()
             # Make sure, it doesn't exist
@@ -61,22 +61,20 @@ class SessionService:
                 session_key = self.generate_session_key()
                 exists = await self.session_client.exists(session_key)
 
-            user: User = await user_service.get_or_create_user_from_auth_data(
-                session_data
-            )
-            session = HTTPSession(
-                key=session_key,
-                ip=source_ip,
-                data=session_data,
-                user_id=user.id,
-                auth_id=user.auth_id,
-                roles=session_data.roles,
-                admin=user.admin,
-                agreement_ok=check_agreement_version(user.accepted_agreement_version),
-            )
-            await self.session_client.setex(
-                session_key, self.expire_time, json.dumps(session.model_dump())
-            )
+        user: User = await user_service.get_or_create_user_from_auth_data(session_data)
+        session = HTTPSession(
+            key=session_key,
+            ip=source_ip,
+            data=session_data,
+            user_id=user.id,
+            auth_id=user.auth_id,
+            roles=session_data.roles,
+            admin=user.admin,
+            agreement_ok=check_agreement_version(user.accepted_agreement_version),
+        )
+        await self.session_client.setex(
+            session_key, self.expire_time, json.dumps(session.model_dump())
+        )
         return session
 
     async def get_session(self, session_key: str) -> HTTPSession:
@@ -100,7 +98,7 @@ class SessionService:
         # TODO: Do we refresh the session here, or should this be handled elsewhere?
         return session
 
-    def generate_session_key(self, length: int = 128):
+    def generate_session_key(self, length: int = 128) -> str:
         """
         Function to generate an API key.
 
@@ -114,7 +112,7 @@ class SessionService:
         api_key = "".join(secrets.choice(alphabet) for _ in range(length))
         return api_key
 
-    async def delete_session(self, session_key: str):
+    async def delete_session(self, session_key: str) -> None:
         """
         Delete a session from Redis.
 
@@ -125,7 +123,7 @@ class SessionService:
 
     async def update_session_agreement(
         self, session: HTTPSession, agreement_version: str
-    ):
+    ) -> None:
 
         session.agreement_ok = check_agreement_version(agreement_version)
         serialized_data = await self.session_client.get(session.key)

@@ -9,5 +9,7 @@
     },
     "base_quota": 30,
     "current_agreement_version": "1.0",
-    "session_expiration_time": 600
+    "session_expiration_time": 600,
+    "default_embedding_model": "llama2",
+    "default_chat_model": "llama2"
 }

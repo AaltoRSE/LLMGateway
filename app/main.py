@@ -5,6 +5,7 @@ A placeholder hello world app.
 import logging
 import os
 import logging.config
+from typing import Any, AsyncGenerator
 
 logging.config.fileConfig("app/logging.conf", disable_existing_loggers=False)
 uvlogger = logging.getLogger("app")
@@ -24,7 +25,7 @@ from app.routers import (
     admin_router,
     auth_router,
 )
-from app.utils.serverlogging import RouterLogging
+from app.middleware.request_middleware import RequestContextLogMiddleware
 from app.middleware.session_sanitize_middleware import SessionSanitizationMiddleWare
 from app.static_files import SPAStaticFiles
 from app.services.key_service import KeyService
@@ -42,7 +43,7 @@ uvlogger.info("Starting up the app")
 
 
 @asynccontextmanager
-async def startup(app: FastAPI):
+async def startup(app: FastAPI) -> AsyncGenerator[None, Any]:
     from app.config.db import get_api_key_repo
 
     key_service = KeyService(
@@ -83,10 +84,12 @@ app.add_middleware(SessionSanitizationMiddleWare)
 
 # Need a fixed session key to work with potentially multiple instances.
 session_key = os.environ.get("SESSION_KEY")
+assert session_key is not None
+
 app.add_middleware(SessionMiddleware, secret_key=session_key, max_age=600)
 
 # Add Request logging
-app.add_middleware(RouterLogging, logger=uvlogger, debug=debugging)
+app.add_middleware(RequestContextLogMiddleware)
 
 app.include_router(llm_router.router)
 app.include_router(self_service_router.router)
