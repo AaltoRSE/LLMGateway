@@ -1,0 +1,57 @@
+[MASTER]
+# Specify a configuration file.
+rcfile=.pylintrc
+
+[FORMAT]
+
+# Allow snake_case for module names
+module-rgx=[a-z_][a-z0-9_]{1,30}$
+
+# Maximum number of characters on a single line.
+max-line-length=120
+
+[DESIGN]
+
+# Minimum number of public methods for a class (see R0903).
+min-public-methods=0
+
+[CLASSES]
+
+# Regular expression which should only match correct class names.
+class-rgx=[A-Z_][a-zA-Z0-9]+$
+
+[VARIABLES]
+
+# Regular expression which should only match correct argument names.
+argument-rgx=[a-z_][a-z0-9_]*$
+
+# Regular expression which should only match correct variable names.
+variable-rgx=[a-z_][a-z0-9_]*$
+
+[REPORTS]
+output-format=text
+
+
+[TYPECHECK]
+
+# List of modules/classes/functions that should not be checked by type inference checker.
+ignored-modules=...
+
+[MESSAGES CONTROL]
+# Only show warnings with the listed confidence levels. Leave empty to show 
+# all. Valid levels: HIGH, INFERENCE, INFERENCE_FAILURE, UNDEFINED
+# confidence=
+
+# Enable the message, report, category or checker with the given id(s). You can 
+# either give multiple identifiers separated by comma (,) or put this option 
+# multiple times (only on the command line, not in the configuration file where 
+# it should appear only once). See also the "--disable" option for examples.
+enable=use-symbolic-message-instead,useless-suppression,C0114
+
+# Disable the message, report, category or checker with the given id(s).
+disable=C0116,R0903, C0303, C0115, R0801, fixme
+
+
+[REQUIREMENTS]
+# Disable checking for required module docstring.
+# disable=

@@ -29,9 +29,16 @@ class RequestContextLogMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
+        # TODO: We might need to think about NOT logging requests to static resources, i.e.
+        # filtering those. Optimally by setting something in the scope of the static resources.
+
         request.state.correlation_id = str(uuid4())
         start_time = datetime.now()
-
+        # We set the user to none so that it can be accessed later.
+        # Otherwise request.user throws errors if we don't go through the auth pass"
+        request.scope["user"] = None
+        # Set the static field in the scope, so that we can refer to it later
+        request.scope["static"] = False
         try:
             response: Response = await call_next(request)
         except Exception as e:  # pylint: disable=broad-except
@@ -59,18 +66,18 @@ class RequestContextLogMiddleware(BaseHTTPMiddleware):
                     },
                 )
 
-        # Continue logging the query
-        end_time = datetime.now()
-
-        # Log the request
-        cef_logger.log(
-            correlation_id=request.state.correlation_id,
-            request=request,
-            response=response,
-            start_time=start_time,
-            end_time=end_time,
-            authenticated_user=request.user,
-        )
+        # Continue logging the query, if it's a non static context (otherwise this floods the logs)
+        if not request.scope["static"]:
+            end_time = datetime.now()
+            # Log the request
+            cef_logger.log(
+                correlation_id=request.state.correlation_id,
+                request=request,
+                response=response,
+                start_time=start_time,
+                end_time=end_time,
+                authenticated_user=request.user,
+            )
 
         # Set response headers
         response.headers[CORRELATION_ID_HEADER] = request.state.correlation_id

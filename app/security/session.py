@@ -35,7 +35,7 @@ async def get_user_from_session(
     session_handler: Annotated[SessionService, Depends(SessionService)],
 ) -> BackendUser | None:
     try:
-        if conn.session == None:
+        if conn.session is None:
             logger.debug("No session in connection")
             return None
     except AssertionError:
@@ -50,6 +50,9 @@ async def get_user_from_session(
     try:
         # Try to get the stored data for the session
         session: HTTPSession = conn["session"][SESSION_DATA_FIELD]
+        if session is None:
+            logger.debug("No valid session detected.")
+            return None
         # Check IP correct
         if session.data == None:
             logger.debug("No Data in session -> No User")

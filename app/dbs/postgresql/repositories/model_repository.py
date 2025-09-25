@@ -34,7 +34,6 @@ class SQLModelRepository(LLMModelRepository):
             prompt_cost=db_model.prompt_cost,
             completion_cost=db_model.completion_cost,
             cached_token_cost=db_model.cached_token_cost,
-            protocol=db_model.protocol,
         )
 
     def _convert_schema_to_db(self, model: LLMModelData) -> DBLLMModel:
@@ -50,7 +49,6 @@ class SQLModelRepository(LLMModelRepository):
             owned_by=model.model.owned_by,
             object=model.model.object,
             type=model.model.type,
-            protocol=model.protocol,
         )
 
     async def get_models(self) -> List[LLMModelData]:
@@ -104,7 +102,6 @@ class SQLModelRepository(LLMModelRepository):
         db_model.owned_by = model.model.owned_by
         db_model.object = model.model.object
         db_model.type = model.model.type
-        db_model.protocol = model.protocol
         self.db.commit()
         self.db.refresh(db_model)
         return self._convert_db_to_schema(db_model)

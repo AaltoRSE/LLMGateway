@@ -8,6 +8,7 @@ from fastapi import APIRouter, Security, HTTPException, status, Depends
 from app.services.usage_service import UsageService, APIRequest
 from app.services.key_service import KeyService, APIKey
 from app.services.user_service import UserService
+from app.services.model_service import ModelService
 from app.services.session_service import SessionService
 from app.requests.self_service_requests import (
     CreateKeyRequest,
@@ -17,7 +18,8 @@ from app.requests.self_service_requests import (
 from app.security.authentication_dependencies import requires_session, BackendUser
 from app.security.session import get_session
 from app.schemas.session_schema import HTTPSession
-
+from app.schemas.llmmodel_schema import LLMPublicData
+from app.schemas.usage_schema import UserUsageData
 from app.config import app_configuration
 
 # This router requires a session. Other routers might be used with pure user information
@@ -27,6 +29,17 @@ router = APIRouter(
     tags=["selfservice"],
     dependencies=[Security(requires_session)],
 )
+
+
+@router.get("/models", status_code=status.HTTP_200_OK)
+async def get_details_for_model(
+    model_service: Annotated[ModelService, Depends(ModelService)],
+) -> List[LLMPublicData]:
+    """
+    Route to list admin models
+    """
+    models = await model_service.get_models()
+    return [LLMPublicData.model_validate(model.model_dump()) for model in models]
 
 
 @router.post("/createkey", status_code=status.HTTP_201_CREATED)
@@ -82,6 +95,21 @@ async def get_keys(
 
 
 @router.post("/usage")
+async def get_usage(
+    usage_service: Annotated[UsageService, Depends(UsageService)],
+    user: BackendUser = Security(requires_session),
+) -> UserUsageData:
+    """
+    Route to get user Usage
+    """
+    assert user is not None and user.request_source.user_id is not None
+    usage = await usage_service.build_user_usage_data(
+        user_id=user.request_source.user_id,
+    )
+    return usage
+
+
+@router.post("/usage_details")
 async def get_usage(
     request: ObtainUsageRequest,
     usage_service: Annotated[UsageService, Depends(UsageService)],

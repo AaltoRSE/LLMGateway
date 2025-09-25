@@ -54,7 +54,7 @@ class LLMModel:
         request_data = request.model_dump()
         return httpx.Request(
             method="POST",
-            url=f"{self.model.host}{self.model.path}{path}",
+            url=f"{self.model.path}{path}",
             json=request_data,
             headers={
                 "Authorization": f"Bearer {inference_key}",

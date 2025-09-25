@@ -8,7 +8,7 @@ import logging.config
 from contextlib import asynccontextmanager
 
 from typing import Any, AsyncGenerator
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.cors import CORSMiddleware
 
@@ -24,7 +24,7 @@ from app.middleware.request_middleware import RequestContextLogMiddleware
 from app.middleware.session_sanitize_middleware import SessionSanitizationMiddleWare
 from app.static_files import SPAStaticFiles
 from app.services.key_service import KeyService
-
+from app.security.authentication_dependencies import authenticate_request
 from app.dbs.redis.redis import get_key_client, get_key_quota_client
 from app.config.db import get_api_key_repo
 
@@ -35,16 +35,14 @@ uvlogger = logging.getLogger("app")
 
 
 DEBUGGING = int(os.environ.get("DEV_MODE", "0")) == 1
+if DEBUGGING:
+    uvlogger.setLevel(logging.DEBUG)
+    uvlogger.debug("Debugging active")
 
-uvlogger.info("Starting up the app")
 
-
-@asynccontextmanager
-async def startup(  # pylint: disable=unused-argument
-    app_instance: FastAPI,
-) -> AsyncGenerator[None, Any]:
+async def init_keys() -> None:
     """
-    Initialize keys at startup
+    Function to run init keys.
     """
     key_service = KeyService(
         key_repository=get_api_key_repo(),
@@ -52,11 +50,29 @@ async def startup(  # pylint: disable=unused-argument
         key_quota_db=await anext(get_key_quota_client()),
     )
     await key_service.init_keys()
-    # TODO: possibly also do this for the models.
+
+
+@asynccontextmanager
+async def startup(  # pylint: disable=unused-argument
+    app_instance: FastAPI,
+) -> AsyncGenerator[None, Any]:
+    """
+    Startup function
+    """
+    uvlogger.info("Starting up the app")
+    uvlogger.info("Debug mode: %s", DEBUGGING)
+    if DEBUGGING:
+        uvlogger.setLevel(logging.DEBUG)
+        for handler in uvlogger.handlers:
+            handler.setLevel(logging.DEBUG)
+        uvlogger.debug("Debugging active")
+    await init_keys()
     yield
 
 
-app = FastAPI(lifespan=startup, debug=DEBUGGING)
+app = FastAPI(
+    lifespan=startup, debug=DEBUGGING, dependencies=[Depends(authenticate_request)]
+)
 
 # Set CORS Policy
 cors_origings = [

@@ -1,5 +1,5 @@
 from fastapi import Depends
-from typing import Annotated, List
+from typing import Annotated, List, Any
 
 # DB Specific imports
 from sqlalchemy.orm import Session
@@ -10,8 +10,14 @@ from ..models.balance_model import Balance as DBBalance
 from ..db import db as db_dependency
 
 # App imports
-from app.repositories.usage_repository import UsageRepository
-from app.schemas.usage_schema import Usage, APIRequest, RequestSource
+from app.repositories.usage_repository import (
+    UsageRepository,
+    APIKey,
+    KeyData,
+    Usage,
+    APIRequest,
+    RequestSource,
+)
 from datetime import datetime, date
 
 
@@ -60,9 +66,17 @@ class SQLUsageRepository(UsageRepository):
         )
 
         return Usage(
-            cost=usage.total_cost,
-            prompt_tokens=usage.total_prompt_tokens,
-            completion_tokens=usage.total_completion_tokens,
+            cost=usage.total_cost if usage.total_cost is not None else 0,
+            prompt_tokens=(
+                usage.total_prompt_tokens
+                if usage.total_prompt_tokens is not None
+                else 0
+            ),
+            completion_tokens=(
+                usage.total_completion_tokens
+                if usage.total_completion_tokens is not None
+                else 0
+            ),
         )
 
     async def get_usage_for_key_in_range(
@@ -82,9 +96,17 @@ class SQLUsageRepository(UsageRepository):
             .one()
         )
         return Usage(
-            cost=usage.total_cost,
-            prompt_tokens=usage.total_prompt_tokens,
-            completion_tokens=usage.total_completion_tokens,
+            cost=usage.total_cost if usage.total_cost is not None else 0,
+            prompt_tokens=(
+                usage.total_prompt_tokens
+                if usage.total_prompt_tokens is not None
+                else 0
+            ),
+            completion_tokens=(
+                usage.total_completion_tokens
+                if usage.total_completion_tokens is not None
+                else 0
+            ),
         )
 
     def _query_usage(
@@ -144,3 +166,78 @@ class SQLUsageRepository(UsageRepository):
                 total_balance=30,  # FIXME: This needs to be set by some variable.
             )
         return balance, new
+
+    async def get_usage_for_keys(
+        self,
+        keys: List[APIKey],
+    ) -> List[KeyData]:
+        now = datetime.now()
+        first_of_month = datetime(now.year, now.month, 1, 0, 0, 0)
+        total_results = (
+            self.db.query(
+                DBUsage.api_key,
+                func.sum(DBUsage.cost).label("total_cost"),
+                func.sum(DBUsage.prompt_tokens).label("total_prompt_tokens"),
+                func.sum(DBUsage.completion_tokens).label("total_completion_tokens"),
+            )
+            .filter(DBUsage.api_key.in_([key.key for key in keys]))
+            .group_by(DBUsage.api_key)
+            .all()
+        )
+        recent_results = (
+            self.db.query(
+                DBUsage.api_key,
+                func.sum(DBUsage.cost).label("recent_usage"),
+                func.sum(DBUsage.prompt_tokens).label("recent_prompt_tokens"),
+                func.sum(DBUsage.completion_tokens).label("recent_completion_tokens"),
+            )
+            .filter(
+                DBUsage.api_key.in_([key.key for key in keys]),
+                DBUsage.timestamp >= first_of_month,
+            )
+            .group_by(DBUsage.api_key)
+            .all()
+        )
+        result = {
+            key.key: {
+                "key": key.key,
+                "total_cost": 0,
+                "total_completion_tokens": 0,
+                "total_prompt_tokens": 0,
+                "current_cost": 0,
+                "current_completion_tokens": 0,
+                "current_prompt_tokens": 0,
+                "quota": key.quota,
+            }
+            for key in keys
+        }
+
+        for (
+            api_key,
+            total_cost,
+            total_prompt_tokens,
+            total_completion_tokens,
+        ) in total_results:
+            result[api_key].update(
+                {
+                    "key": api_key,
+                    "total_cost": total_cost,
+                    "total_completion_tokens": total_completion_tokens,
+                    "total_prompt_tokens": total_prompt_tokens,
+                }
+            )
+        for (
+            api_key,
+            recent_cost,
+            recent_prompt_tokens,
+            recent_completion_tokens,
+        ) in recent_results:
+            result[api_key].update(
+                {
+                    "current_cost": recent_cost,
+                    "current_completion_tokens": recent_completion_tokens,
+                    "current_prompt_tokens": recent_prompt_tokens,
+                }
+            )
+
+        return [KeyData.model_validate(element) for element in result.values()]

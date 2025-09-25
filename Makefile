@@ -39,8 +39,12 @@ create_db:
 	$(CONTAINER_ENGINE)  exec -it ${DB_CONTAINER_NAME} su postgres -c "createdb ${DB_NAME}" || exit 0
 
 reset_db:
+	$(CONTAINER_ENGINE_COMPOSE)  -f docker-compose.yml up --build -d db
+	@echo "waiting for db to start up"
+	sleep 5
 	$(CONTAINER_ENGINE)  exec -it ${DB_CONTAINER_NAME} su postgres -c "dropdb ${DB_NAME}"
 	$(CONTAINER_ENGINE)  exec -it ${DB_CONTAINER_NAME} su postgres -c "createdb ${DB_NAME}" || exit 0
+	$(CONTAINER_ENGINE_COMPOSE)  -f docker-compose.yml down db
 # CLI command for connecting to the database using podman
 
 # CLI command for connecting to the database using podman

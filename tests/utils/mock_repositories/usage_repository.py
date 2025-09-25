@@ -1,9 +1,9 @@
 """A mock repository for usage"""
 
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Optional, Any
 from pydantic import BaseModel
-from app.repositories.usage_repository import UsageRepository
+from app.repositories.usage_repository import UsageRepository, APIKey, KeyData
 from app.schemas.usage_schema import Usage, APIRequest, Balance, RequestSource
 
 
@@ -132,3 +132,70 @@ class UsageRepositoryImpl(UsageRepository):
             for u in self.__class__.usage_list
             if u.key == key and u.timestamp >= from_time and u.timestamp <= to_time
         ]
+
+    async def get_usage_for_keys(
+        self,
+        keys: List[APIKey],
+    ) -> List[KeyData]:
+        now = datetime.now()
+        first_of_month = datetime(now.year, now.month, 1, 0, 0, 0)
+        data: dict[str, List[APIRequest]] = {key.key: [] for key in keys}
+        for elem in self.__class__.usage_list:
+            if elem.key in data:
+                data[key].append(elem)
+        total_results = []
+        recent_results = []
+        for key in data:
+            total_cost = sum([elem.cost for elem in data[key]])
+            total_prompt = sum([elem.prompt_tokens for elem in data[key]])
+            total_completion = sum([elem.prompt_tokens for elem in data[key]])
+            total_results.append((key, total_cost, total_prompt, total_completion))
+        for key in data:
+            total_cost = sum(
+                [elem.cost for elem in data[key] if elem.timestamp >= first_of_month]
+            )
+            total_prompt = sum(
+                [
+                    elem.prompt_tokens
+                    for elem in data[key]
+                    if elem.timestamp >= first_of_month
+                ]
+            )
+            total_completion = sum(
+                [
+                    elem.prompt_tokens
+                    for elem in data[key]
+                    if elem.timestamp >= first_of_month
+                ]
+            )
+            recent_results.append((key, total_cost, total_prompt, total_completion))
+
+        result: dict[str, dict[str, Any]] = {
+            api_key: {
+                "key": api_key,
+                "total_cost": total_cost,
+                "total_completion_tokens": total_completion_tokens,
+                "total_prompt_tokens": total_prompt_tokens,
+            }
+            for api_key, total_cost, total_prompt_tokens, total_completion_tokens in total_results
+        }
+        for (
+            api_key,
+            recent_cost,
+            recent_prompt_tokens,
+            recent_completion_tokens,
+        ) in recent_results:
+            result[api_key].update(
+                {
+                    "recent_cost": recent_cost,
+                    "recent_completion_tokens": recent_completion_tokens,
+                    "recent_prompt_tokens": recent_prompt_tokens,
+                }
+            )
+        for key in keys:
+            result[key.key].update(
+                {
+                    "quota": key.quota,
+                }
+            )
+        return [KeyData.model_validate(element) for element in result.values()]

@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from pydantic import BaseModel, model_validator
-from typing import Optional
+from typing import Optional, List
 from typing_extensions import Self
 
 
@@ -28,8 +28,8 @@ class RequestTokens(BaseModel):
 
 
 class Usage(BaseModel):
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
     cost: float  # in Euros
 
 
@@ -52,3 +52,19 @@ class RequestSource(BaseModel):
         if self.key is None and self.user_id is None:
             raise ValueError("Missing Source! Either user or key has to be non None")
         return self
+
+
+class KeyData(BaseModel):
+    total_cost: float
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    current_cost: float
+    current_prompt_tokens: int
+    current_completion_tokens: int
+    key: str
+    quota: Optional[float] = None
+
+
+class UserUsageData(BaseModel):
+    usage: Usage
+    key_details: List[KeyData]

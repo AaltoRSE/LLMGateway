@@ -9,7 +9,8 @@ datetimes month.
 
 from typing import List
 from datetime import datetime
-from app.schemas.usage_schema import APIRequest, Usage, RequestSource
+from app.schemas.usage_schema import APIRequest, Usage, RequestSource, KeyData
+from app.schemas.key_schema import APIKey
 
 
 # pylint: disable=duplicate-code
@@ -126,5 +127,23 @@ class UsageRepository:
         -------
         List[APIRequest]
             A list of detailed usage data for the specified key.
+        """
+        raise NotImplementedError
+
+    async def get_usage_for_keys(
+        self,
+        keys: List[APIKey],
+    ) -> List[KeyData]:
+        """
+        Get detailed usage data for a user.
+
+        Parameters
+        ----------
+        keys : List[APIKeys]
+            A List of API keys to get usage info for
+        Returns
+        -------
+        List[KeyData]
+            A List of Data for the given key.
         """
         raise NotImplementedError

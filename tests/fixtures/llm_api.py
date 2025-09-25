@@ -237,8 +237,8 @@ async def completions_model(
         prompt_cost=0.001,
         description="TestModel",
         completion_cost=0.001,
-        host="http://llm.service.com",
-        path="/completion",
+        host="llm.service.com",
+        path="http://llm.service.com/completion",
         name="completion_model",
         model=LLMModelDataDetails(
             id="completion", owned_by="Admin", permissions=[], type=["chat"]
@@ -258,7 +258,7 @@ async def completions_api(
     the embedding vector
     """
     with respx.mock as mock:
-        call_url = f"{completions_model.model.host}{completions_model.model.path}"
+        call_url = f"{completions_model.model.path}"
         print(f"Mocking calls to {call_url}")
         mock.post(
             f"{call_url}/v1/chat/completions",
@@ -556,7 +556,7 @@ async def responses_api(
     """
 
     with respx.mock as mock:
-        call_url = f"{response_model.model.host}{response_model.model.path}"
+        call_url = f"{response_model.model.path}"
         print(f"Mocking calls to {call_url}")
         mock.post(
             f"{call_url}/v1/responses",
@@ -573,8 +573,8 @@ async def response_model(
         prompt_cost=0.001,
         description="TestModel",
         completion_cost=0.001,
-        host="http://llm.service.com",
-        path="/responses",
+        host="llm.service.com",
+        path="http://llm.service.com/responses",
         name="testmodel",
         model=LLMModelDataDetails(
             id="responses", owned_by="Admin", permissions=[], type=["responses"]
@@ -593,7 +593,7 @@ async def general_api(general_model: LLMModel) -> AsyncGenerator[LLMModelData, A
     """
 
     with respx.mock as mock:
-        call_url = f"{general_model.model.host}{general_model.model.path}"
+        call_url = f"{general_model.model.path}"
         print(f"Mocking calls to {call_url}")
         mock.post(
             f"{call_url}/v1/chat/completions",
@@ -616,8 +616,8 @@ async def general_model(
         prompt_cost=0.001,
         description="TestModel",
         completion_cost=0.001,
-        host="http://llm.service.com",
-        path="/general",
+        host="llm.service.com",
+        path="http://llm.service.com/general",
         name="testmodel",
         model=LLMModelDataDetails(
             id="general",
@@ -640,7 +640,7 @@ async def embedding_api(
     """
 
     with respx.mock as mock:
-        call_url = f"{embedding_model.model.host}{embedding_model.model.path}"
+        call_url = f"{embedding_model.model.path}"
         print(f"Mocking calls to {call_url}")
         mock.post(
             f"{call_url}/v1/embeddings",
@@ -657,8 +657,8 @@ async def embedding_model(
         prompt_cost=0.001,
         description="TestModel",
         completion_cost=0.001,
-        host="http://llm.service.com",
-        path="/embedding",
+        host="embedding.service.com",
+        path="http://embedding.service.com/embedding",
         name="testmodel",
         model=LLMModelDataDetails(
             id="embedding", owned_by="Admin", permissions=[], type=["embedding"]

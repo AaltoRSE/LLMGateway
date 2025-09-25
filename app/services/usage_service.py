@@ -1,5 +1,6 @@
 """This module provides Message service functionality"""
 
+import logging
 from typing import Annotated, List
 from datetime import datetime
 from fastapi import Depends
@@ -8,10 +9,14 @@ from app.repositories.factories import (
     get_usage_repository_class,
     get_user_repository_class,
     get_balance_repository_class,
+    get_key_repository_class,
 )
 from app.repositories.balance_repository import BalanceRepository
 from app.repositories.user_repository import UserRepository
-from app.schemas.usage_schema import Balance, APIRequest, RequestSource
+from app.repositories.api_key_repository import APIKeyRepository
+from app.schemas.usage_schema import Balance, APIRequest, RequestSource, UserUsageData
+
+logger = logging.getLogger("app")
 
 
 class UsageService:
@@ -28,10 +33,14 @@ class UsageService:
         user_repository: Annotated[
             UserRepository, Depends(get_user_repository_class())
         ],
+        key_repository: Annotated[
+            APIKeyRepository, Depends(get_key_repository_class())
+        ],
     ) -> None:
         self.usage_repository = usage_repository
         self.balance_repository = balance_repository
         self.user_repository = user_repository
+        self.key_repository = key_repository
 
     async def get_current_user_balance(self, user_id: str) -> Balance:
         """
@@ -115,3 +124,20 @@ class UsageService:
         return await self.usage_repository.get_usage_details_for_user(
             user_id, from_time=from_time, to_time=to_time
         )
+
+    async def build_user_usage_data(
+        self,
+        user_id: str,
+    ) -> UserUsageData:
+        """
+        Build a UserUsageData object for the given user. this contains all keys,
+        with their respective usage. along with the total usage for the user.
+        """
+        user_usage = await self.usage_repository.get_usage_for_user_in_range(
+            user_id=user_id, from_time=datetime.fromtimestamp(0), to_time=datetime.now()
+        )
+        logger.debug(user_usage)
+        user_keys = await self.key_repository.get_active_api_keys_for_user(user_id)
+        key_data = await self.usage_repository.get_usage_for_keys(user_keys)
+        logger.debug(key_data)
+        return UserUsageData(usage=user_usage, key_details=key_data)

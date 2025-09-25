@@ -18,6 +18,7 @@ class Usage(BaseModelClass):
     Attributes:
         id (int): The conversation's unique identifier.
         user_id (int): The ID of the user involved in the conversation.
+        api_key (str): the api key used to create this
         prompt_tokens (int) : Optional, can contain the number of prompt tokens (for statistics)
         completion_tokens(int): Optional, can contain the number of completion tokens (for statistics)
         model (str): The used model for this usage (for statistics)

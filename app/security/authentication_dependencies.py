@@ -4,7 +4,7 @@ from starlette.requests import HTTPConnection
 from starlette.authentication import AuthCredentials
 from fastapi import HTTPException, Depends
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 from app.security.auth import BackendUser
 from app.security.api_keys import get_user_for_api_key, get_admin_user_from_key
@@ -29,7 +29,9 @@ async def authenticate_request(
     # Mixing sessions and admin API keys is not allowed, admin key will be ignored in this case.
     if user is None and admin_user is not None:
         user = admin_user
+    logger.info(conn)
     if user is not None:
+        logger.info("setting user for scope")
         # Potentially the credentials can be improved...
         conn.scope["auth"], conn.scope["user"] = (
             AuthCredentials(["authenticated"]),
@@ -37,6 +39,7 @@ async def authenticate_request(
         )
         return user
     else:
+        logger.info("Setting user")
         conn.scope["auth"], conn.scope["user"] = (None, None)
         return None
 
