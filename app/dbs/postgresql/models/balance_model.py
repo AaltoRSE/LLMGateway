@@ -31,5 +31,4 @@ class Balance(BaseModelClass):
     user_id = mapped_column(Integer, ForeignKey(User.id), nullable=True, index=True)
     key = mapped_column(String, ForeignKey(APIKey.key), nullable=True, index=True)
     balance_used = mapped_column(Float, default=0.0, nullable=False)
-    quota = mapped_column(Float, nullable=False)
     period = mapped_column(Date, nullable=False)

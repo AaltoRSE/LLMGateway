@@ -14,3 +14,4 @@ class HTTPSession(BaseModel):
     data: SessionAuthData
     admin: bool
     agreement_ok: bool
+    quota: float

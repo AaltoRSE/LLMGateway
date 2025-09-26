@@ -50,6 +50,7 @@ async def get_user_for_api_key(
             return BackendUser(
                 username=user.id,
                 isadmin=user.admin,
+                quota=key.quota,
                 request_source=RequestSource(user_id=user.id, key=api_key),
                 agreement_ok=check_agreement_version(user.accepted_agreement_version),
             )
@@ -59,6 +60,7 @@ async def get_user_for_api_key(
             return BackendUser(
                 username=key.service,
                 isadmin=False,
+                quota=key.quota,
                 request_source=RequestSource(key=api_key),
                 agreement_ok=True,
             )

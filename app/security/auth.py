@@ -64,12 +64,14 @@ class BackendUser(SimpleUser):
         username: str,
         request_source: RequestSource,
         agreement_ok: bool,
+        quota: float | None = None,
         roles: List[str] | None = None,
         isadmin: bool = False,
         userdata: SessionAuthData | None = None,
     ):
         super().__init__(username)
         self.admin: bool = isadmin
+        self.quota = quota
         self.agreement_ok = agreement_ok
         self.roles: List[str] = [] if roles is None else roles
         self.userdata = userdata

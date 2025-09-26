@@ -2,16 +2,22 @@ from datetime import datetime, date
 from pydantic import BaseModel, model_validator
 from typing import Optional, List
 from typing_extensions import Self
+from app.config import app_configuration
 
 
 class Balance(BaseModel):
     balance_used: float
-    quota: float = 30
     user_id: Optional[str] = None
     key: Optional[str] = None
 
+
+class Quota(Balance):
+    quota: float
+
     def used_up(self) -> bool:
-        return self.balance_used >= self.quota
+        return (
+            self.balance_used >= self.quota if self.quota is not None else float("inf")
+        )
 
 
 class KeyBalance(Balance):
@@ -28,8 +34,8 @@ class RequestTokens(BaseModel):
 
 
 class Usage(BaseModel):
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
+    prompt_tokens: int | None = 0
+    completion_tokens: int | None = 0
     cost: float  # in Euros
 
 
@@ -65,6 +71,6 @@ class KeyData(BaseModel):
     quota: Optional[float] = None
 
 
-class UserUsageData(BaseModel):
+class UserAndKeyUsageData(BaseModel):
     usage: Usage
     key_details: List[KeyData]

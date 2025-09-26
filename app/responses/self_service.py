@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List
+from app.schemas.usage_schema import UserAndKeyUsageData
 
 
 class ModelDescription(BaseModel):
@@ -12,3 +13,8 @@ class ModelDescription(BaseModel):
 
 
 ModelListResponse = List[ModelDescription]
+
+
+class UsageResponse(UserAndKeyUsageData):
+    quota: float
+    balance: float

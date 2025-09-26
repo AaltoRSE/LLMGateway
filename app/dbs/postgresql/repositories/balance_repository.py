@@ -24,7 +24,6 @@ class SQLBalanceRepository(BalanceRepository):
     def _convert_balance_to_schema(self, db_balance: DBBalance) -> Balance:
         return Balance(
             balance_used=db_balance.balance_used,
-            quota=db_balance.quota,
             key=db_balance.key,
             user_id=str(db_balance.user_id) if db_balance.user_id is not None else None,
         )
@@ -33,7 +32,6 @@ class SQLBalanceRepository(BalanceRepository):
         assert db_balance.key is not None
         return KeyBalance(
             balance_used=db_balance.balance_used,
-            quota=db_balance.quota,
             key=db_balance.key,
         )
 
@@ -41,7 +39,6 @@ class SQLBalanceRepository(BalanceRepository):
         assert db_balance.user_id is not None
         return UserBalance(
             balance_used=db_balance.balance_used,
-            quota=db_balance.quota,
             user_id=str(db_balance.user_id),
         )
 
@@ -67,7 +64,7 @@ class SQLBalanceRepository(BalanceRepository):
                 self.db.query(DBAPIKey).filter(DBAPIKey.key == key).first()
             )
             assert key_result is not None
-            return KeyBalance(key=key, balance_used=0, quota=key_result.quota)
+            return KeyBalance(key=key, balance_used=0)
         else:
             return self._convert_balance_to_key_schema(result)
 
@@ -95,7 +92,7 @@ class SQLBalanceRepository(BalanceRepository):
                 self.db.query(DBUser).filter(DBUser.id == int(user_id)).first()
             )
             assert user_result is not None
-            return UserBalance(user_id=user_id, balance_used=0, quota=user_result.quota)
+            return UserBalance(user_id=user_id, balance_used=0)
 
         else:
             return self._convert_balance_to_user_schema(result)

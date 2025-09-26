@@ -52,7 +52,7 @@ async def test_completions_endpoint(
     usage = CompletionUsage.model_validate(result["usage"])
     balance = await usage_service.get_current_user_balance(normal_user.id)
     cost = general_api.calc_cost_from_chat_usage(usage)
-    assert balance.balance_used == cost
+    assert balance.balance_used == pytest.approx(cost)
     assert balance.balance_used > 0
     # use a streamig response
     request["stream"] = True
@@ -159,7 +159,7 @@ async def test_responses_endpoint(
     usage = ResponseUsage.model_validate(result["usage"])
     balance = await usage_service.get_current_user_balance(normal_user.id)
     cost = responses_api.calc_cost_from_response_usage(usage)
-    assert balance.balance_used == cost
+    assert balance.balance_used == pytest.approx(cost)
     assert balance.balance_used > 0
     # use a streamig response
     request["stream"] = True

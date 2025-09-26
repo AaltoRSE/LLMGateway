@@ -78,5 +78,6 @@ async def get_user_from_session(
         roles=session.roles,
         isadmin=session.admin,
         agreement_ok=session.agreement_ok,
+        quota=session.quota,
     )
     return currentUser

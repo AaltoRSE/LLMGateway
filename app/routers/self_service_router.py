@@ -9,6 +9,7 @@ from app.services.usage_service import UsageService, APIRequest
 from app.services.key_service import KeyService, APIKey
 from app.services.user_service import UserService
 from app.services.model_service import ModelService
+from app.services.balance_service import BalanceService
 from app.services.session_service import SessionService
 from app.requests.self_service_requests import (
     CreateKeyRequest,
@@ -19,8 +20,9 @@ from app.security.authentication_dependencies import requires_session, BackendUs
 from app.security.session import get_session
 from app.schemas.session_schema import HTTPSession
 from app.schemas.llmmodel_schema import LLMPublicData
-from app.schemas.usage_schema import UserUsageData
+from app.schemas.usage_schema import UserAndKeyUsageData
 from app.config import app_configuration
+from app.responses.self_service import UsageResponse
 
 # This router requires a session. Other routers might be used with pure user information
 # assuming e.g. a professor gives a key to a student.
@@ -97,8 +99,9 @@ async def get_keys(
 @router.post("/usage")
 async def get_usage(
     usage_service: Annotated[UsageService, Depends(UsageService)],
+    balance_service: Annotated[BalanceService, Depends(BalanceService)],
     user: BackendUser = Security(requires_session),
-) -> UserUsageData:
+) -> UsageResponse:
     """
     Route to get user Usage
     """
@@ -106,11 +109,19 @@ async def get_usage(
     usage = await usage_service.build_user_usage_data(
         user_id=user.request_source.user_id,
     )
-    return usage
+    current_balance = await balance_service.get_user_balance(
+        user.request_source.user_id
+    )
+    return UsageResponse(
+        usage=usage.usage,
+        key_details=usage.key_details,
+        quota=current_balance.quota,
+        balance=current_balance.balance_used,
+    )
 
 
 @router.post("/usage_details")
-async def get_usage(
+async def get_usage_details(
     request: ObtainUsageRequest,
     usage_service: Annotated[UsageService, Depends(UsageService)],
     user: BackendUser = Security(requires_session),
@@ -124,6 +135,7 @@ async def get_usage(
         from_time=request.from_time,
         to_time=request.to_time,
     )
+
     return usage
 
 

@@ -62,11 +62,14 @@ async def balance_service(
 
 
 @pytest_asyncio.fixture
-async def usage_service(mock_repositories: Repositories, redis_dbs) -> UsageService:
+async def usage_service(
+    mock_repositories: Repositories, balance_service: BalanceService, redis_dbs
+) -> UsageService:
     service = UsageService(
-        balance_repository=mock_repositories.balance_repo,
         user_repository=mock_repositories.user_repo,
         usage_repository=mock_repositories.usage_repo,
+        key_repository=mock_repositories.key_repo,
+        balance_service=balance_service,
     )
     return service
 

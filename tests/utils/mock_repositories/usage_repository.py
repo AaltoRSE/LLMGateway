@@ -142,33 +142,33 @@ class UsageRepositoryImpl(UsageRepository):
         data: dict[str, List[APIRequest]] = {key.key: [] for key in keys}
         for elem in self.__class__.usage_list:
             if elem.key in data:
-                data[key].append(elem)
+                data[elem.key].append(elem)
         total_results = []
         recent_results = []
         for key in data:
             total_cost = sum([elem.cost for elem in data[key]])
             total_prompt = sum([elem.prompt_tokens for elem in data[key]])
-            total_completion = sum([elem.prompt_tokens for elem in data[key]])
+            total_completion = sum([elem.completion_tokens for elem in data[key]])
             total_results.append((key, total_cost, total_prompt, total_completion))
         for key in data:
-            total_cost = sum(
+            recent_cost = sum(
                 [elem.cost for elem in data[key] if elem.timestamp >= first_of_month]
             )
-            total_prompt = sum(
+            recent_prompt = sum(
                 [
                     elem.prompt_tokens
                     for elem in data[key]
                     if elem.timestamp >= first_of_month
                 ]
             )
-            total_completion = sum(
+            recent_completion = sum(
                 [
-                    elem.prompt_tokens
+                    elem.completion_tokens
                     for elem in data[key]
                     if elem.timestamp >= first_of_month
                 ]
             )
-            recent_results.append((key, total_cost, total_prompt, total_completion))
+            recent_results.append((key, recent_cost, recent_prompt, recent_completion))
 
         result: dict[str, dict[str, Any]] = {
             api_key: {
@@ -187,9 +187,9 @@ class UsageRepositoryImpl(UsageRepository):
         ) in recent_results:
             result[api_key].update(
                 {
-                    "recent_cost": recent_cost,
-                    "recent_completion_tokens": recent_completion_tokens,
-                    "recent_prompt_tokens": recent_prompt_tokens,
+                    "current_cost": recent_cost,
+                    "current_completion_tokens": recent_completion_tokens,
+                    "current_prompt_tokens": recent_prompt_tokens,
                 }
             )
         for key in keys:

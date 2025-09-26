@@ -4,16 +4,19 @@ from datetime import datetime
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-import respx
-import asyncio
-from app.services.usage_service import UsageService, APIRequest, RequestSource
+from app.services.usage_service import (
+    UsageService,
+    APIRequest,
+    RequestSource,
+    UserAndKeyUsageData,
+)
 from app.services.model_service import ModelService
 from app.services.session_service import SessionService, SessionAuthData
-from app.services.user_service import UserService, UserBase
+from app.services.user_service import UserService, UserBase, User
 from app.services.key_service import KeyService, APIKey
+from app.responses.self_service import UsageResponse
 from tests.fixtures.db_fixtures import Repositories
 from app.security.auth import BackendUser
-from app.schemas.user_schema import User
 from app.utils.llm_model import LLMModel
 from app.requests.self_service_requests import *
 from app.responses.auth import AuthInfo
@@ -130,7 +133,7 @@ async def test_get_keys(
 
 
 @pytest.mark.asyncio
-async def test_get_usage(
+async def test_get_usage_details(
     normal_session_client: TestClient,
     normal_user: BackendUser,
     usage_service: UsageService,
@@ -138,7 +141,7 @@ async def test_get_usage(
     # Make sure no usage happened yet
     balance = await usage_service.get_current_user_balance(normal_user.id)
     assert balance.balance_used == 0
-    response = normal_session_client.post("/selfservice/usage", json={})
+    response = normal_session_client.post("/selfservice/usage_details", json={})
     result = response.json()
     assert len(result) == 0
     await usage_service.log_usage(
@@ -151,7 +154,7 @@ async def test_get_usage(
             timestamp=datetime.now(),
         ),
     )
-    response = normal_session_client.post("/selfservice/usage", json={})
+    response = normal_session_client.post("/selfservice/usage_details", json={})
     print(response.json())
     usage = [APIRequest.model_validate(request) for request in response.json()]
     assert len(usage) == 1
@@ -165,7 +168,7 @@ async def test_get_usage(
             timestamp=datetime.now(),
         ),
     )
-    response = normal_session_client.post("/selfservice/usage", json={})
+    response = normal_session_client.post("/selfservice/usage_details", json={})
     usage = [APIRequest.model_validate(request) for request in response.json()]
     assert len(usage) == 2
 
@@ -208,3 +211,103 @@ async def test_accept_agreement(
     assert (
         user.accepted_agreement_version == app_configuration.current_agreement_version
     )
+
+
+@pytest.mark.asyncio
+async def test_get_usage(
+    normal_session_client: TestClient,
+    normal_user: User,
+    admin_user: User,
+    usage_service: UsageService,
+    key_service: KeyService,
+    mock_repositories: Repositories,
+) -> None:
+    # Make sure no usage happened yet
+    response = normal_session_client.post("/selfservice/usage", json={})
+    usage_data = UsageResponse.model_validate(response.json())
+    assert usage_data.usage.completion_tokens == 0
+    assert usage_data.usage.cost == 0
+    assert usage_data.usage.prompt_tokens == 0
+    assert usage_data.balance == 0
+    # We are nto asserting a quota here...
+    assert len(usage_data.key_details) == 0
+    key1 = await key_service.create_key("TestKey", user_id=normal_user.id)
+    key2 = await key_service.create_key("TestKey2", user_id=normal_user.id)
+    key3 = await key_service.create_key("TestKey3", user_id=admin_user.id)
+    response = normal_session_client.post("/selfservice/usage", json={})
+    usage_data = UsageResponse.model_validate(response.json())
+    assert usage_data.usage.completion_tokens == 0
+    assert usage_data.usage.cost == 0
+    assert usage_data.usage.prompt_tokens == 0
+    # Now there are 2 keys
+    assert len(usage_data.key_details) == 2
+
+    await usage_service.log_usage(
+        RequestSource(user_id=normal_user.id, key=key1.key),
+        APIRequest(
+            prompt_tokens=10,
+            completion_tokens=10,
+            cost=3,
+            model="Test",
+            timestamp=datetime.now(),
+        ),
+    )
+    await usage_service.log_usage(
+        RequestSource(user_id=normal_user.id, key=key2.key),
+        APIRequest(
+            prompt_tokens=20,
+            completion_tokens=15,
+            cost=2,
+            model="Test",
+            timestamp=datetime.now(),
+        ),
+    )
+
+    # This does not go through the service, as the service assumes all logs to be
+    # current
+    await mock_repositories.usage_repo.log_usage(
+        source=RequestSource(user_id=normal_user.id, key=key2.key),
+        usage=APIRequest(
+            prompt_tokens=30,
+            completion_tokens=20,
+            cost=1,
+            model="Test",
+            timestamp=datetime.fromtimestamp(0),
+        ),
+    )
+    await usage_service.log_usage(
+        RequestSource(user_id=admin_user.id, key=key3.key),
+        APIRequest(
+            prompt_tokens=20,
+            completion_tokens=15,
+            cost=2,
+            model="Test",
+            timestamp=datetime.now(),
+        ),
+    )
+    response = normal_session_client.post("/selfservice/usage", json={})
+    usage_data = UsageResponse.model_validate(response.json())
+    assert usage_data.usage.completion_tokens == 45
+    assert usage_data.usage.cost == 6
+    assert usage_data.usage.prompt_tokens == 60
+    assert usage_data.balance == 5  # This is only the recent usage
+    assert len(usage_data.key_details) == 2
+    key1_data = usage_data.key_details[0]
+    key2_data = usage_data.key_details[1]
+    if usage_data.key_details[0].key == key2.key:
+        key1_data = usage_data.key_details[1]
+        key2_data = usage_data.key_details[0]
+    assert key1_data.quota == key1.quota
+    assert key1_data.current_completion_tokens == 10
+    assert key1_data.current_prompt_tokens == 10
+    assert key1_data.current_cost == 3
+    assert key1_data.total_completion_tokens == 10
+    assert key1_data.total_prompt_tokens == 10
+    assert key1_data.total_cost == 3
+    assert key2_data.quota == key2.quota
+    assert key2_data.current_completion_tokens == 15
+    assert key2_data.current_prompt_tokens == 20
+    assert key2_data.current_cost == 2
+    assert key2_data.total_completion_tokens == 35
+    assert key2_data.total_prompt_tokens == 50
+    assert key2_data.total_cost == 3

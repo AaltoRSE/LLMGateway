@@ -7,7 +7,7 @@ from datetime import datetime
 
 from fastapi import Depends, HTTPException
 import redis.asyncio as redis
-from app.schemas.usage_schema import Balance, KeyBalance, UserBalance
+from app.schemas.usage_schema import Balance, KeyBalance, UserBalance, Quota
 from app.repositories.factories import (
     get_usage_repository_class,
     get_user_repository_class,
@@ -47,84 +47,42 @@ class BalanceService:  # pylint: disable=too-many-instance-attributes
         apikey_repository: Annotated[
             APIKeyRepository, Depends(get_key_repository_class())
         ],
-        user_balance: Annotated[redis.StrictRedis, Depends(get_user_balance_client)],
-        key_balance: Annotated[redis.StrictRedis, Depends(get_key_balance_client)],
-        key_quota: Annotated[redis.StrictRedis, Depends(get_key_quota_client)],
-        user_quota: Annotated[redis.StrictRedis, Depends(get_user_quota_client)],
     ) -> None:
         self.usage_repository: UsageRepository = usage_repository
         self.key_repository: APIKeyRepository = apikey_repository
         self.user_repository: UserRepository = user_repository
         self.balance_repository: BalanceRepository = balance_repository
-        self.user_quota: redis.StrictRedis = user_quota
-        self.key_quota: redis.StrictRedis = key_quota
-        self.key_balance: redis.StrictRedis = key_balance
-        self.user_balance: redis.StrictRedis = user_balance
 
-    async def init_balances_and_quotas(self) -> None:
-        """
-        Initialize the balances and quotas in the redis dbs
-        should happen at app startup
-        """
-        # Refresh Redis from database.
-
-        user_balances: List[UserBalance] = (
-            await self.balance_repository.get_user_balances(month=datetime.now())
-        )
-        key_balances: List[KeyBalance] = await self.balance_repository.get_key_balances(
-            month=datetime.now()
-        )
-        for key_balance in key_balances:
-            self.key_balance.set(key_balance.key, key_balance.balance_used)
-            self.key_quota.set(key_balance.key, key_balance.quota)
-        for user_balance in user_balances:
-            self.user_balance.set(user_balance.user_id, user_balance.balance_used)
-            self.user_quota.set(user_balance.user_id, user_balance.quota)
-
-    async def get_key_balance(self, key: str) -> Balance:
+    async def get_key_balance(self, key: str) -> Quota:
         """
         Get the balance for a specific key
         """
-        quota = await self.key_quota.get(key)
+        api_key = await self.key_repository.get_key(key)
+        if api_key is None:
+            raise HTTPException(400, "Invalid key")
+        quota = api_key.quota
         if quota is None:
-            api_key = await self.key_repository.get_key(key)
-            if api_key is None:
-                raise HTTPException(400, "Invalid key")
-            if api_key.quota is not None:
-                await self.key_quota.set(key, api_key.quota)
-                quota = api_key.quota
-            else:
-                await self.key_quota.set(
-                    key, float("inf")
-                )  # There is no lmit set on the key, needs to come from the user
-                quota = float("inf")
-        current_usage = await self.key_balance.get(key)
-        if current_usage is None:
-            current_usage = 0
-        return Balance(quota=quota, balance_used=float(current_usage))
+            quota = float("inf")
+        balance = await self.balance_repository.get_key_balance(key)
+        return Quota(balance_used=balance.balance_used, key=key, quota=quota)
 
-    async def get_user_balance(self, user_id: str) -> Balance:
+    async def get_user_balance(self, user_id: str) -> Quota:
         """
         Get the balance for a specific user
         """
-        quota = await self.user_quota.get(user_id)
-        if quota is None:
-            user = await self.user_repository.get_user_by_id(user_id)
-            if user is None:
-                raise HTTPException(400, "Invalid User")
-            await self.user_quota.set(user_id, user.quota)
-            quota = user.quota
-        current_usage = await self.user_balance.get(user_id)
-        if current_usage is None:
-            current_usage = 0
-        return Balance(quota=quota, balance_used=float(current_usage))
+
+        user = await self.user_repository.get_user_by_id(user_id)
+        if user is None:
+            raise HTTPException(400, "Invalid User")
+        quota = user.quota
+        balance = await self.balance_repository.get_user_balance(user_id)
+        return Quota(balance_used=balance.balance_used, user_id=user_id, quota=quota)
 
     async def add_usage_to_user(self, user_id: str, cost: float) -> None:
         """
         Add usage to a given user
         """
         # if it doesn't exist it will create the key.
-        await self.user_balance.incrbyfloat(user_id, cost)
         await self.balance_repository.add_usage_to_user(user_id, cost)
 
     async def add_usage_to_key(self, key: str, cost: float) -> None:
@@ -132,7 +90,6 @@ class BalanceService:  # pylint: disable=too-many-instance-attributes
         Add usage to a given key
         """
         # if it doesn't exist it will create the key.
-        await self.key_balance.incrbyfloat(key, cost)
         await self.balance_repository.add_usage_to_key(key, cost)
 
     async def check_balance_used_up(self, key: str, user_id: str) -> bool:

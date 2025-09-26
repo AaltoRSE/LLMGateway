@@ -16,12 +16,11 @@ from app.schemas.openai_schemas import (
     CreateChatCompletionRequest,
     CreateEmbeddingResponse,
 )
-from app.schemas.usage_schema import APIRequest, Balance
-from app.schemas.llmmodel_schema import LLMModelDataDetails
+
 from app.security.authentication_dependencies import requires_auth, BackendUser
 
-from app.services.usage_service import UsageService
-from app.services.model_service import ModelService
+from app.services.usage_service import UsageService, Quota, APIRequest
+from app.services.model_service import ModelService, LLMModelDataDetails
 from app.config import app_configuration
 
 llm_logger = logging.getLogger("app")
@@ -39,7 +38,7 @@ async def out_of_quota(
     """
     Function that checks, whether the user is out of quota.
     """
-    balance: Balance = await usage_service.get_balance_for_request(
+    balance: Quota = await usage_service.get_quota_for_request(
         current_user.request_source
     )
     return balance.used_up()

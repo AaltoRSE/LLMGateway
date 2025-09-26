@@ -14,7 +14,14 @@ from app.repositories.factories import (
 from app.repositories.balance_repository import BalanceRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.api_key_repository import APIKeyRepository
-from app.schemas.usage_schema import Balance, APIRequest, RequestSource, UserUsageData
+from app.services.balance_service import BalanceService
+from app.schemas.usage_schema import (
+    Balance,
+    Quota,
+    APIRequest,
+    RequestSource,
+    UserAndKeyUsageData,
+)
 
 logger = logging.getLogger("app")
 
@@ -27,20 +34,18 @@ class UsageService:
         usage_repository: Annotated[
             UsageRepository, Depends(get_usage_repository_class())
         ],
-        balance_repository: Annotated[
-            BalanceRepository, Depends(get_balance_repository_class())
-        ],
         user_repository: Annotated[
             UserRepository, Depends(get_user_repository_class())
         ],
         key_repository: Annotated[
             APIKeyRepository, Depends(get_key_repository_class())
         ],
+        balance_service: Annotated[BalanceService, Depends(BalanceService)],
     ) -> None:
         self.usage_repository = usage_repository
-        self.balance_repository = balance_repository
         self.user_repository = user_repository
         self.key_repository = key_repository
+        self.balance_service = balance_service
 
     async def get_current_user_balance(self, user_id: str) -> Balance:
         """
@@ -52,9 +57,9 @@ class UsageService:
         Returns:
             Balance: The current balance of the user.
         """
-        return await self.balance_repository.get_user_balance(user_id)
+        return await self.balance_service.get_user_balance(user_id)
 
-    async def get_balance_for_request(self, source: RequestSource) -> Balance:
+    async def get_quota_for_request(self, source: RequestSource) -> Quota:
         """
         Get the current balance for the given RequestSource
 
@@ -64,12 +69,12 @@ class UsageService:
         Returns:
             Balance: The current balance for the request
         """
-        if source.has_key():
-            assert source.key is not None
-            return await self.balance_repository.get_key_balance(source.key)
+
+        if source.has_key() and source.key is not None:
+            return await self.balance_service.get_key_balance(source.key)
 
         assert source.user_id is not None
-        return await self.get_current_user_balance(source.user_id)
+        return await self.balance_service.get_user_balance(source.user_id)
 
     async def get_current_key_balance(self, key: str) -> Balance:
         """
@@ -81,7 +86,7 @@ class UsageService:
         Returns:
             Balance: The current balance of the key.
         """
-        return await self.balance_repository.get_key_balance(key)
+        return await self.balance_service.get_key_balance(key)
 
     async def log_usage(self, source: RequestSource, usage: APIRequest) -> None:
         """
@@ -96,13 +101,11 @@ class UsageService:
         """
         await self.usage_repository.log_usage(source=source, usage=usage)
         if source.user_id:
-            await self.balance_repository.add_usage_to_user(
+            await self.balance_service.add_usage_to_user(
                 user_id=source.user_id, cost=usage.cost
             )
         if source.key:
-            await self.balance_repository.add_usage_to_key(
-                key=source.key, cost=usage.cost
-            )
+            await self.balance_service.add_usage_to_key(key=source.key, cost=usage.cost)
 
     async def get_usage_for_user(
         self,
@@ -128,7 +131,7 @@ class UsageService:
     async def build_user_usage_data(
         self,
         user_id: str,
-    ) -> UserUsageData:
+    ) -> UserAndKeyUsageData:
         """
         Build a UserUsageData object for the given user. this contains all keys,
         with their respective usage. along with the total usage for the user.
@@ -140,4 +143,4 @@ class UsageService:
         user_keys = await self.key_repository.get_active_api_keys_for_user(user_id)
         key_data = await self.usage_repository.get_usage_for_keys(user_keys)
         logger.debug(key_data)
-        return UserUsageData(usage=user_usage, key_details=key_data)
+        return UserAndKeyUsageData(usage=user_usage, key_details=key_data)

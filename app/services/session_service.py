@@ -83,6 +83,7 @@ class SessionService:
             auth_id=user.auth_id,
             roles=session_data.roles,
             admin=user.admin,
+            quota=user.quota,
             agreement_ok=check_agreement_version(user.accepted_agreement_version),
         )
         await self.session_client.setex(
@@ -124,6 +125,21 @@ class SessionService:
         alphabet = string.ascii_letters + string.digits
         api_key = "".join(secrets.choice(alphabet) for _ in range(length))
         return api_key
+
+    async def delete_sessions_for_user(self, user_id: str) -> None:
+        """
+        Delete all sessions for a given user.
+        NOTE: This is a quite expensive operation, but shouldn't happen too often.
+        The major use case would be a quota change that should take effect immediately
+        """
+        keys_to_delete = []
+        async for key in self.session_client.scan_iter("*"):
+            value = await self.session_client.get(key)
+            session_data = HTTPSession.model_validate(json.loads(value))
+            if session_data.user_id == user_id:
+                keys_to_delete.append(key)
+
+        await self.session_client.delete(*keys_to_delete)
 
     async def delete_session(self, session_key: str) -> None:
         """
