@@ -3,10 +3,11 @@
 from datetime import datetime
 from typing import Callable, Any, AsyncIterator, Awaitable
 import os
+import logging
 
 import httpx
 from sse_starlette import ServerSentEvent
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 
 from app.schemas.openai_schemas import (
@@ -29,6 +30,8 @@ from app.utils.stream_handling import process_completion_stream, process_respons
 
 inference_key = os.environ.get("INFERENCE_KEY")
 
+logger = logging.getLogger("app")
+
 
 class LLMModel:
     """
@@ -43,22 +46,31 @@ class LLMModel:
         """
         self.model: LLMModelData = model
 
+    def check_type(self, type: str):
+        if not type in self.model.model.type:
+            raise HTTPException(404, "This model does not offer {type} functionality")
+
     def build_request(
-        self,
-        request: ChatCompletionRequest | CreateResponse | CreateEmbeddingRequest,
-        path: str,
+        self, request: dict[str, Any], path: str, add_stream_data: bool = False
     ) -> httpx.Request:
         """
         Build the request that's being sent to the models
         """
-        request_data = request.model_dump()
+        if add_stream_data:
+            # We add usage
+            if not "stream_options" in request:
+                request["stream_options"] = {"include_usage": True}
+            else:
+                request["stream_options"]["include_usage"] = True
+        logger.debug(request)
         return httpx.Request(
             method="POST",
             url=f"{self.model.path}{path}",
-            json=request_data,
+            json=request,
             headers={
                 "Authorization": f"Bearer {inference_key}",
                 "Host": f"{self.model.host}",
+                "Content-Type": "application/json",
             },  # SECURITY: forwarding authentication token
         )
 
@@ -129,37 +141,38 @@ class LLMModel:
 
     async def filter_chat_stream(
         self,
-        stream: AsyncIterator[Any],
+        item: Any,
         usage_callback: Callable[[APIRequest], Awaitable[Any]],
         filter_usage: bool,
-    ) -> AsyncIterator[Any]:
+    ) -> str | None:
         """
         Yields items from the stream unless check_fn(item) is True, in which case
         on_match(item) is called instead.
         """
-        async for item in stream:
-            tokens, data = process_completion_stream(item)
-            if tokens is not None:
-                await usage_callback(
-                    APIRequest(
-                        model=self.model.model.id,
-                        prompt_tokens=tokens.prompt_tokens,
-                        completion_tokens=tokens.completion_tokens,
-                        cost=self.calc_cost_from_chat_usage(tokens),
-                        timestamp=datetime.now(),
-                    )
+        logger.debug(item)
+        tokens, data = process_completion_stream(item)
+        logger.debug(data)
+        if tokens is not None:
+            await usage_callback(
+                APIRequest(
+                    model=self.model.model.id,
+                    prompt_tokens=tokens.prompt_tokens,
+                    completion_tokens=tokens.completion_tokens,
+                    cost=self.calc_cost_from_chat_usage(tokens),
+                    timestamp=datetime.now(),
                 )
-                if filter_usage:
-                    # Skip the usage chunk, since the user did not request it.
-                    continue
-            yield ServerSentEvent(data=data)
+            )
+            if filter_usage:
+                # Skip the usage chunk, since the user did not request it.
+                return None
+        return data
 
     async def stream_chat_request(
         self,
-        request: ChatCompletionRequest,
         usage_callback: Callable[[APIRequest], Awaitable[Any]],
+        model_response: httpx.Response,
         filter_usage: bool = False,
-    ) -> AsyncIterator[ServerSentEvent]:
+    ) -> AsyncIterator[str]:
         """
         Function that needs to call the Actual model and return an Iterator for
         the responses.
@@ -185,21 +198,17 @@ class LLMModel:
             to interact with the actual embedding model.
 
         """
-        if not "chat" in self.model.model.type:
-            raise HTTPException(
-                404, "This model does not offer streamed chat completions"
+        logger.debug(self.model)
+        async for item in model_response.aiter_text():
+            processed_item = await self.filter_chat_stream(
+                item, usage_callback, filter_usage
             )
-        httpx_request = self.build_request(request=request, path="/v1/chat/completions")
-        async with httpx.AsyncClient() as client:
-            model_response = await client.send(httpx_request, stream=True)
-
-            return self.filter_chat_stream(
-                model_response.aiter_text(), usage_callback, filter_usage
-            )
+            if processed_item is not None:
+                yield processed_item
 
     async def non_stream_chat_request(
         self,
-        request: ChatCompletionRequest,
+        request: Request,
         usage_callback: Callable[[APIRequest], Awaitable[Any]],
     ) -> ChatCompletionResponse:
         """
@@ -224,7 +233,7 @@ class LLMModel:
         """
         if not "chat" in self.model.model.type:
             raise HTTPException(404, "This model does not offer chat completions")
-
+        request = await request.json()
         httpx_request = self.build_request(request=request, path="/v1/chat/completions")
         async with httpx.AsyncClient() as client:
             model_response = await client.send(httpx_request)
@@ -243,7 +252,8 @@ class LLMModel:
 
     async def stream_response_request(
         self,
-        request: CreateResponse,
+        request: Request,
+        client: httpx.AsyncClient,
         usage_callback: Callable[[APIRequest], Awaitable[Any]],
     ) -> AsyncIterator[ServerSentEvent]:
         """
@@ -270,18 +280,17 @@ class LLMModel:
             interact with the actual embedding model.
 
         """
+
         if not "responses" in self.model.model.type:
             raise HTTPException(404, "This model does not offer response backend")
+        request = await request.json()
         httpx_request = self.build_request(request=request, path="/v1/responses")
-        async with httpx.AsyncClient() as client:
-            model_response = await client.send(httpx_request, stream=True)
-            return self.filter_response_stream(
-                model_response.aiter_text(), usage_callback
-            )
+        model_response = await client.send(httpx_request, stream=True)
+        return self.filter_response_stream(model_response.aiter_text(), usage_callback)
 
     async def non_stream_response_request(
         self,
-        request: CreateResponse,
+        request: Request,
         usage_callback: Callable[[APIRequest], Awaitable[Any]],
     ) -> CreateResponseResponse:
         """
@@ -306,6 +315,7 @@ class LLMModel:
         """
         if not "responses" in self.model.model.type:
             raise HTTPException(404, "This model does not offer non streamed responses")
+        request = await request.json()
         httpx_request = self.build_request(request=request, path="/v1/responses")
         async with httpx.AsyncClient() as client:
             model_response = await client.send(httpx_request)
@@ -328,7 +338,7 @@ class LLMModel:
 
     async def embed(
         self,
-        request: CreateEmbeddingRequest,
+        request: Request,
         usage_callback: Callable[[APIRequest], Any],
     ) -> CreateEmbeddingResponse:
         """
@@ -336,6 +346,7 @@ class LLMModel:
         """
         if not "embedding" in self.model.model.type:
             raise HTTPException(404, "This model does not offer non streamed responses")
+        request = await request.json()
         httpx_request = self.build_request(request=request, path="/v1/embeddings")
         async with httpx.AsyncClient() as client:
             model_response = await client.send(httpx_request)

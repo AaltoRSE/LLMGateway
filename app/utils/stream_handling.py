@@ -34,7 +34,7 @@ def process_completion_stream(
                 parsed_json = json.loads(data)
                 # choices has to be empty in the usage chunk. This ensures,
                 # that this works with kubeai/openwebui
-                if parsed_json["usage"] and len(parsed_json["choices"]) == 0:
+                if "usage" in parsed_json and len(parsed_json["choices"]) == 0:
                     usage_info = CompletionUsage.model_validate(parsed_json["usage"])
                 # dataChoices = parsed_json["choices"]
                 # completion_tokens = completion_tokens + len(dataChoices)

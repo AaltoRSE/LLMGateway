@@ -49,6 +49,7 @@ def mock_repositories(
         "get_balance_repository_class",
         lambda: BalanceRepositoryImpl,
     )
+
     monkeypatch.setattr(
         app.repositories.factories,
         "get_llm_repository_class",
@@ -63,6 +64,11 @@ def mock_repositories(
         app.repositories.factories,
         "get_key_repository_class",
         lambda: APIKeyRepositoryImpl,
+    )
+    monkeypatch.setattr(
+        app.config.db,
+        "get_api_key_repo",
+        lambda: APIKeyRepositoryImpl(),
     )
 
     user_repo = UserRepositoryImpl()

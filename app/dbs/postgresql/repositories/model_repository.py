@@ -61,11 +61,14 @@ class SQLModelRepository(LLMModelRepository):
     def _get_db_model_by_id(self, id: str) -> DBLLMModel | None:
         return self.db.query(DBLLMModel).filter(DBLLMModel.id == id).first()
 
-    async def get_model(self, id: str) -> LLMModelData | None:
+    def _get_db_model_by_model_id(self, id: str) -> DBLLMModel | None:
+        return self.db.query(DBLLMModel).filter(DBLLMModel.llm_model_id == id).first()
+
+    async def get_model(self, model_id: str) -> LLMModelData | None:
         """
         Get the mode with the given ID
         """
-        model = self._get_db_model_by_id(id)
+        model = self._get_db_model_by_model_id(model_id)
         return self._convert_db_to_schema(model) if model is not None else None
 
     async def add_model(self, model: LLMModelData) -> LLMModelData | None:
@@ -87,7 +90,7 @@ class SQLModelRepository(LLMModelRepository):
         """
         Update a model, returns the updated model
         """
-        db_model: DBLLMModel | None = self._get_db_model_by_id(model.model.id)
+        db_model: DBLLMModel | None = self._get_db_model_by_model_id(model.model.id)
         if db_model is None:
             return None
         db_model.path = model.path
@@ -97,7 +100,6 @@ class SQLModelRepository(LLMModelRepository):
         db_model.prompt_cost = model.prompt_cost
         db_model.completion_cost = model.completion_cost
         db_model.cached_token_cost = model.cached_token_cost
-        db_model.id = model.model.id
         db_model.object = model.model.object
         db_model.owned_by = model.model.owned_by
         db_model.object = model.model.object
@@ -106,8 +108,8 @@ class SQLModelRepository(LLMModelRepository):
         self.db.refresh(db_model)
         return self._convert_db_to_schema(db_model)
 
-    async def remove_model(self, id: str) -> bool:
-        model = self._get_db_model_by_id(id)
+    async def remove_model(self, model_id: str) -> bool:
+        model = self._get_db_model_by_model_id(model_id)
         if model is None:
             return False
         self.db.delete(model)

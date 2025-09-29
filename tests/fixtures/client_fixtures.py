@@ -43,9 +43,8 @@ async def normal_session_client(
 
     # By adding the normal user fixture, we make this authed.
     llm_gateway.dependency_overrides[get_user_from_session] = get_normal_client
-    client = TestClient(llm_gateway)
-
-    yield client
+    with TestClient(llm_gateway) as client:
+        yield client
 
 
 @pytest_asyncio.fixture
@@ -61,17 +60,17 @@ async def admin_session_client(
 
     llm_gateway.dependency_overrides[get_user_from_session] = get_admin_client
 
-    client = TestClient(llm_gateway)
-    yield client
+    with TestClient(llm_gateway) as client:
+        yield client
 
 
 @pytest_asyncio.fixture
 async def key_client(
     setup_repos: None, user_api_key, llm_gateway
 ) -> AsyncGenerator[TestClient, None]:
-    client = TestClient(llm_gateway)
-    client.headers["Authorization"] = f"Bearer {user_api_key.key}"
-    yield client
+    with TestClient(llm_gateway) as client:
+        client.headers["Authorization"] = f"Bearer {user_api_key.key}"
+        yield client
 
 
 @pytest.fixture
@@ -79,14 +78,16 @@ def admin_key_client(
     mock_repositories, redis_dbs, setup_repos: None, user_api_key, llm_gateway
 ) -> Generator[TestClient, None, None]:
     os.environ["ADMIN_KEY"] = "TestKey"
-    client = TestClient(llm_gateway)
-    client.headers[admin_key_header.model.name] = f"{os.environ.get('ADMIN_KEY')}"
-    yield client
+    with TestClient(llm_gateway) as client:
+
+        client.headers[admin_key_header.model.name] = f"{os.environ.get('ADMIN_KEY')}"
+        yield client
 
 
 @pytest.fixture
 def unauthed_client(
     setup_repos: None, llm_gateway
 ) -> Generator[TestClient, None, None]:
-    client = TestClient(llm_gateway)
-    yield client
+    with TestClient(llm_gateway) as client:
+
+        yield client

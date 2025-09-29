@@ -82,7 +82,6 @@ class MockBalanceRepository(BalanceRepository):
             UserBalance(
                 balance_used=balance.balance_used,
                 user_id=balance.user_id,
-                quota=balance.quota,
             )
             for balance in balances
         ]
@@ -105,9 +104,7 @@ class MockBalanceRepository(BalanceRepository):
         ]
 
         return [
-            UserBalance(
-                balance_used=balance.balance_used, key=balance.key, quota=balance.quota
-            )
+            UserBalance(balance_used=balance.balance_used, key=balance.key)
             for balance in balances
         ]
 
@@ -140,31 +137,3 @@ class MockBalanceRepository(BalanceRepository):
         with self.__class__._lock:
             balance = self._get_balance(key=key)
             balance.balance_used = balance.balance_used + cost
-
-    async def set_quota_for_key(self, quota: float, key: str) -> None:
-        """
-        Set a quota for a specific API key.
-
-        Args:
-            quota (float): The quota value to be set for the API key.
-            key (str): The API key for which the quota is to be set.
-
-        Returns:
-            None
-        """
-        balance = self._get_balance(key=key)
-        balance.quota = quota
-
-    async def set_quota_for_user(self, quota: float, user_id: str) -> None:
-        """
-        Set a quota for a specific user.
-
-        Args:
-            quota (float): The quota value to be set for the user.
-            user_id (str): The user ID for which the quota is to be set.
-
-        Returns:
-            None
-        """
-        balance = self._get_balance(user_id=user_id)
-        balance.quota = quota

@@ -11,7 +11,7 @@ from typing import Any, AsyncGenerator
 from fastapi import FastAPI, Depends
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.cors import CORSMiddleware
-
+import httpx
 
 from app.routers import (
     llm_router,
@@ -44,12 +44,17 @@ async def init_keys() -> None:
     """
     Function to run init keys.
     """
+    print(get_api_key_repo)
+
     key_service = KeyService(
         key_repository=get_api_key_repo(),
         key_db=await anext(get_key_client()),
         key_quota_db=await anext(get_key_quota_client()),
     )
     await key_service.init_keys()
+
+
+httpx_client: httpx.AsyncClient | None = None
 
 
 @asynccontextmanager
@@ -66,8 +71,13 @@ async def startup(  # pylint: disable=unused-argument
         for handler in uvlogger.handlers:
             handler.setLevel(logging.DEBUG)
         uvlogger.debug("Debugging active")
+    httpx_client = httpx.AsyncClient()
+    uvlogger.debug("httpx client set up")
+    app_instance.state.httpx_client = httpx_client
+    uvlogger.debug(app_instance.state.httpx_client)
     await init_keys()
     yield
+    await httpx_client.aclose()
 
 
 app = FastAPI(

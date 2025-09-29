@@ -17,6 +17,7 @@ from app.repositories.usage_repository import (
     Usage,
     APIRequest,
     RequestSource,
+    ModelUsage,
 )
 from datetime import datetime, date
 
@@ -37,7 +38,7 @@ class SQLUsageRepository(UsageRepository):
     async def log_usage(self, usage: APIRequest, source: RequestSource) -> None:
         db_usage = DBUsage(
             user_id=int(source.user_id) if source.user_id is not None else None,
-            key=source.key,
+            api_key=source.key,
             timestamp=usage.timestamp,
             cost=usage.cost,
             prompt_tokens=usage.prompt_tokens,
@@ -200,6 +201,7 @@ class SQLUsageRepository(UsageRepository):
         )
         result = {
             key.key: {
+                "name": key.name,
                 "key": key.key,
                 "total_cost": 0,
                 "total_completion_tokens": 0,
@@ -212,32 +214,57 @@ class SQLUsageRepository(UsageRepository):
             for key in keys
         }
 
-        for (
-            api_key,
-            total_cost,
-            total_prompt_tokens,
-            total_completion_tokens,
-        ) in total_results:
-            result[api_key].update(
+        for elem in total_results:
+            result[elem.api_key].update(
                 {
-                    "key": api_key,
-                    "total_cost": total_cost,
-                    "total_completion_tokens": total_completion_tokens,
-                    "total_prompt_tokens": total_prompt_tokens,
+                    "key": elem.api_key,
+                    "total_cost": elem.total_cost,
+                    "total_completion_tokens": elem.total_completion_tokens,
+                    "total_prompt_tokens": elem.total_prompt_tokens,
                 }
             )
-        for (
-            api_key,
-            recent_cost,
-            recent_prompt_tokens,
-            recent_completion_tokens,
-        ) in recent_results:
-            result[api_key].update(
+        for elem in recent_results:
+            result[elem.api_key].update(
                 {
-                    "current_cost": recent_cost,
-                    "current_completion_tokens": recent_completion_tokens,
-                    "current_prompt_tokens": recent_prompt_tokens,
+                    "current_cost": elem.recent_cost,
+                    "current_completion_tokens": elem.recent_completion_tokens,
+                    "current_prompt_tokens": elem.recent_prompt_tokens,
                 }
             )
 
         return [KeyData.model_validate(element) for element in result.values()]
+
+    async def get_usage_details_for_key_per_model(
+        self,
+        key: str,
+        from_time: datetime | None = None,
+        to_time: datetime | None = None,
+    ) -> List[ModelUsage]:
+        if from_time is None:
+            from_time = datetime.fromtimestamp(0)
+        if to_time is None:
+            to_time = datetime.now()
+        total_results = (
+            self.db.query(
+                DBUsage.model,
+                func.sum(DBUsage.cost).label("cost"),
+                func.sum(DBUsage.prompt_tokens).label("prompt_tokens"),
+                func.sum(DBUsage.completion_tokens).label("completion_tokens"),
+            )
+            .filter(
+                DBUsage.api_key == key,
+                DBUsage.timestamp >= from_time,
+                DBUsage.timestamp <= to_time,
+            )
+            .group_by(DBUsage.model)
+            .all()
+        )
+        return [
+            ModelUsage(
+                prompt_tokens=elem.prompt_tokens,
+                completion_tokens=elem.completion_tokens,
+                cost=elem.cost,
+                model=elem.model,
+            )
+            for elem in total_results
+        ]

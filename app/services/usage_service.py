@@ -21,6 +21,7 @@ from app.schemas.usage_schema import (
     APIRequest,
     RequestSource,
     UserAndKeyUsageData,
+    ModelUsage,
 )
 
 logger = logging.getLogger("app")
@@ -126,6 +127,50 @@ class UsageService:
         """
         return await self.usage_repository.get_usage_details_for_user(
             user_id, from_time=from_time, to_time=to_time
+        )
+
+    async def get_usage_for_key(
+        self,
+        key: str,
+        from_time: datetime | None = None,
+        to_time: datetime | None = None,
+    ) -> List[APIRequest]:
+        """
+        Retrieve usage records for a specific key within an optional time range.
+        Args:
+            key (str): The key for which to get data
+            from_time (datetime, optional): Start of the time range for usage records.
+                                            Defaults to None.
+            to_time (datetime, optional): End of the time range for usage records. Defaults to None.
+
+        Returns:
+            List[APIRequest]: A list of usage records for the key within the specified time range.
+        """
+
+        return await self.usage_repository.get_usage_details_for_key(
+            key, from_time=from_time, to_time=to_time
+        )
+
+    async def get_usage_for_key_by_model(
+        self,
+        key: str,
+        from_time: datetime | None = None,
+        to_time: datetime | None = None,
+    ) -> List[ModelUsage]:
+        """
+        Get info about the usage of models for a specific key
+        Args:
+            key (str): The key for which to get data
+            from_time (datetime, optional): Start of the time range for usage records.
+                                            Defaults to None.
+            to_time (datetime, optional): End of the time range for usage records. Defaults to None.
+
+        Returns:
+            List[APIRequest]: A list of usage records for the key within the specified time range.
+        """
+
+        return await self.usage_repository.get_usage_details_for_key_per_model(
+            key, from_time=from_time, to_time=to_time
         )
 
     async def build_user_usage_data(

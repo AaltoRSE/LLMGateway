@@ -9,7 +9,13 @@ datetimes month.
 
 from typing import List
 from datetime import datetime
-from app.schemas.usage_schema import APIRequest, Usage, RequestSource, KeyData
+from app.schemas.usage_schema import (
+    APIRequest,
+    Usage,
+    RequestSource,
+    KeyData,
+    ModelUsage,
+)
 from app.schemas.key_schema import APIKey
 
 
@@ -114,6 +120,30 @@ class UsageRepository:
     ) -> List[APIRequest]:
         """
         Get detailed usage data for a key.
+
+        Parameters
+        ----------
+        key : str
+            The key to retrieve detailed usage data for.
+        from_time : datetime
+            The start of the time range.
+        to_time : datetime
+            The end of the time range.
+        Returns
+        -------
+        List[APIRequest]
+            A list of detailed usage data for the specified key.
+        """
+        raise NotImplementedError
+
+    async def get_usage_details_for_key_per_model(
+        self,
+        key: str,
+        from_time: datetime | None = None,
+        to_time: datetime | None = None,
+    ) -> List[ModelUsage]:
+        """
+        Get detailed usage data for a key per model.
 
         Parameters
         ----------

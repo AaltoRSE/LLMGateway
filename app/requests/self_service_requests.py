@@ -19,5 +19,9 @@ class ObtainUsageRequest(BaseModel):
     )
 
 
+class KeyUsageRequest(ObtainUsageRequest):
+    key: str = Field(description="the key to get data for")
+
+
 class AcceptAgreement(BaseModel):
     version: str = Field(description="Version that has been accepted.")

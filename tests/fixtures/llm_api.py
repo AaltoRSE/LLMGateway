@@ -176,6 +176,7 @@ async def completions_get_streaming_response(
         ],
     )
     if include_usage:
+        print("Got a request including usage demand")
         yield completions_build_chunk(
             model,
             [],

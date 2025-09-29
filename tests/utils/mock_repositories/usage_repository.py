@@ -193,9 +193,5 @@ class UsageRepositoryImpl(UsageRepository):
                 }
             )
         for key in keys:
-            result[key.key].update(
-                {
-                    "quota": key.quota,
-                }
-            )
+            result[key.key].update({"quota": key.quota, "name": key.name})
         return [KeyData.model_validate(element) for element in result.values()]

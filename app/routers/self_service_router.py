@@ -3,9 +3,9 @@ Router for self service actions
 """
 
 from typing import Annotated, List
-
+import logging
 from fastapi import APIRouter, Security, HTTPException, status, Depends
-from app.services.usage_service import UsageService, APIRequest
+from app.services.usage_service import UsageService, APIRequest, ModelUsage
 from app.services.key_service import KeyService, APIKey
 from app.services.user_service import UserService
 from app.services.model_service import ModelService
@@ -15,6 +15,7 @@ from app.requests.self_service_requests import (
     CreateKeyRequest,
     DeleteKeyRequest,
     ObtainUsageRequest,
+    KeyUsageRequest,
 )
 from app.security.authentication_dependencies import requires_session, BackendUser
 from app.security.session import get_session
@@ -23,6 +24,8 @@ from app.schemas.llmmodel_schema import LLMPublicData
 from app.schemas.usage_schema import UserAndKeyUsageData
 from app.config import app_configuration
 from app.responses.self_service import UsageResponse
+
+logger = logging.getLogger("app")
 
 # This router requires a session. Other routers might be used with pure user information
 # assuming e.g. a professor gives a key to a student.
@@ -132,6 +135,35 @@ async def get_usage_details(
     assert user is not None and user.request_source.user_id is not None
     usage = await usage_service.get_usage_for_user(
         user_id=user.request_source.user_id,
+        from_time=request.from_time,
+        to_time=request.to_time,
+    )
+
+    return usage
+
+
+@router.post("/key_details")
+async def get_key_details(
+    request: KeyUsageRequest,
+    usage_service: Annotated[UsageService, Depends(UsageService)],
+    key_service: Annotated[KeyService, Depends(KeyService)],
+    user: BackendUser = Security(requires_session),
+) -> List[ModelUsage]:
+    """
+    Route to get user Usage
+    """
+    assert user is not None and user.request_source.user_id is not None
+    api_key = await key_service.get_user_key_if_active(request.key)
+    if api_key is None:
+        raise HTTPException(404, "Key not Found")
+    if api_key.user_id is None or api_key.user_id is not user.request_source.user_id:
+        logger.warning(
+            "User %s tried to access details of a key that does not belong to them",
+            user.request_source.user_id,
+        )
+        raise HTTPException(404, "Key not Found")
+    usage = await usage_service.get_usage_for_key_by_model(
+        key=request.key,
         from_time=request.from_time,
         to_time=request.to_time,
     )

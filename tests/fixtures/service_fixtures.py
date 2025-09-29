@@ -53,10 +53,6 @@ async def balance_service(
         balance_repository=mock_repositories.balance_repo,
         user_repository=mock_repositories.user_repo,
         usage_repository=mock_repositories.usage_repo,
-        user_balance=redis_user_balance_client,
-        key_balance=redis_key_quota_month_client,
-        key_quota=redis_key_balance_client,
-        user_quota=redis_user_quota_month_client,
     )
     yield service
 

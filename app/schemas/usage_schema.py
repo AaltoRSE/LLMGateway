@@ -39,8 +39,11 @@ class Usage(BaseModel):
     cost: float  # in Euros
 
 
-class APIRequest(Usage):
+class ModelUsage(Usage):
     model: str
+
+
+class APIRequest(ModelUsage):
     timestamp: datetime
 
 
@@ -68,6 +71,7 @@ class KeyData(BaseModel):
     current_prompt_tokens: int
     current_completion_tokens: int
     key: str
+    name: str
     quota: Optional[float] = None
 
 

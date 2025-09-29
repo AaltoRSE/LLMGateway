@@ -5,10 +5,14 @@ LLM Endpoints
 import logging
 from typing import Annotated, Any, List, Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Security
-
-from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
+from fastapi import APIRouter, Depends, HTTPException, Security, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
+from starlette.requests import HTTPConnection
+
+import httpx
+
 from app.schemas.openai_schemas import (
     ChatCompletionStreamOptions,
     CreateResponse,
@@ -25,10 +29,10 @@ from app.config import app_configuration
 
 llm_logger = logging.getLogger("app")
 
-router = APIRouter(
-    prefix="/api/v1",
-    tags=["LLM Endpoints"],
-)
+httpx_client: httpx.AsyncClient | None = None
+
+
+router = APIRouter(prefix="/api/v1", tags=["LLM Endpoints"])
 
 
 async def out_of_quota(
@@ -57,6 +61,7 @@ async def get_models(
 
 @router.post("/responses", response_model=None)
 async def create_response(
+    request: Request,
     request_data: CreateResponse,
     usage_service: Annotated[UsageService, Depends(UsageService)],
     model_service: Annotated[ModelService, Depends(ModelService)],
@@ -84,20 +89,24 @@ async def create_response(
         source=current_user.request_source, usage=usage
     )
     if request_data.stream:
-        stream_iterator = await model.stream_response_request(
-            request=request_data,
-            usage_callback=usage_callback,
-        )
-        return EventSourceResponse(content=stream_iterator)
+        async with httpx.AsyncClient() as client:
+            stream_iterator = await model.stream_response_request(
+                request=request,
+                client=client,
+                usage_callback=usage_callback,
+            )
+            return EventSourceResponse(content=stream_iterator)
 
     response_data = await model.non_stream_response_request(
-        request=request_data, usage_callback=usage_callback
+        request=request, usage_callback=usage_callback
     )
     return JSONResponse(content=response_data.model_dump())
 
 
 @router.post("/chat/completions", response_model=None)
 async def chat_completion(
+    request: Request,
+    conn: HTTPConnection,
     request_data: CreateChatCompletionRequest,
     usage_service: Annotated[UsageService, Depends(UsageService)],
     model_service: Annotated[ModelService, Depends(ModelService)],
@@ -122,36 +131,45 @@ async def chat_completion(
         raise HTTPException(
             404, "The requested model is not available on the server"
         ) from exc
+    model.check_type("chat")
 
     async def usage_callback(usage: APIRequest) -> None:
         await usage_service.log_usage(source=current_user.request_source, usage=usage)
 
     if request_data.stream:
-        added_usage = False
+        add_usage = False
         if request_data.stream_options is None:
-            request_data.stream_options = ChatCompletionStreamOptions(
-                include_usage=True
-            )
-            added_usage = True
+            add_usage = True
         else:
             if not request_data.stream_options.include_usage:
-                request_data.stream_options.include_usage = True
-                added_usage = True
-        stream_iterator = await model.stream_chat_request(
-            request=request_data,
-            usage_callback=usage_callback,
-            filter_usage=added_usage,
+                add_usage = True
+        request_data = await request.json()
+        request = model.build_request(
+            request_data, path="/v1/chat/completions", add_stream_data=add_usage
         )
-        return EventSourceResponse(content=stream_iterator)
+        llm_logger.debug(conn.scope)
+        client: httpx.AsyncClient = conn.scope["app"].state.httpx_client
+        llm_logger.debug(client)
+        response = await client.send(request, stream=True)
+        llm_logger.debug("Stream iterator created")
+        llm_logger.debug(response)
+        return EventSourceResponse(
+            content=model.stream_chat_request(
+                model_response=response,
+                usage_callback=usage_callback,
+                filter_usage=add_usage,
+            )
+        )
 
     response_data = await model.non_stream_chat_request(
-        request=request_data, usage_callback=usage_callback
+        request=request, usage_callback=usage_callback
     )
     return JSONResponse(content=response_data.model_dump())
 
 
 @router.post("/embeddings")
 async def embedding(
+    request: Request,
     request_data: CreateEmbeddingRequest,
     usage_service: Annotated[UsageService, Depends(UsageService)],
     model_service: Annotated[ModelService, Depends(ModelService)],
@@ -176,4 +194,4 @@ async def embedding(
     usage_callback: Callable[[APIRequest], Any] = lambda usage: usage_service.log_usage(
         source=current_user.request_source, usage=usage
     )
-    return await model.embed(request=request_data, usage_callback=usage_callback)
+    return await model.embed(request=request, usage_callback=usage_callback)

@@ -57,9 +57,12 @@ async def test_completions_endpoint(
     # use a streamig response
     request["stream"] = True
     response = key_client.post("/api/v1/chat/completions", json=request)
+    assert response.status_code == 200
     # Process the response
     async for item in response.aiter_text():
+        print(item)
         pass
+    print("Finished")
     new_balance = await usage_service.get_current_user_balance(normal_user.id)
     assert new_balance.balance_used > balance.balance_used
     # TODO: test invalid models
