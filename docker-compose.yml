@@ -11,14 +11,15 @@ services:
       - SQLALCHEMY_DATABASE_URL=${SQLALCHEMY_DATABASE_URL}
       - INFERENCE_KEY=123
       - ADMIN_KEY=321
-      - MONGO_SESSION_COLLECTION=sessions
       # Indicate where you have a LLM Running.
       - LLM_DEFAULT_URL=https://nginx-server:8001
-      - MONGOUSER=test
-      - MONGOPASSWORD=test
-      - MONGOHOST=mongo
+      - POSTGRESUSER=${POSTGRESUSER}
+      - POSTGRESPASSWORD=${POSTGRESPASSWORD}
+      - POSTGRESHOST=${POSTGRESHOST}
+      - POSTGRESDB=${POSTGRESDB}
       - REDISHOST=redis
       - REDISPORT=6379
+      - REDISPASSWORD=${REDISPASSWORD}
       - GATEWAY_DEBUG=1
       - FRONTEND_URL=https://localhost
       - POPUPLOGIN=1
