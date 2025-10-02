@@ -4,7 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: llm-gateway
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $.Release.namespace }}
   labels:
     app.kubernetes.io/name: llm-gateway
     app.kubernetes.io/component: server
@@ -24,9 +24,17 @@ spec:
         - name: certificate-volume
           secret:
             secretName: llm-gatewaysaml-secret
+{{- if .Values.dev_mode }}   
+        - name: saml-settings
+          configMap: # or secret if the file is in a secret
+            name: saml-settings-map
+            items:
+              - key: settings.json
+                path: settings.json
+{{- end }}          
       containers:
         - name: gateway
-          image: "{{ .Values.image_url }}:{{ .Values.image_tag }}" #Lets start versioning this
+          image: "{{ .Values.gateway_image_url }}:{{ .Values.gateway_image_tag }}" #Lets start versioning this
           # Make sure, that the image is always pulled, since we might update for fixes
           imagePullPolicy: Always 
           ports:
@@ -38,22 +46,23 @@ spec:
           env:
             # Mongo settings ( port will be default )
             - {
-                name: MONGOUSER,
-                valueFrom: { secretKeyRef: { name: mongo, key: user } },
+                name: POSTGRESUSER,
+                value: {{ .Values.postgres_user }} 
               }
             - {
-                name: POPUPLOGIN,
-                value: "1",
+                name: POSTGRESPASSWORD,
+                valueFrom: { secretKeyRef: { name: llm-gateway-databases, key: postgres_password } },
               }
-            - {
-                name: MONGOPASSWORD,
-                valueFrom: { secretKeyRef: { name: mongo, key: password } },
-              }
-            - { name: MONGOHOST, value: "llm-mongo-svc" }
-            - { name: LLM_DEFAULT_URL, value: "https://{{ .Values.ai_model_url }}" }
+            - { name: POSTGRESHOST, value: "llm-postgres-svc" }            
+            - { name: POSTGRESDB, value: {{ .Values.postgres_db_name }} }            
             # Redis
             - { name: REDISHOST, value: "llm-redis-svc" }
             - { name: REDISPORT, value: "6379" }
+            - {
+                name: REDISPASSWORD,
+                valueFrom:
+                  { secretKeyRef: { name: databases, key: redispassword } },
+              }            
             # This is the admin key, which allows generation/removal of additional keys
             - {
                 name: ADMIN_KEY,
@@ -72,7 +81,18 @@ spec:
                 valueFrom:
                   { secretKeyRef: { name: llm-gateway, key: session_key } },
               }
+            - name: CORS_ORIGINS
+              value: '{{ toJson .Values.cors_origins }}'
+            - {
+                name: POPUPLOGIN,
+                value: "1",
+              }              
           volumeMounts:
-            - mountPath: /app/app/security/saml_data/certs
+            - mountPath: /usr/src/app/app/security/saml_data/certs
               name: certificate-volume
               readOnly: true
+{{- if .Values.dev_mode }}   
+            - name: saml-settings
+              mountPath: /usr/src/app/app/security/saml_data/settings.json
+              subPath: settings.json
+{{- end }}

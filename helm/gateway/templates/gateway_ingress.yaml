@@ -4,7 +4,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: llm-gateway-ingress
-  namespace: {{ .Values.namespace }}    
+  namespace: {{ $.Release.namespace }}    
   annotations:
     # We can define various things declaratively... this tells the
     # maximum HTTP body size to the ingress.

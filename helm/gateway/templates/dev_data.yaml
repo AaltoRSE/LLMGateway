@@ -1,0 +1,39 @@
+{{- if .Values.dev_mode }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: saml-settings
+  namespace: {{ $.Release.namespace }}  
+data:
+  settings.json: |
+    {
+        "strict": true,
+        "debug": true,
+        "sp": {        
+            "entityId": "https://localhost/saml/metadata",
+            "assertionConsumerService": {            
+                "url": "https://localhost/saml/acs",
+                "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+            },        
+            "singleLogoutService": {            
+                "url": "https://localhost/saml/sls",
+                "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+            },
+            "NameIDFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+            "x509cert": "",
+            "privateKey": ""
+        },
+        "idp" : {
+            "entityId" : "http://localhost:8081/realms/test",
+            "singleSignOnService": {
+                "url" : "http://localhost:8081/realms/test/protocol/saml",
+                "binding" : "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" 
+            },
+            "singleLogoutService": {
+                "binding":"urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
+                "url" :"http://localhost:8081/realms/test/protocol/saml"
+            },
+            "x509cert": "MIIClzCCAX8CBgGZcR/D8TANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDDAR0ZXN0MB4XDTI1MDkyMjExMTAzMVoXDTM1MDkyMjExMTIxMVowDzENMAsGA1UEAwwEdGVzdDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMH2OPAnVlOQz0iB52Ouz2osA8DJFdqM68htMiq8MVxTfVHujCdzuxKlIkhj4hNE6uDad60bYwlmWCHxEoD5TxlwUOYzrVXw60H6j+RymZ0Qn4VQtXUbA1RxlOXVge4KHjcPsg2I+Qv7dTh78qoTJKqH/FFBQ2zPJEqAmqh3tkBNw0WknoT2M3uJlDGKfHlF0DQiw1SPxyQboIbvmlzVsqbPlNdes4fJ8hJr5wM9gNfc0L5by1XXHYNXI+ahv7qFUuQq/q6f4OrThy7KChK/o+k0V2hFiZD+HHA7w/iUPwC7dp1Ms7swwRYBxZ7hjwO2chXyAht1bduF2W4ZgYnXdGMCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEARR40IqWYdTLRilQT9oWx/wkG1LTQWgJGDasOtfYDxJByS+YBY+O+CVS6NHaAMtEPWLibO9pr+cH1/yjjFtEHM/6sfBFG2ePljGaMhLGwAH850x6tA5wUG+1CYj5wFipikgwQgRIGXHudM+f8qWHnunPiRb6kqz7z3bwAuGmof32xKq67E1rdHuoLrpH4yULX1+ypEW41goAlCskQh7dMPivunSIaf9aes4fznA8T2+RFkW/Pm7kvyoiAcyN+pSzklruiH+0LtEkcbL8bokWGvu6uQX+D7YGUWgfETK8ZcbLczZgxuvgCJ+2b/Ql5PEmpBS0lt8vJAuKZN/cIAAEmWA=="        
+        }  
+    }
+{{- end}}
