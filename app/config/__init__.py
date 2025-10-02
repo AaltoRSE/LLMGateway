@@ -5,6 +5,7 @@ Application configuration code
 import os
 import json
 from enum import Enum
+from typing import List
 from pydantic import BaseModel, Field
 
 
@@ -49,6 +50,7 @@ class Configuration(BaseModel):
     session_expiration_time: int
     default_embedding_model: str
     default_chat_model: str
+    allowed_groups: List[str]
 
 
 current_dir = os.path.dirname(__file__)

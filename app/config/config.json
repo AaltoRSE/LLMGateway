@@ -11,5 +11,10 @@
     "current_agreement_version": "1.0",
     "session_expiration_time": 600,
     "default_embedding_model": "Qwen",
-    "default_chat_model": "Qwen"
+    "default_chat_model": "Qwen",
+    "allowed_groups": [
+        "employee",
+        "faculty",
+        "entra_user"
+    ]
 }

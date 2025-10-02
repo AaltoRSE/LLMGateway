@@ -12,11 +12,9 @@ from app.repositories.factories import (
     get_user_repository_class,
 )
 
+from app.config import app_configuration
 
 logger = logging.getLogger("app")
-
-
-allowedgroups = ["employee", "faculty"]
 
 
 class UserService:
@@ -54,7 +52,7 @@ class UserService:
 
         # If the user is not part of the allowed groups, throw an HTTPException
 
-        if len(set(authdata.roles).intersection(allowedgroups)) == 0:
+        if len(set(authdata.roles).intersection(app_configuration.allowed_groups)) == 0:
             logger.debug("User %s is not part of allowed groups", authdata.auth_id)
             raise HTTPException(
                 status_code=403,

@@ -1,7 +1,7 @@
 from typing import AsyncGenerator
 import pytest_asyncio
 from fastapi import FastAPI
-
+from .security_fixtures import *
 from app.dbs.postgresql.repositories.user_repository import SQLUserRepository
 from app.dbs.postgresql.repositories.balance_repository import SQLBalanceRepository
 from app.dbs.postgresql.repositories.model_repository import SQLModelRepository
@@ -26,7 +26,7 @@ from tests.fixtures.db_fixtures import Repositories
 
 @pytest_asyncio.fixture
 async def llm_gateway(
-    mock_repositories: Repositories, redis_dbs
+    mock_repositories: Repositories, redis_dbs, entra_service
 ) -> AsyncGenerator[FastAPI, None]:
     import app.main
 

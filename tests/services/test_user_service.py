@@ -6,7 +6,7 @@ from app.services.user_service import (
     UserBase,
     User,
     SessionAuthData,
-    allowedgroups,
+    app_configuration,
     UserUpdate,
 )
 from tests.fixtures.db_fixtures import Repositories
@@ -110,7 +110,7 @@ async def test_get_or_create_user_from_auth_data(
             auth_id=admin_user.auth_id,
             first_name=admin_user.first_name,
             last_name=admin_user.last_name,
-            roles=[allowedgroups[0]],
+            roles=[app_configuration.allowed_groups[0]],
         )
     )
     assert user.first_name == admin_user.first_name
@@ -131,7 +131,7 @@ async def test_get_or_create_user_from_auth_data(
             auth_id=admin_user.auth_id,
             first_name="NewFirst",
             last_name="NewLast",
-            roles=[allowedgroups[0]],
+            roles=[app_configuration.allowed_groups[0]],
         )
     )
     assert user.first_name == "NewFirst"
@@ -146,7 +146,7 @@ async def test_get_or_create_user_from_auth_data(
             auth_id="NewUser",
             first_name="Relevant",
             last_name="Very Relevant",
-            roles=[allowedgroups[0]],
+            roles=[app_configuration.allowed_groups[0]],
         )
     )
     assert user is not None
