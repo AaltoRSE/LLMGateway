@@ -135,3 +135,10 @@ class SQLAPIKeyRepositry(APIKeyRepository):
         self.db.commit()
         # Return the list of deactivated keys as APIKey objects
         return [self._convert_to_api_model(key) for key in keys]
+
+    async def get_key_by_id(self, key_id: str) -> APIKey:
+        """
+        Get a specific key
+        """
+
+        raise NotImplementedError

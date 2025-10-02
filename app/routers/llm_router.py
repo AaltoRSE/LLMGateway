@@ -5,7 +5,6 @@ LLM Endpoints
 import logging
 from typing import Annotated, Any, List, Callable
 
-from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, HTTPException, Security, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
@@ -14,7 +13,6 @@ from starlette.requests import HTTPConnection
 import httpx
 
 from app.schemas.openai_schemas import (
-    ChatCompletionStreamOptions,
     CreateResponse,
     CreateEmbeddingRequest,
     CreateChatCompletionRequest,
@@ -85,17 +83,19 @@ async def create_response(
         raise HTTPException(
             404, "The requested model is not available on the server"
         ) from exc
-    usage_callback: Callable[[APIRequest], Any] = lambda usage: usage_service.log_usage(
-        source=current_user.request_source, usage=usage
-    )
+    model.check_type("responses")
+
+    async def usage_callback(usage: APIRequest) -> None:
+        await usage_service.log_usage(source=current_user.request_source, usage=usage)
+
     if request_data.stream:
-        async with httpx.AsyncClient() as client:
-            stream_iterator = await model.stream_response_request(
+
+        return EventSourceResponse(
+            content=model.stream_response_request(
                 request=request,
-                client=client,
                 usage_callback=usage_callback,
             )
-            return EventSourceResponse(content=stream_iterator)
+        )
 
     response_data = await model.non_stream_response_request(
         request=request, usage_callback=usage_callback
@@ -105,9 +105,8 @@ async def create_response(
 
 @router.post("/chat/completions", response_model=None)
 async def chat_completion(
-    request: Request,
-    conn: HTTPConnection,
     request_data: CreateChatCompletionRequest,
+    request: Request,
     usage_service: Annotated[UsageService, Depends(UsageService)],
     model_service: Annotated[ModelService, Depends(ModelService)],
     current_user: BackendUser = Security(requires_auth),
@@ -143,19 +142,10 @@ async def chat_completion(
         else:
             if not request_data.stream_options.include_usage:
                 add_usage = True
-        request_data = await request.json()
-        request = model.build_request(
-            request_data, path="/v1/chat/completions", add_stream_data=add_usage
-        )
-        llm_logger.debug(conn.scope)
-        client: httpx.AsyncClient = conn.scope["app"].state.httpx_client
-        llm_logger.debug(client)
-        response = await client.send(request, stream=True)
-        llm_logger.debug("Stream iterator created")
-        llm_logger.debug(response)
+
         return EventSourceResponse(
             content=model.stream_chat_request(
-                model_response=response,
+                request=request,
                 usage_callback=usage_callback,
                 filter_usage=add_usage,
             )
@@ -191,7 +181,10 @@ async def embedding(
         raise HTTPException(
             404, "The requested model is not available on the server"
         ) from exc
+    model.check_type("embedding")
+
     usage_callback: Callable[[APIRequest], Any] = lambda usage: usage_service.log_usage(
         source=current_user.request_source, usage=usage
     )
+
     return await model.embed(request=request, usage_callback=usage_callback)

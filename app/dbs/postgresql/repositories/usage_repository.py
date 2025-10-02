@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from ..models.usage_model import Usage as DBUsage
-from ..models.balance_model import Balance as DBBalance
 from ..db import db as db_dependency
 
 # App imports
@@ -151,23 +150,6 @@ class SQLUsageRepository(UsageRepository):
 
         return self._query_usage(key=key, from_time=from_time, to_time=to_time)
 
-    def _get_db_balance(self, user_id: int, period: datetime) -> tuple[DBBalance, bool]:
-        requestedDate = date(period.year, period.month, 1)
-        balance = (
-            self.db.query(DBBalance)
-            .filter(DBBalance.user_id == user_id, DBBalance.period == requestedDate)
-            .one()
-        )
-        new = False
-        if not balance:
-            new = True
-            balance = DBBalance(
-                user_id=user_id,
-                period=requestedDate,
-                total_balance=30,  # FIXME: This needs to be set by some variable.
-            )
-        return balance, new
-
     async def get_usage_for_keys(
         self,
         keys: List[APIKey],
@@ -188,7 +170,7 @@ class SQLUsageRepository(UsageRepository):
         recent_results = (
             self.db.query(
                 DBUsage.api_key,
-                func.sum(DBUsage.cost).label("recent_usage"),
+                func.sum(DBUsage.cost).label("recent_cost"),
                 func.sum(DBUsage.prompt_tokens).label("recent_prompt_tokens"),
                 func.sum(DBUsage.completion_tokens).label("recent_completion_tokens"),
             )

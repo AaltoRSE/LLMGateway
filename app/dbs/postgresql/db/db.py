@@ -9,10 +9,10 @@ logger = logging.getLogger("app")
 
 
 def get_db() -> Generator[Session, None, None]:
-    logger.info("Opening Connection")
+    logger.debug("Opening Connection")
     db = SessionLocal()
     try:
         yield db
     finally:
-        logger.info("Closing connection")
+        logger.debug("Closing connection")
         db.close()

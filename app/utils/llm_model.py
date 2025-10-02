@@ -118,26 +118,25 @@ class LLMModel:
 
     async def filter_response_stream(
         self,
-        stream: AsyncIterator[Any],
+        item: Any,
         usage_callback: Callable[[APIRequest], Awaitable[Any]],
     ) -> AsyncIterator[ServerSentEvent]:
         """
         Yields items from the stream unless check_fn(item) is True, in which case
         on_match(item) is called instead.
         """
-        async for item in stream:
-            tokens, event, data = process_response_stream(item)
-            if tokens is not None:
-                await usage_callback(
-                    APIRequest(
-                        model=self.model.model.id,
-                        prompt_tokens=tokens.input_tokens,
-                        completion_tokens=tokens.output_tokens,
-                        cost=self.calc_cost_from_response_usage(tokens),
-                        timestamp=datetime.now(),
-                    )
+        tokens, event, data = process_response_stream(item)
+        if tokens is not None:
+            await usage_callback(
+                APIRequest(
+                    model=self.model.model.id,
+                    prompt_tokens=tokens.input_tokens,
+                    completion_tokens=tokens.output_tokens,
+                    cost=self.calc_cost_from_response_usage(tokens),
+                    timestamp=datetime.now(),
                 )
-            yield ServerSentEvent(data=data, event=event)
+            )
+        return ServerSentEvent(data=data, event=event)
 
     async def filter_chat_stream(
         self,
@@ -153,6 +152,7 @@ class LLMModel:
         tokens, data = process_completion_stream(item)
         logger.debug(data)
         if tokens is not None:
+            logger.debug("Logging data")
             await usage_callback(
                 APIRequest(
                     model=self.model.model.id,
@@ -165,14 +165,14 @@ class LLMModel:
             if filter_usage:
                 # Skip the usage chunk, since the user did not request it.
                 return None
-        return data
+        return ServerSentEvent(data=data)
 
     async def stream_chat_request(
         self,
+        request: Request,
         usage_callback: Callable[[APIRequest], Awaitable[Any]],
-        model_response: httpx.Response,
         filter_usage: bool = False,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[ServerSentEvent]:
         """
         Function that needs to call the Actual model and return an Iterator for
         the responses.
@@ -198,8 +198,18 @@ class LLMModel:
             to interact with the actual embedding model.
 
         """
-        logger.debug(self.model)
-        async for item in model_response.aiter_text():
+
+        request_data = await request.json()
+        forwarded_request = self.build_request(
+            request=request_data,
+            path="/v1/chat/completions",
+            add_stream_data=filter_usage,
+        )
+        client: httpx.AsyncClient = request.app.state.httpx_client
+        # This is hackish and should work with request.state.httpx_client
+        response = await client.send(forwarded_request, stream=True)
+        logger.debug(response)
+        async for item in response.aiter_text():
             processed_item = await self.filter_chat_stream(
                 item, usage_callback, filter_usage
             )
@@ -253,7 +263,6 @@ class LLMModel:
     async def stream_response_request(
         self,
         request: Request,
-        client: httpx.AsyncClient,
         usage_callback: Callable[[APIRequest], Awaitable[Any]],
     ) -> AsyncIterator[ServerSentEvent]:
         """
@@ -263,8 +272,6 @@ class LLMModel:
         (potentially it needs to be a bytes iterator)...
 
         Args:
-            user (BackendUser): The user making the request. Used for authentication
-                                The auth-token for the user is in user.auth_token.
             request (CreateResponse): The response request
             usage_callback (Callable[[APIRequest], None]):
                             A callback function to log or process token usage. MUST be
@@ -281,12 +288,16 @@ class LLMModel:
 
         """
 
-        if not "responses" in self.model.model.type:
-            raise HTTPException(404, "This model does not offer response backend")
-        request = await request.json()
-        httpx_request = self.build_request(request=request, path="/v1/responses")
-        model_response = await client.send(httpx_request, stream=True)
-        return self.filter_response_stream(model_response.aiter_text(), usage_callback)
+        request_data = await request.json()
+        forwarded_request = self.build_request(
+            request=request_data, path="/v1/responses"
+        )
+        client: httpx.AsyncClient = request.app.state.httpx_client
+        model_response = await client.send(forwarded_request, stream=True)
+        async for item in model_response.aiter_text():
+            processed_item = await self.filter_response_stream(item, usage_callback)
+            if processed_item is not None:
+                yield processed_item
 
     async def non_stream_response_request(
         self,

@@ -101,11 +101,13 @@ class UsageService:
             None
         """
         await self.usage_repository.log_usage(source=source, usage=usage)
-        if source.user_id:
+        logger.debug(source)
+        logger.debug(usage)
+        if source.user_id is not None:
             await self.balance_service.add_usage_to_user(
                 user_id=source.user_id, cost=usage.cost
             )
-        if source.key:
+        if source.key is not None:
             await self.balance_service.add_usage_to_key(key=source.key, cost=usage.cost)
 
     async def get_usage_for_user(

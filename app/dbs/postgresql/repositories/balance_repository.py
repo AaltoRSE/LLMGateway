@@ -4,9 +4,11 @@ from typing import Annotated, List
 # DB Specific imports
 from sqlalchemy.orm import Session
 from sqlalchemy import func, update
+from sqlalchemy.dialects.postgresql import insert
 
 from ..models.usage_model import Usage as DBUsage
-from ..models.balance_model import Balance as DBBalance
+from ..models.key_balance_model import KeyBalance as DBKeyBalance
+from ..models.user_balance_model import UserBalance as DBUserBalance
 from ..models.key_model import APIKey as DBAPIKey
 from ..models.user_model import User as DBUser
 from ..db import db as db_dependency
@@ -21,22 +23,22 @@ class SQLBalanceRepository(BalanceRepository):
     def __init__(self, db: Annotated[Session, Depends(db_dependency.get_db)]):
         self.db = db
 
-    def _convert_balance_to_schema(self, db_balance: DBBalance) -> Balance:
-        return Balance(
-            balance_used=db_balance.balance_used,
-            key=db_balance.key,
-            user_id=str(db_balance.user_id) if db_balance.user_id is not None else None,
+    def _convert_balance_to_schema(
+        self, db_balance: DBKeyBalance | DBUserBalance
+    ) -> Balance:
+        key = db_balance.key if isinstance(db_balance, KeyBalance) else None
+        user_id = (
+            str(db_balance.user_id) if isinstance(db_balance, UserBalance) else None
         )
+        return Balance(balance_used=db_balance.balance_used, key=key, user_id=user_id)
 
-    def _convert_balance_to_key_schema(self, db_balance: DBBalance) -> KeyBalance:
-        assert db_balance.key is not None
+    def _convert_balance_to_key_schema(self, db_balance: DBKeyBalance) -> KeyBalance:
         return KeyBalance(
             balance_used=db_balance.balance_used,
             key=db_balance.key,
         )
 
-    def _convert_balance_to_user_schema(self, db_balance: DBBalance) -> UserBalance:
-        assert db_balance.user_id is not None
+    def _convert_balance_to_user_schema(self, db_balance: DBUserBalance) -> UserBalance:
         return UserBalance(
             balance_used=db_balance.balance_used,
             user_id=str(db_balance.user_id),
@@ -55,8 +57,8 @@ class SQLBalanceRepository(BalanceRepository):
         current_time = datetime.now()
         requestedDate = date(current_time.year, current_time.month, 1)
         result = (
-            self.db.query(DBBalance)
-            .filter(DBBalance.key == key, DBBalance.period == requestedDate)
+            self.db.query(DBKeyBalance)
+            .filter(DBKeyBalance.key == key, DBKeyBalance.period == requestedDate)
             .first()
         )
         if result is None:
@@ -81,9 +83,10 @@ class SQLBalanceRepository(BalanceRepository):
         current_time = datetime.now()
         requestedDate = date(current_time.year, current_time.month, 1)
         result = (
-            self.db.query(DBBalance)
+            self.db.query(DBUserBalance)
             .filter(
-                DBBalance.user_id == int(user_id), DBBalance.period == requestedDate
+                DBUserBalance.user_id == int(user_id),
+                DBUserBalance.period == requestedDate,
             )
             .first()
         )
@@ -110,8 +113,8 @@ class SQLBalanceRepository(BalanceRepository):
         current_time = datetime.now()
         requestedDate = date(current_time.year, current_time.month, 1)
         results = (
-            self.db.query(DBBalance)
-            .filter(DBBalance.user_id.isnot(None), DBBalance.period == requestedDate)
+            self.db.query(DBUserBalance)
+            .filter(DBUserBalance.period == requestedDate)
             .all()
         )
         return [self._convert_balance_to_user_schema(result) for result in results]
@@ -129,8 +132,8 @@ class SQLBalanceRepository(BalanceRepository):
         current_time = datetime.now()
         requestedDate = date(current_time.year, current_time.month, 1)
         results = (
-            self.db.query(DBBalance)
-            .filter(DBBalance.key.isnot(None), DBBalance.period == requestedDate)
+            self.db.query(DBKeyBalance)
+            .filter(DBKeyBalance.period == requestedDate)
             .all()
         )
         return [self._convert_balance_to_key_schema(result) for result in results]
@@ -148,12 +151,14 @@ class SQLBalanceRepository(BalanceRepository):
         """
         current_time = datetime.now()
         requestedDate = date(current_time.year, current_time.month, 1)
-        stmt = (
-            update(DBBalance)
-            .where(DBBalance.user_id == int(user_id), DBBalance.period == requestedDate)
-            .values(balance_used=DBBalance.balance_used + cost)
+        insert_statement = insert(DBUserBalance).values(
+            user_id=int(user_id), period=requestedDate, balance_used=cost
         )
-        self.db.execute(stmt)
+        do_upsert = insert_statement.on_conflict_do_update(
+            index_elements=[DBUserBalance.user_id, DBUserBalance.period],
+            set_={"balance_used": DBUserBalance.balance_used + cost},
+        )
+        self.db.execute(do_upsert)
         self.db.commit()
 
     async def add_usage_to_key(self, key: str, cost: float) -> None:
@@ -169,10 +174,12 @@ class SQLBalanceRepository(BalanceRepository):
         """
         current_time = datetime.now()
         requestedDate = date(current_time.year, current_time.month, 1)
-        stmt = (
-            update(DBBalance)
-            .where(DBBalance.key == key, DBBalance.period == requestedDate)
-            .values(balance_used=DBBalance.balance_used + cost)
+        insert_statement = insert(DBKeyBalance).values(
+            key=int(key), period=requestedDate, balance_used=cost
         )
-        self.db.execute(stmt)
+        do_upsert = insert_statement.on_conflict_do_update(
+            index_elements=[DBKeyBalance.key, DBKeyBalance.period],
+            set_={"balance_used": DBKeyBalance.balance_used + cost},
+        )
+        self.db.execute(do_upsert)
         self.db.commit()

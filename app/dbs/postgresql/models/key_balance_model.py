@@ -2,7 +2,7 @@
 This module defines the usage model.
 """
 
-from sqlalchemy import Integer, ForeignKey, Date, Float, String
+from sqlalchemy import Integer, ForeignKey, Date, Float, String, UniqueConstraint
 from sqlalchemy.orm import mapped_column
 from .base_model import BaseModelClass
 from .user_model import User
@@ -10,7 +10,7 @@ from .key_model import APIKey
 
 
 # Conversation model to define database logic
-class Balance(BaseModelClass):
+class KeyBalance(BaseModelClass):
     """
     Represents the balance of a user for a month
 
@@ -23,12 +23,12 @@ class Balance(BaseModelClass):
 
     """
 
-    __tablename__ = "balance"
+    __tablename__ = "key_balance"
 
     id = mapped_column(
         Integer, primary_key=True, nullable=False, unique=True, autoincrement=True
     )
-    user_id = mapped_column(Integer, ForeignKey(User.id), nullable=True, index=True)
-    key = mapped_column(String, ForeignKey(APIKey.key), nullable=True, index=True)
+    key = mapped_column(String, ForeignKey(APIKey.key), nullable=False, index=True)
     balance_used = mapped_column(Float, default=0.0, nullable=False)
     period = mapped_column(Date, nullable=False)
+    __table_args__ = (UniqueConstraint("key", "period", name="key_per_period"),)

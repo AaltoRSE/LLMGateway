@@ -1,14 +1,18 @@
-""" This module establishes a connection to SQLAlchemy based database and creates local session for database """
+"""This module establishes a connection to SQLAlchemy based database and creates local session for database"""
+
 import os
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 # SQLAlchemy connection
-SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL")
+# SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL")
+POSTGRESUSER = os.getenv("POSTGRESUSER")
+POSTGRESPASSWORD = os.getenv("POSTGRESPASSWORD")
+POSTGRESHOST = os.getenv("POSTGRESHOST")
+POSTGRESDB = os.getenv("POSTGRESDB")
 
-if not SQLALCHEMY_DATABASE_URL:
-    raise EnvironmentError("The env var 'SQLALCHEMY_DATABASE_URL' is not set.")
+SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg://{POSTGRESUSER}:{POSTGRESPASSWORD}@{POSTGRESHOST}/{POSTGRESDB}"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
