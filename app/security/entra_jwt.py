@@ -13,19 +13,26 @@ from jwt.algorithms import RSAAlgorithm
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from fastapi import Request, HTTPException
 import requests
-from app.security.auth import BackendUser, RequestSource
+from app.security.auth import BackendUser, SessionAuthData, RequestSource
 from app.services.user_service import UserService
-from app.schemas.user_schema import User, SessionAuthData
-from app.config.agreement import check_agreement_version
+from app.schemas.user_schema import User
+
+if TYPE_CHECKING:
+    # This is necessary, as AllowedRSAKeys is only created, when TYPE_CHECK is enabled, but we need it for the type hint
+    from jwt.algorithms import AllowedRSAKeys
+
+from app.security.entra_settings.entra_jwt_settings import (
+    role_map,
+    tenant_id,
+    audience,
+    valid_scopes,
+)
 
 if TYPE_CHECKING:
     # This is necessary, as AllowedRSAKeys is only created, when TYPE_CHECK is enabled, but we need it for the type hint
     from jwt.algorithms import AllowedRSAKeys
 
 jwt_logger = logging.getLogger(__name__)
-
-# Authorization header, keep intact
-AUTHORIZATION_HEADER_NAME = "Authorization"
 
 
 # request timeout in seconds, when fetching key issuer and openid configuration
@@ -146,11 +153,11 @@ class EntraJWTAuthService:
 
     def __init__(
         self,
-        tenant_id: str,
-        audience: str,
-        role_map: dict[str, str],
+        tenant_id: str = tenant_id,
+        audience: str = audience,
+        role_map: dict[str, str] = role_map,
         refresh_time_period_seconds: int = 24 * 60 * 60,  # default 24 hours
-        valid_scopes: List[str] | None = None,
+        valid_scopes: List[str] | None = valid_scopes,
         insecure_predefined_keys: None | JWKS = None,
     ):
 
@@ -225,32 +232,24 @@ class EntraJWTAuthService:
         jwt_logger.info("Key refresh thread stopped")
 
     async def verify_authorization(
-        self, request: Request, user_service: UserService
+        self, token: str, user_service: UserService, correlation_id: str
     ) -> BackendUser:
         """Authorization and authentication logic for Aalto AI"""
 
         try:
             # Extract token
-            token = request.headers.get(AUTHORIZATION_HEADER_NAME)
-
-            if not token:
-                raise AuthenticationException(
-                    AuthenticationExceptionType.AUTHORIZATION_HEADER_MISSING
-                )
-
             current_user = await self._verify_token(token, user_service)
-
             return current_user
 
         except AuthenticationException as error:
             if error.ty != AuthenticationExceptionType.AUTHORIZATION_HEADER_MISSING:
                 jwt_logger.error(
                     "correlation_id=%s - error during token validation: %s",
-                    request.state.correlation_id,
+                    correlation_id,
                     error,
                 )
-
-            raise HTTPException(401, "Authentication error") from error
+            # None indicates, the key failed.
+            return None
         except (
             jwt.ExpiredSignatureError,
             jwt.InvalidTokenError,
@@ -260,10 +259,10 @@ class EntraJWTAuthService:
         ) as error:
             jwt_logger.error(
                 "correlation_id=%s - error during authentication: %s",
-                request.state.correlation_id,
+                correlation_id,
                 error,
             )
-            raise HTTPException(401, "Authentication error") from error
+            return None
 
     async def _verify_token(self, token: str, user_service: UserService) -> BackendUser:
         # Validate the JWT token, and return the payload
@@ -292,18 +291,20 @@ class EntraJWTAuthService:
         if not first_name or first_name == "" or not last_name or last_name == "":
             raise AuthenticationException(AuthenticationExceptionType.NO_NAME)
 
+        # Map entra id groups to roles
+        roles = self._map_entra_group_ids_into_user_roles(groups)
+
         # Construct DB user either by creating a new user or fetching existing one
         user: User = await user_service.get_or_create_user_from_auth_data(
             SessionAuthData(
                 auth_id=unique_name,  # Here we need to check for the auth ID
                 first_name=first_name,
                 last_name=last_name,
-                roles=groups,
+                roles=roles,
             )
         )
-
-        # Map entra id groups to roles
-        roles = self._map_entra_group_ids_into_user_roles(groups)
+        if user is None:
+            return None
 
         # Construct a backend user from the user data
         current_user = BackendUser(
@@ -311,7 +312,7 @@ class EntraJWTAuthService:
             username=user.auth_id,
             request_source=RequestSource(user_id=user.id),
             isadmin=user.admin,
-            agreement_ok=check_agreement_version(user.accepted_agreement_version),
+            agreement_ok=True,
         )
 
         return current_user
@@ -420,7 +421,8 @@ def get_entrajwt_auth_service() -> EntraJWTAuthService:
 
 
 # Initialize authentication service singleton
-def set_entrajwt_auth_service(service: EntraJWTAuthService) -> None:
+def build_global_service() -> None:
     global auth_service_instance  # pylint: disable=global-statement
+    service = EntraJWTAuthService()
     assert auth_service_instance is None
     auth_service_instance = service

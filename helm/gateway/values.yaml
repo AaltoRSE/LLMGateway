@@ -1,7 +1,0 @@
-dev_mode: false
-db_name: aaltollms
-postgres_user: postgres
-cors_origins: ["https://localhost", "http://localhost:5173"] # for dev purposes
-gateway_image_url: harbor.cs.aalto.fi/aaltorse-public/kubernetes_deployments/llm_provision/scaling
-gateway_image_tag: latest
-gateway_url: llm-gateway.k8s.aalto.fi

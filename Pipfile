@@ -3,7 +3,6 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
-
 [packages]
 alembic = "==1.13.1"
 SQLAlchemy = "==2.0.28"
@@ -26,6 +25,7 @@ itsdangerous = "==2.2.0"
 msgspec = "*"
 psycopg = "==3.1.18"
 psycopg-binary = "==3.1.18"
+cryptography = "*"
 
 [dev-packages]
 pytest = "==8.2.2"

@@ -25,6 +25,7 @@ from app.middleware.session_sanitize_middleware import SessionSanitizationMiddle
 from app.static_files import SPAStaticFiles
 from app.services.key_service import KeyService
 from app.security.authentication_dependencies import authenticate_request
+from app.security.entra_jwt import build_global_service
 from app.dbs.redis.redis import get_key_client, get_key_quota_client
 from app.config.db import get_api_key_repo
 
@@ -66,6 +67,8 @@ async def startup(  # pylint: disable=unused-argument
     """
     uvlogger.info("Starting up the app")
     uvlogger.info("Debug mode: %s", DEBUGGING)
+    uvlogger.info("Initializing EntraJWT service: %s", DEBUGGING)
+    build_global_service()
     if DEBUGGING:
         uvlogger.setLevel(logging.DEBUG)
         for handler in uvlogger.handlers:

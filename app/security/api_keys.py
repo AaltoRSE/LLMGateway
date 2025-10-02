@@ -1,9 +1,10 @@
 from typing import Annotated
-from fastapi import Security, HTTPException, Depends
+from fastapi import Security, HTTPException, Depends, Request
 from fastapi.security import APIKeyHeader
 from app.security.auth import BackendUser
 from app.services.key_service import KeyService
 from app.services.user_service import UserService
+from app.security.entra_jwt import EntraJWTAuthService, get_entrajwt_auth_service
 from app.schemas.usage_schema import RequestSource
 import logging
 import re
@@ -17,8 +18,12 @@ uvlogger = logging.getLogger("app")
 
 
 async def get_user_for_api_key(
+    request: Request,
     key_service: Annotated[KeyService, Depends(KeyService)],
     user_service: Annotated[UserService, Depends(UserService)],
+    entra_auth_service: Annotated[
+        EntraJWTAuthService, Depends(get_entrajwt_auth_service)
+    ],
     api_key: str = Security(api_key_header),
 ) -> BackendUser | None:
     """
@@ -34,11 +39,10 @@ async def get_user_for_api_key(
     - HTTPException: If the provided API key is invalid or missing, it raises a 401 status code error
         with the detail "Invalid or missing API Key". Additionally, logs information about the header and key.
     """
-    print("Checking API key")
     if api_key is None or api_key == "":
         return None
+    # Test, whether this is a "normal" API key, i.e. comes with Bearer:
     api_key = re.sub("^Bearer ", "", api_key)
-    print(f"API Key is: {api_key}")
     if api_key == "":
         # This should happen, if there is no API key set.
         return None
@@ -64,9 +68,12 @@ async def get_user_for_api_key(
                 request_source=RequestSource(key=api_key),
                 agreement_ok=True,
             )
-    else:
-        uvlogger.warning(f"Attempted usage with invalid key: {api_key}")
-    print("Key could not be verified")
+            # Let's try to see if this is a entraID request
+    entra_user = await entra_auth_service.verify_authorization(
+        api_key, user_service, request.state.correlation_id
+    )
+    if entra_user is not None:
+        return entra_user
     raise HTTPException(
         status_code=401,
         detail="Invalid API Key",
