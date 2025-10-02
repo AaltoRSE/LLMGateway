@@ -47,7 +47,7 @@ class MockBalanceRepository(BalanceRepository):
         Returns:
             Balance: The balance information for the given API key.
         """
-        return self._get_balance(key=key).model_copy()
+        return self._get_balance(key=key).model_copy(deep=True)
 
     async def get_user_balance(self, user_id: str) -> Balance:
         """
@@ -59,7 +59,7 @@ class MockBalanceRepository(BalanceRepository):
         Returns:
             Balance: The balance information for the given user.
         """
-        return self._get_balance(user_id=user_id).model_copy()
+        return self._get_balance(user_id=user_id).model_copy(deep=True)
 
     async def get_user_balances(self, month: datetime) -> List[UserBalance]:
         """
@@ -120,8 +120,11 @@ class MockBalanceRepository(BalanceRepository):
             None
         """
         with self.__class__._lock:
+            print("Updating usage for " + user_id + " With value " + str(cost))
             balance: TimedBalance = self._get_balance(user_id=user_id)
+            print("Old balance was: ", balance.balance_used)
             balance.balance_used = balance.balance_used + cost
+            print("New balance is: ", balance.balance_used)
 
     async def add_usage_to_key(self, key: str, cost: float) -> None:
         """

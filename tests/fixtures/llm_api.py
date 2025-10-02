@@ -181,12 +181,15 @@ async def completions_get_streaming_response(
             model,
             [],
             {
-                "completion_tokens": 2,
+                "completion_tokens": 1,
                 "prompt_tokens": 2,
                 "total_tokens": 4,
                 "prompt_tokens_details": {"cached_tokens": 1},
             },
         )
+    else:
+        print("Got a request without including usage demand")
+
     yield completions_build_chunk(
         model, [{"index": 0, "delta": {}, "logprobs": None, "finish_reason": "stop"}]
     )

@@ -6,6 +6,7 @@ import respx
 import asyncio
 from app.services.usage_service import UsageService
 from app.services.model_service import ModelService
+from app.services.balance_service import BalanceService
 from tests.fixtures.db_fixtures import Repositories
 from app.security.auth import BackendUser
 from app.schemas.user_schema import User
@@ -29,6 +30,7 @@ async def test_completions_endpoint(
     key_client: TestClient,
     general_api: LLMModel,
     usage_service: UsageService,
+    balance_service: BalanceService,
     normal_user: User,
     mock_repositories: Repositories,
 ) -> None:
@@ -62,6 +64,8 @@ async def test_completions_endpoint(
     async for item in response.aiter_text():
         print(item)
         pass
+    service_balance = await balance_service.get_user_balance(normal_user.id)
+    assert service_balance.balance_used > 0
     print("Finished")
     new_balance = await usage_service.get_current_user_balance(normal_user.id)
     assert new_balance.balance_used > balance.balance_used
@@ -168,6 +172,7 @@ async def test_responses_endpoint(
     request["stream"] = True
     response = key_client.post("/api/v1/responses", json=request)
     async for token in response.aiter_text():
+        print(token)
         # Lets check, that the format fits.
         event_match = re.search(r"^event:\s*(\S+)", token, re.MULTILINE)
         assert not event_match is None

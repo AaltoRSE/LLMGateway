@@ -108,3 +108,11 @@ class KeyRepository(APIKeyRepository):
                 key.active = False
                 keys.append(key.model_copy(deep=True))
         return keys
+
+    async def get_key_by_id(self, key_id: str) -> APIKey:
+        """
+        Get a specific key
+        """
+        if key_id in self.__class__.keys:
+            return self.__class__.keys[key_id].model_copy()
+        return None
