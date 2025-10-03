@@ -8,9 +8,6 @@ from typing import Annotated, Any, List, Callable
 from fastapi import APIRouter, Depends, HTTPException, Security, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
-from starlette.requests import HTTPConnection
-
-import httpx
 
 from app.schemas.openai_schemas import (
     CreateResponse,
@@ -26,9 +23,6 @@ from app.services.model_service import ModelService, LLMModelDataDetails
 from app.config import app_configuration
 
 llm_logger = logging.getLogger("app")
-
-httpx_client: httpx.AsyncClient | None = None
-
 
 router = APIRouter(prefix="/api/v1", tags=["LLM Endpoints"])
 

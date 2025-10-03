@@ -74,10 +74,12 @@ async def startup(  # pylint: disable=unused-argument
         for handler in uvlogger.handlers:
             handler.setLevel(logging.DEBUG)
         uvlogger.debug("Debugging active")
-    httpx_client = httpx.AsyncClient()
+    # We set a very high timeout here, since there is always
+    # the possibility that a model needs to load first, which
+    # takes substantial time.
+    httpx_client = httpx.AsyncClient(timeout=600)
     uvlogger.debug("httpx client set up")
     app_instance.state.httpx_client = httpx_client
-    uvlogger.debug(app_instance.state.httpx_client)
     await init_keys()
     yield
     await httpx_client.aclose()
