@@ -28,6 +28,7 @@ all_metadata = BaseModelClass.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 config.set_main_option("sqlalchemy.url", SQLALCHEMY_DATABASE_URL)
+print(f"Trying to connect to {SQLALCHEMY_DATABASE_URL}")
 
 
 def run_migrations_offline() -> None:
