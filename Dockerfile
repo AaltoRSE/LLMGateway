@@ -73,5 +73,5 @@ USER aaltoai
 
 ENV PATH="/usr/src/.venv/bin:$PATH"
 
-CMD ["gunicorn", "app.main:app", "--bind", "0.0.0.0:3000", "-k", "uvicorn.workers.UvicornWorker", "--workers", "6" ]
+CMD ["./run.sh"]
 
