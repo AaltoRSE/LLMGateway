@@ -1,4 +1,5 @@
 import re
+import json
 from typing import Any, AsyncIterator, List
 import pytest
 from fastapi.testclient import TestClient
@@ -63,7 +64,11 @@ async def test_completions_endpoint(
     # Process the response
     async for item in response.aiter_text():
         print(item)
-        pass
+        data_match = re.findall(r"^data\s*:\s*(.*)", item, re.MULTILINE)
+        assert len(data_match) > 0
+        for match in data_match:
+            assert match.strip() == "[DONE]" or json.loads(match)
+
     service_balance = await balance_service.get_user_balance(normal_user.id)
     assert service_balance.balance_used > 0
     print("Finished")
