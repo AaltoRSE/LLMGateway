@@ -28,7 +28,7 @@ def process_completion_stream(
         for match in data_match:
             # And now, process the contents to see if they contain usage information.
             if match.strip() == "[DONE]":
-                data.append(f"data: {match}")
+                data.append(match)
             else:
                 parsed_json = json.loads(match)
                 #
@@ -36,7 +36,7 @@ def process_completion_stream(
                     usage_info = CompletionUsage.model_validate(parsed_json["usage"])
                     if filter_usage:
                         continue
-                data.append(f"data: {match}")
+                data.append(match)
     except Exception as e:  # pylint: disable=broad-exception-caught
         # FIXME This needs proper logging to see if there are some errors
         logger.warning("Issue in processing tokens")
