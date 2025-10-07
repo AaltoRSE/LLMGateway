@@ -43,7 +43,7 @@ reset_db:
 	@echo "waiting for db to start up"
 	sleep 5
 	$(CONTAINER_ENGINE)  exec -it ${DB_CONTAINER_NAME} su postgres -c "dropdb ${DB_NAME}"
-	$(CONTAINER_ENGINE)  exec -it ${DB_CONTAINER_NAME} su postgres -c "createdb ${DB_NAME}" || exit 0
+	create_db
 	$(CONTAINER_ENGINE_COMPOSE)  -f docker-compose.yml down db
 
 delete_db:

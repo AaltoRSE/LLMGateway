@@ -175,7 +175,7 @@ class SQLBalanceRepository(BalanceRepository):
         current_time = datetime.now()
         requestedDate = date(current_time.year, current_time.month, 1)
         insert_statement = insert(DBKeyBalance).values(
-            key=int(key), period=requestedDate, balance_used=cost
+            key=key, period=requestedDate, balance_used=cost
         )
         do_upsert = insert_statement.on_conflict_do_update(
             index_elements=[DBKeyBalance.key, DBKeyBalance.period],

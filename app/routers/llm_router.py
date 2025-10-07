@@ -136,7 +136,7 @@ async def chat_completion(
         else:
             if not request_data.stream_options.include_usage:
                 add_usage = True
-
+        llm_logger.debug("Add Stream usage? %s", add_usage)
         return EventSourceResponse(
             content=model.stream_chat_request(
                 request=request,
