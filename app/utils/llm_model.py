@@ -1,7 +1,7 @@
 """This class implements all the different Request handling mechanisms"""
 
 from datetime import datetime
-from typing import Callable, Any, AsyncIterator, Awaitable
+from typing import Callable, Any, AsyncIterator, Awaitable, List
 import os
 import logging
 
@@ -143,13 +143,13 @@ class LLMModel:
         item: Any,
         usage_callback: Callable[[APIRequest], Awaitable[Any]],
         filter_usage: bool,
-    ) -> str | None:
+    ) -> List[ServerSentEvent]:
         """
         Yields items from the stream unless check_fn(item) is True, in which case
         on_match(item) is called instead.
         """
         logger.debug(item)
-        tokens, data = process_completion_stream(item)
+        tokens, data = process_completion_stream(item, filter_usage)
         logger.debug(data)
         if tokens is not None:
             logger.debug("Logging data")
@@ -162,10 +162,7 @@ class LLMModel:
                     timestamp=datetime.now(),
                 )
             )
-            if filter_usage:
-                # Skip the usage chunk, since the user did not request it.
-                return None
-        return ServerSentEvent(data=data)
+        return [ServerSentEvent(data=datum) for datum in data]
 
     async def stream_chat_request(
         self,
@@ -210,10 +207,10 @@ class LLMModel:
         response = await client.send(forwarded_request, stream=True)
         logger.debug(response)
         async for item in response.aiter_text():
-            processed_item = await self.filter_chat_stream(
+            processed_items = await self.filter_chat_stream(
                 item, usage_callback, filter_usage
             )
-            if processed_item is not None:
+            for processed_item in processed_items:
                 yield processed_item
 
     async def non_stream_chat_request(

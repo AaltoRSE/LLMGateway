@@ -190,9 +190,11 @@ async def completions_get_streaming_response(
     else:
         print("Got a request without including usage demand")
 
-    yield completions_build_chunk(
+    last_chunk = completions_build_chunk(
         model, [{"index": 0, "delta": {}, "logprobs": None, "finish_reason": "stop"}]
     )
+    return_chunk = f"{last_chunk.decode()}\n\ndata: [DONE]".encode()
+    yield return_chunk
 
 
 def completions_response(request: PreparedRequest | Request) -> Response:

@@ -3,7 +3,7 @@ Utility functions for stream response processing
 """
 
 import logging
-from typing import Tuple
+from typing import Tuple, List
 
 # from .requests import ChatCompletionRequest
 import re
@@ -16,28 +16,27 @@ logger = logging.getLogger("app")
 
 
 def process_completion_stream(
-    stream_chunk: str,
-) -> Tuple[CompletionUsage | None, str | None]:
+    stream_chunk: str, filter_usage: bool
+) -> Tuple[CompletionUsage | None, List[str] | None]:
     """
     Function to process a completion stream chunk, returning usage, if it's there
     """
-    data_match = re.search(r"^data\s*:\s*(.*)", stream_chunk, re.MULTILINE)
-    data = None
-    if data_match:
-        data = data_match.group(1)
+    data_match = re.findall(r"^data\s*:\s*(.*)", stream_chunk, re.MULTILINE)
+    data = []
     usage_info = None
     try:
-        if data:
-            if data.strip() == "[DONE]":
-                pass
+        for match in data_match:
+            # And now, process the contents to see if they contain usage information.
+            if match.strip() == "[DONE]":
+                data.append(f"data: {match}")
             else:
-                parsed_json = json.loads(data)
-                # choices has to be empty in the usage chunk. This ensures,
-                # that this works with kubeai/openwebui
+                parsed_json = json.loads(match)
+                #
                 if "usage" in parsed_json and len(parsed_json["choices"]) == 0:
                     usage_info = CompletionUsage.model_validate(parsed_json["usage"])
-                # dataChoices = parsed_json["choices"]
-                # completion_tokens = completion_tokens + len(dataChoices)
+                    if filter_usage:
+                        continue
+                data.append(f"data: {match}")
     except Exception as e:  # pylint: disable=broad-exception-caught
         # FIXME This needs proper logging to see if there are some errors
         logger.warning("Issue in processing tokens")
