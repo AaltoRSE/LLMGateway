@@ -83,7 +83,7 @@ class APIKeyRepository:
         """
         raise NotImplementedError
 
-    async def get_key(self, key: str) -> APIKey:
+    async def get_key(self, key: str) -> APIKey | None:
         """
         Get a specific key
         """

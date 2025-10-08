@@ -3,10 +3,8 @@ Service for Model administration interaction and model access checks
 """
 
 from typing import List, Annotated, Tuple
-import json
 import logging
 
-import redis.asyncio as redis
 from fastapi import HTTPException, Depends
 
 from app.schemas.llmmodel_schema import (
@@ -16,7 +14,6 @@ from app.schemas.llmmodel_schema import (
 from app.utils.llm_model import LLMModel
 from app.repositories import LLMModelRepository
 from app.repositories.factories import get_llm_repository_class
-from app.dbs.redis.redis import get_model_client
 
 modelLogger = logging.getLogger("app")
 

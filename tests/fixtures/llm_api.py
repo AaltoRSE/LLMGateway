@@ -13,15 +13,16 @@ from httpx import Request, Response, AsyncByteStream
 from sse_starlette.sse import EventSourceResponse
 from .embeddings_api import httpx_response
 from app.services.model_service import ModelService
+
 from app.utils.llm_model import (
     ChatCompletionResponse,
-    ChatCompletionRequest,
-    CreateResponse,
     LLMModel,
 )
 from app.schemas.llmmodel_schema import LLMModelData, LLMModelDataDetails, model_types
 from app.schemas.openai_schemas import (
     OutputMessage,
+    CreateChatCompletionRequest as ChatCompletionRequest,
+    CreateResponse,
     Response1 as OpenAIResponse,
     ReasoningItem,
     ResponseCreatedEvent,

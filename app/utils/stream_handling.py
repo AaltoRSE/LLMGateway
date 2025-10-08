@@ -17,7 +17,7 @@ logger = logging.getLogger("app")
 
 def process_completion_stream(
     stream_chunk: str, filter_usage: bool
-) -> Tuple[CompletionUsage | None, List[str] | None]:
+) -> Tuple[CompletionUsage | None, List[str]]:
     """
     Function to process a completion stream chunk, returning usage, if it's there
     """

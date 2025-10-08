@@ -155,6 +155,8 @@ class KeyService:
         - quota (float): The weekly quota for the key.
         """
         api_key = await self.repository.get_key(key)
+        if api_key is None:
+            raise HTTPException(409, "Key does not exist")
         api_key.quota = quota
         if api_key is not None:
             await self.repository.update_key(api_key)

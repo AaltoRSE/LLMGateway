@@ -6,8 +6,7 @@ from typing import Annotated, List
 from datetime import datetime
 
 from fastapi import Depends, HTTPException
-import redis.asyncio as redis
-from app.schemas.usage_schema import Balance, KeyBalance, UserBalance, Quota
+from app.schemas.usage_schema import Balance, Quota
 from app.repositories.factories import (
     get_usage_repository_class,
     get_user_repository_class,
@@ -20,20 +19,14 @@ from app.repositories import (
     APIKeyRepository,
     BalanceRepository,
 )
-from app.dbs.redis.redis import (
-    get_user_balance_client,
-    get_key_balance_client,
-    get_key_quota_client,
-    get_user_quota_client,
-)
 
 
-class BalanceService:  # pylint: disable=too-many-instance-attributes
+class BalanceService:
     """
     A Service handling all balance related activities.
     """
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(
         self,
         usage_repository: Annotated[
             UsageRepository, Depends(get_usage_repository_class())

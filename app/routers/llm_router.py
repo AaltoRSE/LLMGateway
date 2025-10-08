@@ -6,7 +6,7 @@ import logging
 from typing import Annotated, Any, List, Callable
 
 from fastapi import APIRouter, Depends, HTTPException, Security, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from app.schemas.openai_schemas import (
@@ -52,7 +52,7 @@ async def get_models(
 
 
 @router.post("/responses", response_model=None)
-async def create_response(
+async def create_response(  # pylint: disable=too-many-arguments
     request: Request,
     request_data: CreateResponse,
     usage_service: Annotated[UsageService, Depends(UsageService)],
@@ -98,7 +98,7 @@ async def create_response(
 
 
 @router.post("/chat/completions", response_model=None)
-async def chat_completion(
+async def chat_completion(  # pylint: disable=too-many-arguments
     request_data: CreateChatCompletionRequest,
     request: Request,
     usage_service: Annotated[UsageService, Depends(UsageService)],
@@ -152,7 +152,7 @@ async def chat_completion(
 
 
 @router.post("/embeddings")
-async def embedding(
+async def embedding(  # pylint: disable=too-many-arguments
     request: Request,
     request_data: CreateEmbeddingRequest,
     usage_service: Annotated[UsageService, Depends(UsageService)],

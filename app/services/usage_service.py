@@ -8,10 +8,8 @@ from app.repositories import UsageRepository
 from app.repositories.factories import (
     get_usage_repository_class,
     get_user_repository_class,
-    get_balance_repository_class,
     get_key_repository_class,
 )
-from app.repositories.balance_repository import BalanceRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.api_key_repository import APIKeyRepository
 from app.services.balance_service import BalanceService

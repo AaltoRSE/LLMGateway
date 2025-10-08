@@ -233,7 +233,7 @@ class EntraJWTAuthService:
 
     async def verify_authorization(
         self, token: str, user_service: UserService, correlation_id: str
-    ) -> BackendUser:
+    ) -> BackendUser | None:
         """Authorization and authentication logic for Aalto AI"""
 
         try:

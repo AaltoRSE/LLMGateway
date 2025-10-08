@@ -21,7 +21,6 @@ from app.security.authentication_dependencies import requires_session, BackendUs
 from app.security.session import get_session
 from app.schemas.session_schema import HTTPSession
 from app.schemas.llmmodel_schema import LLMPublicData
-from app.schemas.usage_schema import UserAndKeyUsageData
 from app.config import app_configuration
 from app.responses.self_service import UsageResponse
 

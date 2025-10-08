@@ -7,19 +7,14 @@ import logging
 
 import httpx
 from sse_starlette import ServerSentEvent
-from fastapi import HTTPException, Request, Response
+from fastapi import HTTPException, Request
 
 
-from app.schemas.openai_schemas import (
-    CreateChatCompletionRequest as ChatCompletionRequest,
-)
 from app.schemas.openai_schemas import (
     CreateChatCompletionResponse as ChatCompletionResponse,
 )
-from app.schemas.openai_schemas import CreateResponse
 from app.schemas.openai_schemas import Response1 as CreateResponseResponse
 from app.schemas.openai_schemas import (
-    CreateEmbeddingRequest,
     CreateEmbeddingResponse,
     CompletionUsage,
     ResponseUsage,
@@ -46,8 +41,12 @@ class LLMModel:
         """
         self.model: LLMModelData = model
 
-    def check_type(self, type: str):
-        if not type in self.model.model.type:
+    def check_type(self, model_type: str) -> None:
+        """
+        Check, whether a specific model is ok for this model,
+        throws a HTTPException if not.
+        """
+        if not model_type in self.model.model.type:
             raise HTTPException(404, "This model does not offer {type} functionality")
 
     def build_request(
@@ -120,7 +119,7 @@ class LLMModel:
         self,
         item: Any,
         usage_callback: Callable[[APIRequest], Awaitable[Any]],
-    ) -> AsyncIterator[ServerSentEvent]:
+    ) -> ServerSentEvent:
         """
         Yields items from the stream unless check_fn(item) is True, in which case
         on_match(item) is called instead.
@@ -162,11 +161,12 @@ class LLMModel:
                     timestamp=datetime.now(),
                 )
             )
+
         return [ServerSentEvent(data=datum) for datum in data]
 
-    async def check_response(self, response: httpx.Response):
+    async def check_response(self, response: httpx.Response) -> None:
         if not response.is_success:
-            response_message = await response.text()
+            response_message = response.text
             logger.warning(
                 "Request to model failed with %s, %s",
                 response.status_code,

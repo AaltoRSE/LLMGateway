@@ -27,7 +27,7 @@ from app.services.key_service import KeyService
 from app.security.authentication_dependencies import authenticate_request
 from app.security.entra_jwt import build_global_service
 from app.dbs.redis.redis import get_key_client, get_key_quota_client
-from app.config.db import get_api_key_repo, get_model_repo
+from app.config.db import get_api_key_repo
 
 # Initiaize Logging
 logging.config.fileConfig("app/logging.conf", disable_existing_loggers=False)
@@ -54,11 +54,8 @@ async def init_keys() -> None:
     await key_service.init_keys()
 
 
-httpx_client: httpx.AsyncClient | None = None
-
-
 @asynccontextmanager
-async def startup(  # pylint: disable=unused-argument
+async def startup(
     app_instance: FastAPI,
 ) -> AsyncGenerator[None, Any]:
     """
