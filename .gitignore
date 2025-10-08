@@ -203,3 +203,5 @@ keycloaksql/**/*
 keycloaksql
 
 keyfile.key
+database/**/*
+database
