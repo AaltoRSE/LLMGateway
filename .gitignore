@@ -188,7 +188,7 @@ Vagrantfile
 
 # vscode stuff
 .vscode/**/*
-
+.vscode
 # SAML certificates and settings (depend on the actual location)
 app/security/saml_data/certs/*
 
@@ -199,5 +199,7 @@ dist/**/*
 mongodb/**/*
 data/**/*
 keycloaksql/**/*
+
+keycloaksql
 
 keyfile.key
