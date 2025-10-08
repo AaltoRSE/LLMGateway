@@ -31,28 +31,11 @@ class ModelService:
         llm_repository: Annotated[
             LLMModelRepository, Depends(get_llm_repository_class())
         ],
-        model_client: Annotated[redis.StrictRedis, Depends(get_model_client)],
     ):
         """
         Init function
         """
         self.repository: LLMModelRepository = llm_repository
-        self.model_client: redis.StrictRedis = model_client
-
-    async def init_models(self) -> None:
-        """
-        Initialize models from the database, should be called at startup of the server.
-        """
-        db_models = await self.repository.get_models()
-        models = {entry.model.id: entry.model_dump_json() for entry in db_models}
-
-        if len(models) > 0:
-            # Clear out anything old.
-            await self.model_client.flushdb()
-            # We will simply set all models to the redis
-            await self.model_client.mset(models)
-        else:
-            await self.model_client.flushdb()
 
     async def get_models(self) -> List[LLMModelData]:
         """
@@ -86,16 +69,13 @@ class ModelService:
         Raises:
             HTTPException: If the model is not found or cannot be used for the requested type.
         """
-        model_data = await self.model_client.get(model_id)
-        if model_data:
-            requested_model: LLMModelData = LLMModelData.model_validate(
-                json.loads(model_data)
-            )
+        model_data = await self.repository.get_model(model_id)
+        if model_data is not None:
             if (
-                requested_model.model.type is not None
-                and model_type in requested_model.model.type
+                model_data.model.type is not None
+                and model_type in model_data.model.type
             ):
-                return requested_model.path, requested_model.host
+                return model_data.path, model_data.host
 
             raise HTTPException(
                 status_code=404,
@@ -107,11 +87,9 @@ class ModelService:
         """
         Get the model instance for a specific model
         """
-        model_data = await self.model_client.get(model_id)
-        if model_data:
-            model_data = LLMModelData.model_validate(json.loads(model_data))
+        model_data = await self.repository.get_model(model_id)
+        if model_data is not None:
             return LLMModel(model=model_data)
-
         raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
 
     async def add_model(self, model: LLMModelData) -> None:
@@ -121,11 +99,7 @@ class ModelService:
         - list: A list of all models available
         """
         try:
-            print(f"Adding available model: {model}")
-            print(self.model_client)
-            new_model = await self.repository.add_model(model)
-            assert new_model is not None
-            await self.model_client.set(model.model.id, new_model.model_dump_json())
+            await self.repository.add_model(model)
         except ValueError as e:
             print(e)
             raise HTTPException(
@@ -140,9 +114,7 @@ class ModelService:
         """
         exists: LLMModelData | None = await self.repository.update_model(model)
 
-        if exists:
-            await self.model_client.set(exists.model.id, exists.model_dump_json())
-        else:
+        if exists is None:
             raise HTTPException(
                 status_code=410, detail=f"Model {model.model.id} does not exist"
             )
@@ -154,8 +126,5 @@ class ModelService:
         - list: A list of all models available
         """
         deleted = await self.repository.remove_model(model)
-        if deleted:
-            # update redis, removing the model
-            await self.model_client.delete(model)
-        else:
+        if not deleted:
             raise HTTPException(status_code=410, detail=f"Model {model} does not exist")

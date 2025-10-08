@@ -1,101 +1,44 @@
 # LLMGateway
 
-This is a front facing gateway for multiple LLMs. The idea, is that this server acts as a middle man between multiple
-different LLMs providing OpenAI compatible APIS and the user. The gateway keeps track of users token usage (the current
-state only tracks completion tokens), and handles access to the LLM servers (i.e. keeps the secrets that allow using them).
+This is a front facing gateway for multiple LLMs. The idea, is that this server acts
+as a middle man between multiple different LLMs providing OpenAI compatible APIS and
+the user. The gateway keeps track of users token usage and associated cost (according to the model specs)
 
 ## Features
 
 - Self service Auth via SAML
-- Self service checkout for key generation
-- Admin management via REST API
--
+- Self service key generation
+- Admin management via REST API and UI.
+
+## Tech used
+
+The server is written in python using [FastAPI](https://fastapi.tiangolo.com/).
+SAML is implemented using the [SAML-Toolkits python3-saml](https://github.com/SAML-Toolkits/python3-saml) library.
 
 ### TODO
 
 Here are a few features which are currently on our TODO list:
 
-- Admin Front End UI
+- Improved usage visualisation UI on frontend.
 - More fine grained Access key control (i.e. controlling what models can be accessed with a key)
-- Proper Usage logging (including prompt tokens, currently restricted to completion tokens)
 
-## Requirements and dependencies
+Nice to have features, but not necessary for now
 
-- Kubernetes
-  - Certbot Letsencrypt plugin
-  - Set up secrets for Admin key and LLM API key
-  - MongoDB and Redis deployed on the cluster.
-- Security
-  - The current authenticaion scheme for the user API is based on session cookies and SAML authentication.
-    - This means, you need an existing IdP which has the gateway setup as a service provider.
-    - You will need to update the auth saml router endpoints to conform with what the kind of access you want to allow
-  - The current assumption is that any key can be used with any model and that there is no use restriction.
-    - If you want to implement this kind of restriction, you should add another dependency on the llm endpoints.
-- Python dependencies:
-  - General:
-    - fastapi
-    - gunicorn
-    - uvicorn
-    - redis-py
-    - pymongo
-    - schedule
-    - httpx
-    - sse-starlette
-    - itsdangerous (for session managment)
-    - python-multipart
-    - python-jose
-  - For SAML:
-    - python3-saml
+- Optional use of mongodb as alternative database backend.
+
+## Dependencies
+
+A Detailed description of the dependencies can be found in the [DEPENDENCIES.md](DEPENDENCIES.md) file.
 
 ## Architecture
 
-### Mongo DB
+### Postgresql
 
-The Mongo database employed in this gateway is used for storing the logging information along with user data.
-
-#### The `apikeys` collection:
-
-```python
-{
-    "user" : str,  # User, this key belongs to
-    "active": boolean, # whether the key is active
-    "key": str, # the actual key
-    "name": str # name given to the key
-}
-```
-
-Likely future fields:
-`authorization : [ str ]` to indicate which models a key is for.
-
-#### The `logs` collection
-
-```python
-{
-    "tokencount": int,  # This is the completion tokens
-    "isprompt": boolean, # Whether this is for prompt or completion
-    "model": str, # which model was used for this usage
-    "source": str, # key or user who caused this usage
-    "sourcetype": str # Whether the source is a "user" or an "apikey"
-    "timestamp": datetime,  # Current timestamp in UTC
-}
-```
-
-#### The `user` collection
-
-```python
-{
-    "username": str,  # The identifier of the user - provided by the IdP
-    "keys": [ str ], # The set of keys belonging to this user
-}
-```
-
-Likely future fields:
-
-- `"isAdmin" : boolean` indicator whether the user is an admin, default, false
+We use postgresql via sqlalchemy to store persistent data.
 
 ### Redis
 
-The redis database is mainly used for fast retrieval of authentication keys, and should thus be kept in sync with the mongo db keys.
+Redis is used in two places:
 
 ## Logging / Usage
 

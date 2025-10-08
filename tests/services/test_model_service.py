@@ -20,15 +20,14 @@ async def test_init_models(
     model_service: ModelService, mock_repositories: Repositories
 ):
     testmodel = create_test_model()
-    await mock_repositories.model_repo.add_model(testmodel)
-    # Model not yet added to the redis system, only to the db
+    # Model does nto exists yet
     with pytest.raises(HTTPException) as execinfo:
         await model_service.get_model(testmodel.model.id)
     assert execinfo.value.status_code == 404
+    await mock_repositories.model_repo.add_model(testmodel)
     models = await model_service.get_api_models()
     assert len(models) == 1
     # now init.
-    await model_service.init_models()
     model = await model_service.get_model(testmodel.model.id)
     assert model.model.path == testmodel.path
 
@@ -36,7 +35,6 @@ async def test_init_models(
 # Testing whether keys are checked correctly
 @pytest.mark.asyncio
 async def test_add_model(model_service: ModelService, mock_repositories: Repositories):
-    await model_service.init_models()
     currentModels = await model_service.get_api_models()
     assert len(currentModels) == 0
     assert len(mock_repositories.model_repo.__class__.models.values()) == 0
@@ -60,7 +58,6 @@ async def test_add_model(model_service: ModelService, mock_repositories: Reposit
 async def test_update_model(
     model_service: ModelService, mock_repositories: Repositories
 ):
-    await model_service.init_models()
     currentModels = await model_service.get_api_models()
     assert len(currentModels) == 0
     model = create_test_model(path="test", id="test")
@@ -119,7 +116,6 @@ async def test_get_model_path(
 
 @pytest.mark.asyncio
 async def test_get_model(model_service: ModelService, mock_repositories: Repositories):
-    await model_service.init_models()
     currentModels = await model_service.get_api_models()
     assert len(currentModels) == 0
     model1 = create_test_model(path="test2")
@@ -139,7 +135,6 @@ async def test_get_model(model_service: ModelService, mock_repositories: Reposit
 async def test_remove_model(
     model_service: ModelService, mock_repositories: Repositories
 ):
-    await model_service.init_models()
     currentModels = await model_service.get_api_models()
     assert len(currentModels) == 0
     model = create_test_model(path="test2")

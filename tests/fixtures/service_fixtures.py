@@ -34,7 +34,6 @@ async def model_service(
 ) -> AsyncGenerator[ModelService, None]:
     service = ModelService(
         llm_repository=mock_repositories.model_repo,
-        model_client=redis_model_client,
     )
     yield service
 

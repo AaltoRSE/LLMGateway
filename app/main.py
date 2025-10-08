@@ -27,7 +27,7 @@ from app.services.key_service import KeyService
 from app.security.authentication_dependencies import authenticate_request
 from app.security.entra_jwt import build_global_service
 from app.dbs.redis.redis import get_key_client, get_key_quota_client
-from app.config.db import get_api_key_repo
+from app.config.db import get_api_key_repo, get_model_repo
 
 # Initiaize Logging
 logging.config.fileConfig("app/logging.conf", disable_existing_loggers=False)
@@ -45,7 +45,6 @@ async def init_keys() -> None:
     """
     Function to run init keys.
     """
-    print(get_api_key_repo)
 
     key_service = KeyService(
         key_repository=get_api_key_repo(),

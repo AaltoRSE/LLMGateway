@@ -44,10 +44,29 @@ if balance_db == "postgresql":
 else:
     raise ValueError("No valid balance database found")
 
+
+def get_model_repo() -> repositories.LLMModelRepository:
+    """
+    Convenience function to retrieve the api_key_repo for key init
+    """
+    raise NotImplementedError
+
+
 if model_db == "postgresql":
     from app.dbs.postgresql import ModelRepository
 
     LLMModelRepositoryImpl = ModelRepository
+    from app.dbs.postgresql.db import db
+
+    # This needs to be done to be able to properly start up the system.
+    def get_model_repo() -> (
+        repositories.LLMModelRepository
+    ):  # pylint: disable=function-redefined
+        """
+        Function implementation for postgresql
+        """
+        return ModelRepository(next(db.get_db()))
+
 else:
     raise ValueError("No valid model database found")
 
