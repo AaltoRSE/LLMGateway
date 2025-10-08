@@ -58,3 +58,6 @@ file_path = os.path.join(current_dir, "config.json")
 
 with open(file_path, "r", encoding="utf-8") as f:
     app_configuration = Configuration.model_validate(json.loads(f.read()))
+
+
+DEBUGGING = int(os.environ.get("DEV_MODE", "0")) == 1

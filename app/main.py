@@ -5,13 +5,10 @@ A placeholder hello world app.
 import os
 import logging
 import logging.config
-from contextlib import asynccontextmanager
 
-from typing import Any, AsyncGenerator
 from fastapi import FastAPI, Depends
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.cors import CORSMiddleware
-import httpx
 
 from app.routers import (
     llm_router,
@@ -23,62 +20,18 @@ from app.routers import (
 from app.middleware.request_middleware import RequestContextLogMiddleware
 from app.middleware.session_sanitize_middleware import SessionSanitizationMiddleWare
 from app.static_files import SPAStaticFiles
-from app.services.key_service import KeyService
 from app.security.authentication_dependencies import authenticate_request
-from app.security.entra_jwt import build_global_service
-from app.dbs.redis.redis import get_key_client, get_key_quota_client
-from app.config.db import get_api_key_repo
+from app.config import DEBUGGING
+from app.utils.lifespan_actions import startup
 
 # Initiaize Logging
 logging.config.fileConfig("app/logging.conf", disable_existing_loggers=False)
 uvlogger = logging.getLogger("app")
 # Initialize keys for use in the app
 
-
-DEBUGGING = int(os.environ.get("DEV_MODE", "0")) == 1
 if DEBUGGING:
     uvlogger.setLevel(logging.DEBUG)
     uvlogger.debug("Debugging active")
-
-
-async def init_keys() -> None:
-    """
-    Function to run init keys.
-    """
-
-    key_service = KeyService(
-        key_repository=get_api_key_repo(),
-        key_db=await anext(get_key_client()),
-        key_quota_db=await anext(get_key_quota_client()),
-    )
-    await key_service.init_keys()
-
-
-@asynccontextmanager
-async def startup(
-    app_instance: FastAPI,
-) -> AsyncGenerator[None, Any]:
-    """
-    Startup function
-    """
-    uvlogger.info("Starting up the app")
-    uvlogger.info("Debug mode: %s", DEBUGGING)
-    uvlogger.info("Initializing EntraJWT service: %s", DEBUGGING)
-    build_global_service()
-    if DEBUGGING:
-        uvlogger.setLevel(logging.DEBUG)
-        for handler in uvlogger.handlers:
-            handler.setLevel(logging.DEBUG)
-        uvlogger.debug("Debugging active")
-    # We set a very high timeout here, since there is always
-    # the possibility that a model needs to load first, which
-    # takes substantial time.
-    httpx_client = httpx.AsyncClient(timeout=600)
-    uvlogger.debug("httpx client set up")
-    app_instance.state.httpx_client = httpx_client
-    await init_keys()
-    yield
-    await httpx_client.aclose()
 
 
 app = FastAPI(
